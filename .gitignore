@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+uploads/
+server.log
+.server.pid
+start_copy.sh

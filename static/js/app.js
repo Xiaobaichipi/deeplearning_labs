@@ -305,6 +305,7 @@ async function startTraining() {
         dropout: parseFloat(document.getElementById("dropout").value) || 0.2,
         patience: parseInt(document.getElementById("patience").value) || 10,
         normalization: document.getElementById("normalization").value,
+    };
 
     try {
         const res = await fetch("/api/train", {
