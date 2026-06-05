@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepLearning Labs — Model Extension Guide</title>
+<style>
+  :root {
+    --ink: #000000;
+    --ink-deep: #090909;
+    --charcoal: #525252;
+    --body: #737373;
+    --mute: #a3a3a3;
+    --canvas: #ffffff;
+    --surface-soft: #fafafa;
+    --hairline: #e5e5e5;
+    --hairline-strong: #d4d4d4;
+    --focus-ring: rgba(59,130,246,0.5);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16px; line-height: 1.6;
+    color: var(--body); background: var(--canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { color: var(--ink); font-weight: 600; letter-spacing: 0; }
+  h1 { font-size: 30px; font-weight: 500; line-height: 1.2; margin-bottom: 8px; }
+  h2 { font-size: 24px; font-weight: 600; line-height: 1.33; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--hairline); }
+  h3 { font-size: 20px; font-weight: 500; line-height: 1.4; margin: 24px 0 12px; }
+  p { margin-bottom: 16px; color: var(--charcoal); }
+  a { color: var(--ink); text-decoration: underline; }
+  a:hover { color: var(--charcoal); }
+  .container { max-width: 840px; margin: 0 auto; padding: 32px 24px 88px; }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--hairline); padding: 0 24px; height: 56px;
+    display: flex; align-items: center; background: var(--canvas); position: sticky; top: 0; z-index: 100;
+  }
+  .header-inner { max-width: 840px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 28px; height: 28px; background: var(--ink); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 14px; font-weight: 700;
+  }
+  .logo-text { font-size: 18px; font-weight: 600; color: var(--ink); text-decoration: none; }
+  .header-tag { margin-left: auto; font-size: 13px; color: var(--mute); background: var(--surface-soft); padding: 4px 14px; border-radius: 9999px; }
+
+  /* Cards */
+  .card {
+    background: var(--canvas); border: 1px solid var(--hairline); border-radius: 12px; padding: 24px; margin-bottom: 20px;
+  }
+  .card-title { font-size: 18px; font-weight: 500; margin-bottom: 16px; }
+
+  /* Code */
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px; background: var(--surface-soft); border-radius: 8px;
+  }
+  code { padding: 2px 8px; word-break: break-word; }
+  pre { padding: 16px; overflow-x: auto; line-height: 1.5; margin: 12px 0 20px; border: 1px solid var(--hairline); }
+  pre code { padding: 0; background: none; border-radius: 0; }
+
+  /* Steps / checklists */
+  .step-list { list-style: none; counter-reset: step; }
+  .step-list li {
+    counter-increment: step; padding: 12px 16px 12px 48px;
+    position: relative; border-left: 3px solid var(--hairline);
+    margin-bottom: 8px; font-size: 15px; color: var(--charcoal);
+  }
+  .step-list li::before {
+    content: counter(step); position: absolute; left: -14px; top: 10px;
+    width: 28px; height: 28px; border-radius: 9999px;
+    background: var(--ink); color: white; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-list li strong { color: var(--ink); }
+
+  /* File tree */
+  .tree { list-style: none; font-family: ui-monospace, monospace; font-size: 14px; line-height: 2; }
+  .tree .dir { color: var(--ink); font-weight: 500; }
+  .tree .file { color: var(--charcoal); padding-left: 24px; }
+  .tree .new { position: relative; }
+  .tree .new::after { content: "NEW"; position: absolute; left: -40px; top: 1px; font-size: 10px; font-weight: 700; color: white; background: #000; padding: 0 6px; border-radius: 4px; line-height: 18px; }
+
+  /* Badge */
+  .badge { display: inline-block; font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 9999px; }
+  .badge-file { background: var(--surface-soft); color: var(--charcoal); font-family: ui-monospace, monospace; }
+  .badge-new { background: #000; color: #fff; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0 20px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--hairline); color: var(--ink); }
+  th { background: var(--surface-soft); font-weight: 500; font-size: 13px; color: var(--charcoal); }
+  tr:hover td { background: var(--surface-soft); }
+
+  /* Note box */
+  .note {
+    background: var(--surface-soft); border-left: 3px solid var(--ink);
+    border-radius: 0 12px 12px 0; padding: 16px 20px; margin: 16px 0;
+    font-size: 14px; color: var(--charcoal);
+  }
+  .note strong { color: var(--ink); }
+
+  @media (max-width: 768px) {
+    .container { padding: 20px 16px 64px; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-inner">
+    <span class="logo-icon">DL</span>
+    <a href="/" class="logo-text">DeepLearning Labs</a>
+    <span class="header-tag">Extension Guide</span>
+  </div>
+</div>
+<div class="container">
+
+<h1>Model Extension Guide</h1>
+<p>This document explains how to add a new deep learning model to the platform. The model system uses a <strong>registry pattern</strong> — each model is self-contained in its own file, and adding a new one requires no changes to existing model code.</p>
+
+<!-- ============================================================ -->
+<h2>Architecture Overview</h2>
+
+<pre><code>utils/
+  models/                  # <span class="badge badge-new">Package</span> — all model implementations
+    __init__.py            # Registry: MODEL_REGISTRY dict
+    base.py                # BaseModel (abstract base class)
+    mlp.py                 # MLPModel
+    cnn.py                 # CNN1DModel
+    rnn.py                 # RNNModel
+    lstm.py                # LSTMModel
+    gru.py                 # GRUModel
+    transformer.py         # TransformerTabularModel
+    your_new_model.py      # <span class="badge badge-new">← Your new model goes here</span>
+  model_utils.py           # Training loop, predict, evaluate (no model classes)
+  plot_utils.py            # Visualization helpers
+  data_utils.py            # Data loading, cleaning
+
+templates/
+  index.html               # <span class="badge badge-new">Frontend — add dropdown option here</span>
+
+static/js/
+  app.js                   # <span class="badge badge-new">Frontend — update params/toggleModelParams here</span>
+
+main.py                    # <span class="badge badge-new">Backend — param building uses registry</span></code></pre>
+
+<div class="note">
+<strong>Key principle:</strong> The <code>MODEL_REGISTRY</code> in <code>utils/models/__init__.py</code> is the single source of truth. Every model class is registered there with its params schema. The backend (<code>main.py</code>) reads the schema to build parameters automatically — you don't need to edit <code>main.py</code> for most new models.
+</div>
+
+<!-- ============================================================ -->
+<h2>Quick-Start: 3-Step Checklist</h2>
+
+<ol class="step-list">
+  <li><strong>Create the model file</strong> → <code>utils/models/your_model.py</code>
+    <br><span style="font-size:13px;color:var(--mute);">Inherit from <code>BaseModel</code>, implement <code>__init__</code> and <code>forward</code></span></li>
+  <li><strong>Register in the registry</strong> → <code>utils/models/__init__.py</code>
+    <br><span style="font-size:13px;color:var(--mute);">Import + add entry to <code>MODEL_REGISTRY</code> with params schema</span></li>
+  <li><strong>Add frontend UI</strong> → <code>templates/index.html</code> + <code>static/js/app.js</code>
+    <br><span style="font-size:13px;color:var(--mute);">Dropdown option + parameter controls</span></li>
+</ol>
+
+<!-- ============================================================ -->
+<h2>Step 1: Create the Model Class</h2>
+
+<p>Create a new file in <code>utils/models/</code>. Your class must:</p>
+<ul style="margin-bottom:16px;padding-left:20px;color:var(--charcoal);">
+  <li>Inherit from <code>BaseModel</code> (which inherits from <code>nn.Module</code>)</li>
+  <li>Accept <code>(self, input_dim, output_dim, **kwargs)</code></li>
+  <li>Extract your parameters from <code>kwargs</code> with sensible defaults</li>
+  <li>Implement <code>forward(self, x)</code></li>
+</ul>
+
+<div class="card">
+<h3 class="card-title">Example: <code>utils/models/attention_rnn.py</code></h3>
+<pre><code>"""Attention RNN — example of adding a custom model."""
+
+from torch import nn
+from .base import BaseModel
+
+
+class AttentionRNNModel(BaseModel):
+    """RNN with attention mechanism."""
+
+    def __init__(self, input_dim, output_dim, **kwargs):
+        super().__init__(input_dim, output_dim, **kwargs)
+        # Extract YOUR params from kwargs (fallback to defaults)
+        hidden_size = kwargs.get("hidden_size", 64)
+        num_layers = kwargs.get("num_layers", 2)
+        dropout = kwargs.get("dropout", 0.2)
+
+        # Build your architecture
+        self.rnn = nn.LSTM(
+            input_size=1, hidden_size=hidden_size,
+            num_layers=num_layers, batch_first=True,
+            dropout=dropout if num_layers > 1 else 0,
+        )
+        self.attention = nn.Linear(hidden_size, 1)
+        self.fc = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, output_dim),
+        )
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1, 1)
+        out, _ = self.rnn(x)                # (batch, seq, hidden)
+        attn_weights = self.attention(out)   # (batch, seq, 1)
+        attn_weights = attn_weights.softmax(dim=1)
+        context = (out * attn_weights).sum(dim=1)
+        return self.fc(context)</code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h2>Step 2: Register the Model</h2>
+
+<p>Open <code>utils/models/__init__.py</code> and make two changes:</p>
+
+<h3>2a. Import your class</h3>
+<pre><code>from .base import BaseModel
+from .mlp import MLPModel
+from .cnn import CNN1DModel
+...
+<span style="font-weight:700;color:var(--ink);">from .attention_rnn import AttentionRNNModel   # ← Add this</span></code></pre>
+
+<h3>2b. Add entry to MODEL_REGISTRY</h3>
+<p>Each entry has:</p>
+<table>
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td><code>class</code></td><td>The model class</td></tr>
+  <tr><td><code>name</code></td><td>Display name (appears in the frontend dropdown)</td></tr>
+  <tr><td><code>params</code></td><td>Dict of hyperparameters. Each param needs <code>type</code>, <code>default</code>, <code>label</code></td></tr>
+</table>
+
+<pre><code>MODEL_REGISTRY = {
+    ...
+    "transformer": { ... },
+    <span style="font-weight:700;color:var(--ink);">"attention_rnn": {</span>
+    <span style="font-weight:700;color:var(--ink);">    "class": AttentionRNNModel,</span>
+    <span style="font-weight:700;color:var(--ink);">    "name": "Attention RNN",</span>
+    <span style="font-weight:700;color:var(--ink);">    "params": {</span>
+    <span style="font-weight:700;color:var(--ink);">        "hidden_size": {"type": "int", "default": 64, "label": "Hidden size"},</span>
+    <span style="font-weight:700;color:var(--ink);">        "num_layers": {"type": "int", "default": 2, "label": "Number of layers"},</span>
+    <span style="font-weight:700;color:var(--ink);">        "dropout": {"type": "float", "default": 0.2, "label": "Dropout"},</span>
+    <span style="font-weight:700;color:var(--ink);">    },</span>
+    <span style="font-weight:700;color:var(--ink);">},</span>
+}</code></pre>
+
+<h3>Param type reference</h3>
+<table>
+  <tr><th>Type</th><th>Backend conversion</th><th>Example</th></tr>
+  <tr><td><code>"int"</code></td><td><code>int(raw)</code></td><td>hidden_size, num_layers</td></tr>
+  <tr><td><code>"float"</code></td><td><code>float(raw)</code></td><td>dropout, learning_rate</td></tr>
+  <tr><td><code>"bool"</code></td><td><code>raw in (True, "true", 1)</code></td><td>bidirectional</td></tr>
+  <tr><td><code>"string"</code></td><td>passed as-is</td><td>hidden_layers (comma-separated)</td></tr>
+</table>
+
+<div class="note">
+<strong>That's all for the backend!</strong> The <code>create_model()</code> and <code>main.py</code> param builder automatically read from the registry — no need to modify <code>model_utils.py</code> or <code>main.py</code> unless your model needs special handling.
+</div>
+
+<!-- ============================================================ -->
+<h2>Step 3: Add Frontend UI</h2>
+
+<h3>3a. Dropdown option — <code>templates/index.html</code></h3>
+<p>Find the <code>&lt;select id="modelType"&gt;</code> element and add your model:</p>
+
+<pre><code>&lt;select id="modelType" onchange="toggleModelParams()"&gt;
+  &lt;option value="mlp"&gt;MLP (Fully Connected)&lt;/option&gt;
+  ...
+  &lt;option value="transformer"&gt;Transformer (Encoder)&lt;/option&gt;
+  <span style="font-weight:700;color:var(--ink);">&lt;option value="attention_rnn"&gt;Attention RNN&lt;/option&gt;  &lt;!-- ← Add --&gt;</span>
+&lt;/select&gt;</code></pre>
+
+<h3>3b. Parameter UI — <code>templates/index.html</code></h3>
+<p>After the <code>transformerParams</code> div, add a div for your model's parameters:</p>
+
+<pre><code>&lt;div id="attentionRnnParams" style="display:none;"&gt;
+  &lt;div class="form-row"&gt;
+    &lt;div class="input-group"&gt;
+      &lt;label&gt;Hidden size&lt;/label&gt;
+      &lt;input type="number" id="attnHiddenSize" value="64" min="8" max="512"&gt;
+    &lt;/div&gt;
+    &lt;div class="input-group"&gt;
+      &lt;label&gt;Number of layers&lt;/label&gt;
+      &lt;input type="number" id="attnNumLayers" value="2" min="1" max="10"&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+<h3>3c. Toggle visibility — <code>static/js/app.js</code></h3>
+<p>Update the <code>toggleModelParams()</code> function:</p>
+
+<pre><code>function toggleModelParams() {
+  const type = document.getElementById("modelType").value;
+  document.getElementById("mlpParams").style.display = type === "mlp" ? "block" : "none";
+  document.getElementById("cnnParams").style.display = type === "cnn" ? "block" : "none";
+  const seq = ["rnn", "lstm", "gru"];
+  document.getElementById("seqParams").style.display = seq.includes(type) ? "block" : "none";
+  document.getElementById("transformerParams").style.display = type === "transformer" ? "block" : "none";
+  <span style="font-weight:700;color:var(--ink);">document.getElementById("attentionRnnParams").style.display = type === "attention_rnn" ? "block" : "none";</span>
+}</code></pre>
+
+<h3>3d. Send params — <code>static/js/app.js</code></h3>
+<p>In the <code>startTraining()</code> function, add your model's params to the request body:</p>
+
+<pre><code>const params = {
+  target_col: targetCol,
+  model_type: document.getElementById("modelType").value,
+  ...
+  d_model: parseInt(document.getElementById("transDModel").value) || 64,
+  <span style="font-weight:700;color:var(--ink);">hidden_size: parseInt(document.getElementById("attnHiddenSize").value) || 64,</span>
+  <span style="font-weight:700;color:var(--ink);">num_layers: parseInt(document.getElementById("attnNumLayers").value) || 2,</span>
+  ...
+};</code></pre>
+
+<!-- ============================================================ -->
+<h2>Example: Minimal Model Template</h2>
+<p>Use this template when creating a new model file:</p>
+
+<pre><code>"""Short description of your model."""
+
+from torch import nn
+from .base import BaseModel
+
+
+class YourModelName(BaseModel):
+    """One-line description."""
+
+    def __init__(self, input_dim, output_dim, **kwargs):
+        super().__init__(input_dim, output_dim, **kwargs)
+        # 1. Extract your params from kwargs
+        my_param = kwargs.get("my_param", default_value)
+        # 2. Build layers
+        # 3. Store them as self.xxx = nn.Sequential(...)
+
+    def forward(self, x):
+        # 1. x shape: (batch, input_dim)
+        # 2. Apply your layers
+        # 3. Return (batch, output_dim) for regression
+        #    or (batch, n_classes) for classification
+        return x</code></pre>
+
+<!-- ============================================================ -->
+<h2>File Change Summary</h2>
+<p>Files you need to touch when adding one new model:</p>
+
+<table>
+  <tr><th>File</th><th>Change type</th><th>What to do</th></tr>
+  <tr><td><code>utils/models/new_model.py</code></td><td><span class="badge badge-file">CREATE</span></td><td>Model class implementation</td></tr>
+  <tr><td><code>utils/models/__init__.py</code></td><td><span class="badge badge-file">EDIT</span></td><td>Import + register in MODEL_REGISTRY</td></tr>
+  <tr><td><code>templates/index.html</code></td><td><span class="badge badge-file">EDIT</span></td><td>Add dropdown option + parameter UI</td></tr>
+  <tr><td><code>static/js/app.js</code></td><td><span class="badge badge-file">EDIT</span></td><td>Update toggleModelParams + startTraining</td></tr>
+  <tr><td><code>main.py</code></td><td>—</td><td>No change needed (reads from registry)</td></tr>
+  <tr><td><code>utils/model_utils.py</code></td><td>—</td><td>No change needed (registry-driven)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>Current Model Registry</h2>
+
+<p>Models currently available in the system:</p>
+
+<table>
+  <tr><th>Registry Key</th><th>Class</th><th>File</th><th>Params</th></tr>
+  <tr><td><code>mlp</code></td><td>MLPModel</td><td><code>models/mlp.py</code></td><td>hidden_layers, dropout</td></tr>
+  <tr><td><code>cnn</code></td><td>CNN1DModel</td><td><code>models/cnn.py</code></td><td>hidden_channels, kernel_size, dropout</td></tr>
+  <tr><td><code>rnn</code></td><td>RNNModel</td><td><code>models/rnn.py</code></td><td>hidden_size, num_layers, bidirectional, dropout</td></tr>
+  <tr><td><code>lstm</code></td><td>LSTMModel</td><td><code>models/lstm.py</code></td><td>hidden_size, num_layers, bidirectional, dropout</td></tr>
+  <tr><td><code>gru</code></td><td>GRUModel</td><td><code>models/gru.py</code></td><td>hidden_size, num_layers, bidirectional, dropout</td></tr>
+  <tr><td><code>transformer</code></td><td>TransformerTabularModel</td><td><code>models/transformer.py</code></td><td>d_model, nhead, num_layers, dim_feedforward, dropout</td></tr>
+</table>
+
+</div>
+</body>
+</html>

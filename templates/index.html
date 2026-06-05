@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepLearning Labs</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-inner">
+            <a href="/" class="logo">
+                <span class="logo-icon">DL</span>
+                DeepLearning Labs
+            </a>
+            <div class="header-actions">
+                <div class="header-dropdown">
+                    <button class="header-dropdown-btn" id="headerMenuBtn" onclick="toggleHeaderMenu()">&#8942;</button>
+                    <div class="header-dropdown-menu" id="headerMenu">
+                        <a href="/models-guide" class="header-dropdown-item" target="_blank">
+                            <span class="header-dropdown-item-icon">&#128196;</span>
+                            Model Extension Guide
+                        </a>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="resetAll()">Reset</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Steps Nav -->
+        <nav class="steps-nav" id="stepsNav">
+            <div class="step-item active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-text">Upload</span>
+            </div>
+            <div class="step-item" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-text">Explore</span>
+            </div>
+            <div class="step-item" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-text">Clean & Fill</span>
+            </div>
+            <div class="step-item" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-text">Model Config</span>
+            </div>
+            <div class="step-item" data-step="5">
+                <span class="step-number">5</span>
+                <span class="step-text">Train</span>
+            </div>
+            <div class="step-item" data-step="6">
+                <span class="step-number">6</span>
+                <span class="step-text">Evaluate & Predict</span>
+            </div>
+        </nav>
+
+        <!-- Step 1: Upload -->
+        <div class="section active" id="step1">
+            <h2 style="margin-bottom:8px;">Upload Dataset</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Upload a CSV or Excel file to begin your deep learning experiment.</p>
+
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-zone-icon">&#x2191;</div>
+                <div class="upload-zone-text">Click to upload or drag & drop</div>
+                <div class="upload-zone-sub">Supports CSV, XLS, XLSX (max 50MB)</div>
+                <input type="file" id="fileInput" accept=".csv,.xls,.xlsx" style="display:none">
+            </div>
+
+            <div id="uploadStatus" style="margin-top:16px;display:none;"></div>
+        </div>
+
+        <!-- Step 2: Explore -->
+        <div class="section" id="step2">
+            <h2 style="margin-bottom:8px;">Data Exploration</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Overview, statistics, and visualizations of your dataset.</p>
+
+            <div id="dataStats" class="stats-grid"></div>
+
+            <div class="tabs" id="dataTabs">
+                <div class="tab active" data-tab="preview">Preview</div>
+                <div class="tab" data-tab="info">Info</div>
+                <div class="tab" data-tab="describe">Statistics</div>
+                <div class="tab" data-tab="viz">Visualizations</div>
+            </div>
+
+            <div class="tab-content active" id="tabPreview">
+                <div class="table-wrap" id="previewTable"></div>
+            </div>
+            <div class="tab-content" id="tabInfo">
+                <div class="card"><pre id="dataInfoText" style="font-family:ui-monospace;font-size:13px;line-height:1.6;overflow-x:auto;white-space:pre;"></pre></div>
+            </div>
+            <div class="tab-content" id="tabDescribe">
+                <div id="describeTable"></div>
+            </div>
+            <div class="tab-content" id="tabViz">
+                <div id="vizImages" class="image-grid"></div>
+                <div id="corrImage"></div>
+            </div>
+        </div>
+
+        <!-- Step 3: Clean & Fill -->
+        <div class="section" id="step3">
+            <h2 style="margin-bottom:8px;">Data Cleaning & Filling</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Handle missing values, duplicates, and outliers.</p>
+
+            <div class="tabs" id="cleanTabs">
+                <div class="tab active" data-tab="clean">Cleaning</div>
+                <div class="tab" data-tab="fill">Missing Values</div>
+            </div>
+
+            <div class="tab-content active" id="tabClean">
+                <div class="card">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label class="toggle-label">
+                                <span class="toggle" id="toggleDedup" onclick="this.classList.toggle('active')"></span>
+                                Remove duplicates
+                            </label>
+                        </div>
+                        <div class="input-group">
+                            <label class="toggle-label">
+                                <span class="toggle" id="toggleOutliers" onclick="this.classList.toggle('active')"></span>
+                                Handle outliers (IQR)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row" id="outlierOptions" style="display:none;">
+                        <div class="input-group">
+                            <label>IQR factor</label>
+                            <input type="number" id="outlierFactor" value="1.5" step="0.1" min="0.5">
+                        </div>
+                    </div>
+                    <div id="columnCheckboxes"></div>
+                    <button class="btn btn-primary" onclick="runClean()">Apply Cleaning</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabFill">
+                <div class="card">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Strategy</label>
+                            <select id="fillStrategy">
+                                <option value="auto">Auto (mean/mode)</option>
+                                <option value="mean">Mean</option>
+                                <option value="median">Median</option>
+                                <option value="mode">Mode</option>
+                                <option value="zero">Zero</option>
+                                <option value="constant">Constant</option>
+                                <option value="ffill">Forward Fill</option>
+                                <option value="bfill">Backward Fill</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="fillConstantGroup" style="display:none;">
+                            <label>Fill value</label>
+                            <input type="text" id="fillConstantValue" placeholder="Value">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="runFill()">Apply Filling</button>
+                </div>
+            </div>
+
+            <div id="cleanReport" style="display:none;"></div>
+            <div id="cleanStats" class="stats-grid" style="display:none;"></div>
+            <div id="cleanTable" style="display:none;"></div>
+        </div>
+
+        <!-- Step 4: Model Config -->
+        <div class="section" id="step4">
+            <h2 style="margin-bottom:8px;">Model Configuration</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Select a deep learning model and configure hyperparameters.</p>
+
+            <div class="card">
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Target column</label>
+                        <select id="targetCol"><option value="">-- Select --</option></select>
+                    </div>
+                    <div class="input-group">
+                        <label>Train/Test split</label>
+                        <input type="number" id="testSize" value="0.2" step="0.05" min="0.05" max="0.5">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Model architecture</label>
+                        <select id="modelType" onchange="toggleModelParams()">
+                            <option value="mlp">MLP (Fully Connected)</option>
+                            <option value="cnn">CNN (1D Convolutional)</option>
+                            <option value="rnn">RNN (Vanilla RNN)</option>
+                            <option value="lstm">LSTM (Long Short-Term Memory)</option>
+                            <option value="gru">GRU (Gated Recurrent Unit)</option>
+                            <option value="transformer">Transformer (Encoder)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="mlpParams">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Hidden layers (comma-separated)</label>
+                            <input type="text" id="hiddenLayers" value="128,64,32" placeholder="e.g. 128,64,32">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cnnParams" style="display:none;">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Hidden channels</label>
+                            <input type="number" id="hiddenChannels" value="64" min="8" max="512">
+                        </div>
+                        <div class="input-group">
+                            <label>Kernel size</label>
+                            <input type="number" id="kernelSize" value="3" min="1" max="7">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="seqParams" style="display:none;">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Hidden size</label>
+                            <input type="number" id="rnnHiddenSize" value="64" min="8" max="512">
+                        </div>
+                        <div class="input-group">
+                            <label>Number of layers</label>
+                            <input type="number" id="rnnNumLayers" value="2" min="1" max="10">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label class="toggle-label">
+                                <span class="toggle" id="toggleBidirectional" onclick="this.classList.toggle('active')"></span>
+                                Bidirectional
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="transformerParams" style="display:none;">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Model dimension (d_model)</label>
+                            <input type="number" id="transDModel" value="64" min="16" max="512">
+                        </div>
+                        <div class="input-group">
+                            <label>Attention heads (nhead)</label>
+                            <input type="number" id="transNhead" value="4" min="1" max="16">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Feedforward dimension</label>
+                            <input type="number" id="transDimFeedforward" value="256" min="32" max="1024">
+                        </div>
+                        <div class="input-group">
+                            <label>Number of encoder layers</label>
+                            <input type="number" id="transNumLayers" value="2" min="1" max="8">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Hyperparameters</h3>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Learning rate</label>
+                        <input type="number" id="learningRate" value="0.001" step="0.0001" min="0.00001" max="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Batch size</label>
+                        <input type="number" id="batchSize" value="32" min="4" max="1024">
+                    </div>
+                    <div class="input-group">
+                        <label>Epochs</label>
+                        <input type="number" id="epochs" value="50" min="1" max="1000">
+                    </div>
+                    <div class="input-group">
+                        <label>Dropout</label>
+                        <input type="number" id="dropout" value="0.2" step="0.05" min="0" max="0.9">
+                    </div>
+                    <div class="input-group">
+                        <label>Early stopping patience</label>
+                        <input type="number" id="patience" value="10" min="1" max="100">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Feature normalization</label>
+                        <select id="normalization">
+                            <option value="none">None</option>
+                            <option value="minmax">Min-Max (scale to [0,1])</option>
+                            <option value="mean">Mean (Z-score, μ=0, σ=1)</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="startTraining()" id="trainBtn">Start Training</button>
+            </div>
+        </div>
+
+        <!-- Step 5: Training -->
+        <div class="section" id="step5">
+            <h2 style="margin-bottom:8px;">Training Progress</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Monitor the training process in real-time.</p>
+
+            <div id="trainingInfo" class="stats-grid"></div>
+
+            <div id="trainingImages" class="image-grid"></div>
+
+            <div id="trainingSummary" style="display:none;" class="card">
+                <h3 class="card-title">Training Summary</h3>
+                <div id="summaryMetrics" class="metrics-grid"></div>
+            </div>
+        </div>
+
+        <!-- Step 6: Evaluate & Predict -->
+        <div class="section" id="step6">
+            <h2 style="margin-bottom:8px;">Evaluation & Prediction</h2>
+            <p style="margin-bottom:24px;color:var(--charcoal);">Model evaluation metrics, validation, predictions, and visualization.</p>
+
+            <div class="tabs" id="evalTabs">
+                <div class="tab active" data-tab="eval">Evaluation</div>
+                <div class="tab" data-tab="valid">Cross Validation</div>
+                <div class="tab" data-tab="pred">Predictions</div>
+            </div>
+
+            <div class="tab-content active" id="tabEval">
+                <button class="btn btn-primary" onclick="runEvaluation()" id="evalBtn">Run Evaluation</button>
+                <div id="evalMetrics" class="metrics-grid" style="display:none;"></div>
+                <div id="evalImages" class="image-grid"></div>
+            </div>
+
+            <div class="tab-content" id="tabValid">
+                <div class="card">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Number of folds</label>
+                            <input type="number" id="cvFolds" value="5" min="2" max="20">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="runValidation()" id="validBtn">Run Cross Validation</button>
+                    <div id="cvResults" style="display:none;margin-top:16px;"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabPred">
+                <div class="card">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label>Data to predict</label>
+                            <select id="predictSource">
+                                <option value="test">Test set</option>
+                                <option value="train">Training set</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="runPredict()" id="predBtn">Generate Predictions</button>
+                    <div id="predResults" style="display:none;margin-top:16px;">
+                        <div class="table-wrap" id="predTable"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
