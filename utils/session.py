@@ -1,13 +1,52 @@
 """Per-session state management with automatic disk reload."""
 
+import math
 import os
+import uuid
+import numpy as np
 import pandas as pd
 import torch
+from flask import jsonify, session
 
 from .data_utils import load_data
 
 
 ALLOWED_EXTENSIONS = {".csv", ".xls", ".xlsx"}
+
+
+def clean_nan(obj):
+    """Recursively replace NaN/Infinity with None for safe JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: clean_nan(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [clean_nan(v) for v in obj]
+    elif isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    elif isinstance(obj, np.floating):
+        val = float(obj)
+        return None if (math.isnan(val) or math.isinf(val)) else val
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return clean_nan(obj.tolist())
+    return obj
+
+
+def json_ok(data):
+    return jsonify(clean_nan(data))
+
+
+def get_data_id():
+    if "data_id" not in session:
+        session["data_id"] = uuid.uuid4().hex
+    return session["data_id"]
+
+
+def allowed_file(filename):
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in ALLOWED_EXTENSIONS
 
 
 class SessionManager:

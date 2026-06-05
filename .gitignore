@@ -4,3 +4,4 @@ uploads/
 server.log
 .server.pid
 start_copy.sh
+.codegraph/
