@@ -9,6 +9,7 @@ from utils.data_utils import load_data, get_data_info, clean_data, fill_missing,
 from utils.model_utils import create_model, train_model, predict, evaluate
 from utils.models import get_model_params
 from utils.plot_utils import plot_training_history, plot_data_distribution, plot_correlation_heatmap
+from utils.session import SessionManager
 
 
 def clean_nan(obj):
@@ -42,10 +43,7 @@ app.config["UPLOAD_DIR"] = UPLOAD_DIR
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".csv", ".xls", ".xlsx"}
 
-data_cache = {}
-model_cache = {}
-split_cache = {}
-train_history_cache = {}
+session_manager = SessionManager(UPLOAD_DIR)
 
 
 def allowed_file(filename):
@@ -57,26 +55,6 @@ def get_data_id():
     if "data_id" not in session:
         session["data_id"] = uuid.uuid4().hex
     return session["data_id"]
-
-
-def get_data():
-    """Get DataFrame for current session, loading from disk if cache missed."""
-    data_id = get_data_id()
-    if data_id in data_cache:
-        return data_cache[data_id]
-    # Cache miss — try to reload from disk
-    file_dir = os.path.join(UPLOAD_DIR, data_id)
-    if os.path.isdir(file_dir):
-        for fname in os.listdir(file_dir):
-            fpath = os.path.join(file_dir, fname)
-            if os.path.isfile(fpath) and os.path.splitext(fname)[1].lower() in ALLOWED_EXTENSIONS:
-                try:
-                    df = load_data(fpath)
-                    data_cache[data_id] = df
-                    return df
-                except Exception:
-                    continue
-    return None
 
 
 def json_ok(data):
@@ -116,7 +94,7 @@ def upload_file():
 
     try:
         df = load_data(filepath)
-        data_cache[data_id] = df
+        session_manager.set_data(data_id, df)
         info = get_data_info(df)
         info["filename"] = filename
         dist_images = plot_data_distribution(df)
@@ -130,7 +108,7 @@ def upload_file():
 
 @app.route("/api/data/info", methods=["GET"])
 def data_info():
-    df = get_data()
+    df = session_manager.get_data(get_data_id())
     if df is None:
         return jsonify({"error": "No data uploaded"}), 400
     try:
@@ -147,7 +125,7 @@ def data_info():
 @app.route("/api/data/clean", methods=["POST"])
 def data_clean():
     data_id = get_data_id()
-    df = get_data()
+    df = session_manager.get_data(data_id)
     if df is None:
         return jsonify({"error": "No data uploaded"}), 400
     try:
@@ -160,7 +138,7 @@ def data_clean():
             outlier_method=params.get("outlier_method", "iqr"),
             outlier_factor=float(params.get("outlier_factor", 1.5)),
         )
-        data_cache[data_id] = cleaned
+        session_manager.set_data(data_id, cleaned)
         info = get_data_info(cleaned)
         info["report"] = report
         dist_images = plot_data_distribution(cleaned)
@@ -175,7 +153,7 @@ def data_clean():
 @app.route("/api/data/fill", methods=["POST"])
 def data_fill():
     data_id = get_data_id()
-    df = get_data()
+    df = session_manager.get_data(data_id)
     if df is None:
         return jsonify({"error": "No data uploaded"}), 400
     try:
@@ -186,7 +164,7 @@ def data_fill():
             columns=params.get("columns"),
             fill_value=params.get("fill_value"),
         )
-        data_cache[data_id] = filled
+        session_manager.set_data(data_id, filled)
         info = get_data_info(filled)
         info["report"] = report
         dist_images = plot_data_distribution(filled)
@@ -200,7 +178,8 @@ def data_fill():
 
 @app.route("/api/data/sample", methods=["GET"])
 def data_sample():
-    df = get_data()
+    data_id = get_data_id()
+    df = session_manager.get_data(data_id)
     if df is None:
         return jsonify({"error": "No data uploaded"}), 400
     try:
@@ -218,7 +197,7 @@ def data_sample():
 @app.route("/api/train", methods=["POST"])
 def train():
     data_id = get_data_id()
-    df = get_data()
+    df = session_manager.get_data(data_id)
     if df is None:
         return jsonify({"error": "No data uploaded"}), 400
     try:
@@ -242,7 +221,7 @@ def train():
             split_result["X_test"] = X_test
             split_result["norm_params"] = norm_params
 
-        split_cache[data_id] = split_result
+        session_manager.set_split(data_id, split_result)
 
         model_type = params.get("model_type", "mlp")
         learning_rate = float(params.get("learning_rate", 0.001))
@@ -292,8 +271,8 @@ def train():
             patience=patience, device=device,
         )
 
-        model_cache[data_id] = trained_model
-        train_history_cache[data_id] = history
+        session_manager.set_model(data_id, trained_model)
+        session_manager.set_history(data_id, history)
 
         plot_images = plot_training_history(history)
 
@@ -328,11 +307,11 @@ def train():
 @app.route("/api/evaluate", methods=["POST"])
 def api_evaluate():
     data_id = get_data_id()
-    if data_id not in model_cache or data_id not in split_cache:
+    if not session_manager.has_model(data_id):
         return jsonify({"error": "Model not trained yet"}), 400
     try:
-        model = model_cache[data_id]
-        split_result = split_cache[data_id]
+        model = session_manager.get_model(data_id)
+        split_result = session_manager.get_split(data_id)
         result = evaluate(
             model,
             split_result["X_test"], split_result["y_test"],
@@ -350,11 +329,11 @@ def api_evaluate():
 @app.route("/api/predict", methods=["POST"])
 def api_predict():
     data_id = get_data_id()
-    if data_id not in model_cache or data_id not in split_cache:
+    if not session_manager.has_model(data_id):
         return jsonify({"error": "Model not trained yet"}), 400
     try:
-        split_result = split_cache[data_id]
-        model = model_cache[data_id]
+        split_result = session_manager.get_split(data_id)
+        model = session_manager.get_model(data_id)
         params = request.get_json() or {}
         use_test = params.get("use_test", True)
 
@@ -392,14 +371,14 @@ def api_predict():
 @app.route("/api/validate", methods=["POST"])
 def api_validate():
     data_id = get_data_id()
-    if data_id not in model_cache or data_id not in split_cache:
+    if not session_manager.has_model(data_id):
         return jsonify({"error": "Model not trained yet"}), 400
     try:
         import numpy as np
         from sklearn.model_selection import cross_val_score, KFold
         from sklearn.neural_network import MLPClassifier, MLPRegressor
 
-        split_result = split_cache[data_id]
+        split_result = session_manager.get_split(data_id)
         X_train = split_result["X_train"]
         y_train = split_result["y_train"]
 
@@ -439,10 +418,7 @@ def api_validate():
 @app.route("/api/reset", methods=["POST"])
 def api_reset():
     data_id = get_data_id()
-    data_cache.pop(data_id, None)
-    model_cache.pop(data_id, None)
-    split_cache.pop(data_id, None)
-    train_history_cache.pop(data_id, None)
+    session_manager.reset(data_id)
     session.pop("data_id", None)
     return jsonify({"success": True})
 
