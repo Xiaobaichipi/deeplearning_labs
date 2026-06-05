@@ -4,3 +4,5 @@ uploads/
 server.log
 .server.pid
 start_copy.sh
+.server.pid
+static/dependency_graph.html

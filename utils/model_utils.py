@@ -21,8 +21,12 @@ def create_model(model_type, input_dim, output_dim, **params):
 
 def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 epochs=50, batch_size=32, lr=0.001, patience=10,
-                device="cpu"):
-    """Train a PyTorch model with early stopping and learning rate scheduling."""
+                device="cpu", progress_callback=None):
+    """Train a PyTorch model with early stopping and learning rate scheduling.
+
+    If *progress_callback* is provided, it is called after each epoch with a dict
+    containing ``epoch``, ``train_loss``, ``val_loss``, ``train_metric``, ``val_metric``.
+    """
     device = torch.device(device)
     model = model.to(device)
 
@@ -105,6 +109,16 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             history["val_metric"].append(float(val_loss))
 
         scheduler.step(val_loss)
+
+        if progress_callback:
+            progress_callback({
+                "epoch": epoch + 1,
+                "total_epochs": epochs,
+                "train_loss": float(train_loss),
+                "val_loss": float(val_loss),
+                "train_metric": history["train_metric"][-1],
+                "val_metric": history["val_metric"][-1],
+            })
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss

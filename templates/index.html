@@ -311,6 +311,24 @@
             <h2 style="margin-bottom:8px;">Training Progress</h2>
             <p style="margin-bottom:24px;color:var(--charcoal);">Monitor the training process in real-time.</p>
 
+            <div id="trainError" class="alert alert-error" style="display:none;margin-bottom:16px;"></div>
+
+            <div id="trainingProgress" style="display:none;" class="card">
+                <h3 class="card-title">Live Training Progress</h3>
+                <div class="progress-bar-track">
+                    <div class="progress-bar-fill" id="progressBar"></div>
+                </div>
+                <div style="text-align:center;font-size:14px;color:var(--charcoal);margin:8px 0 16px 0;">
+                    Epoch <strong id="progressCurrentEpoch">0</strong> / <strong id="progressTotalEpochs">—</strong>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card"><div class="metric-value" id="liveTrainLoss">—</div><div class="metric-label">Train Loss</div></div>
+                    <div class="metric-card"><div class="metric-value" id="liveValLoss">—</div><div class="metric-label">Val Loss</div></div>
+                    <div class="metric-card"><div class="metric-value" id="liveTrainMetric">—</div><div class="metric-label">Train Metric</div></div>
+                    <div class="metric-card"><div class="metric-value" id="liveValMetric">—</div><div class="metric-label">Val Metric</div></div>
+                </div>
+            </div>
+
             <div id="trainingInfo" class="stats-grid"></div>
 
             <div id="trainingImages" class="image-grid"></div>

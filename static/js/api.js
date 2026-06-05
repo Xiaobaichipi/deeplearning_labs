@@ -133,45 +133,80 @@ async function startTraining() {
         normalization: document.getElementById("normalization").value,
     };
 
+    // Hide previous results, show progress panel
+    document.getElementById("trainError").style.display = "none";
+    document.getElementById("trainingImages").innerHTML = "";
+    document.getElementById("trainingSummary").style.display = "none";
+
     try {
-        const res = await fetch("/api/train", {
+        // Step 1: POST params to setup endpoint
+        const setupRes = await fetch("/api/train/setup", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(params),
         });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
+        const setupData = await setupRes.json();
+        if (setupData.error) { alert("Error: " + setupData.error); return; }
 
-        document.getElementById("trainingInfo").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
-            <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
-            <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
-            <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
-        `;
+        // Step 2: Show live progress panel
+        const totalEpochs = parseInt(document.getElementById("epochs").value) || 50;
+        initTrainingProgress(totalEpochs);
+        btn.innerHTML = '<span class="spinner"></span> Training...';
 
-        const imgDiv = document.getElementById("trainingImages");
-        imgDiv.innerHTML = "";
-        if (data.images) {
-            Object.entries(data.images).forEach(([key, img]) => {
-                const label = key === "training_history" ? "Training History (Loss & Metric)" : key;
-                imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label}</div></div>`;
-            });
-        }
+        // Step 3: Open SSE stream
+        const evtSource = new EventSource("/api/train/stream");
 
-        document.getElementById("trainingSummary").style.display = "block";
-        document.getElementById("summaryMetrics").innerHTML = `
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
-            <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
-        `;
+        evtSource.addEventListener("progress", function (e) {
+            const m = JSON.parse(e.data);
+            updateTrainingProgress(m);
+        });
 
-        goToStep(6);
+        evtSource.addEventListener("complete", function (e) {
+            evtSource.close();
+            const data = JSON.parse(e.data);
+
+            // Show training info
+            document.getElementById("trainingInfo").innerHTML = `
+                <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
+                <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
+                <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
+                <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
+                <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
+                <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
+            `;
+
+            const imgDiv = document.getElementById("trainingImages");
+            imgDiv.innerHTML = "";
+            if (data.images) {
+                Object.entries(data.images).forEach(([key, img]) => {
+                    const label = key === "training_history" ? "Training History (Loss & Metric)" : key;
+                    imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label}</div></div>`;
+                });
+            }
+
+            document.getElementById("trainingSummary").style.display = "block";
+            document.getElementById("summaryMetrics").innerHTML = `
+                <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
+                <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
+                <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
+                <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
+            `;
+
+            goToStep(6);
+            btn.disabled = false;
+            btn.textContent = "Start Training";
+        });
+
+        evtSource.addEventListener("error", function (e) {
+            evtSource.close();
+            let msg = "Training connection lost";
+            try { msg = JSON.parse(e.data).error || msg; } catch (_) {}
+            showTrainError(msg);
+            btn.disabled = false;
+            btn.textContent = "Start Training";
+        });
     } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
+        showTrainError(err.message);
         btn.disabled = false;
         btn.textContent = "Start Training";
     }
@@ -332,6 +367,8 @@ async function resetAll() {
         document.getElementById("uploadStatus").style.display = "none";
         document.getElementById("cleanReport").style.display = "none";
         document.getElementById("trainingSummary").style.display = "none";
+        document.getElementById("trainingProgress").style.display = "none";
+        document.getElementById("trainError").style.display = "none";
         document.getElementById("evalMetrics").style.display = "none";
         document.getElementById("predResults").style.display = "none";
         document.getElementById("cvResults").style.display = "none";

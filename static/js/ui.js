@@ -107,3 +107,43 @@ function esc(str) {
     div.textContent = str;
     return div.innerHTML;
 }
+
+/* =============== Live Training Progress =============== */
+
+function initTrainingProgress(total) {
+    document.getElementById("trainingProgress").style.display = "block";
+    document.getElementById("progressCurrentEpoch").textContent = "0";
+    document.getElementById("progressTotalEpochs").textContent = total;
+    document.getElementById("progressBar").style.width = "0%";
+    updateProgressMetrics({
+        train_loss: "—", val_loss: "—", train_metric: "—", val_metric: "—",
+    });
+}
+
+function updateTrainingProgress(metrics) {
+    const pct = Math.round((metrics.epoch / metrics.total_epochs) * 100);
+    document.getElementById("progressCurrentEpoch").textContent = metrics.epoch;
+    document.getElementById("progressBar").style.width = Math.min(pct, 100) + "%";
+    updateProgressMetrics(metrics);
+}
+
+function updateProgressMetrics(m) {
+    document.getElementById("liveTrainLoss").textContent =
+        typeof m.train_loss === "number" ? m.train_loss.toFixed(6) : m.train_loss;
+    document.getElementById("liveValLoss").textContent =
+        typeof m.val_loss === "number" ? m.val_loss.toFixed(6) : m.val_loss;
+    document.getElementById("liveTrainMetric").textContent =
+        typeof m.train_metric === "number" ? m.train_metric.toFixed(6) : m.train_metric;
+    document.getElementById("liveValMetric").textContent =
+        typeof m.val_metric === "number" ? m.val_metric.toFixed(6) : m.val_metric;
+}
+
+function hideTrainingProgress() {
+    document.getElementById("trainingProgress").style.display = "none";
+}
+
+function showTrainError(msg) {
+    const div = document.getElementById("trainError");
+    div.textContent = msg;
+    div.style.display = "block";
+}

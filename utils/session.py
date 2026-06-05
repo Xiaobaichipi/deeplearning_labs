@@ -62,6 +62,7 @@ class SessionManager:
         self._models: dict = {}
         self._splits: dict = {}
         self._histories: dict = {}
+        self._pending_params: dict = {}
 
     # -- data ----------------------------------------------------------------
 
@@ -99,6 +100,14 @@ class SessionManager:
     def set_history(self, data_id: str, history: dict):
         self._histories[data_id] = history
 
+    # -- pending training params ---------------------------------------------
+
+    def set_pending_params(self, data_id: str, params: dict):
+        self._pending_params[data_id] = params
+
+    def get_pending_params(self, data_id: str):
+        return self._pending_params.pop(data_id, None)
+
     # -- combined checks -----------------------------------------------------
 
     def has_model(self, data_id: str) -> bool:
@@ -111,6 +120,7 @@ class SessionManager:
         self._models.pop(data_id, None)
         self._splits.pop(data_id, None)
         self._histories.pop(data_id, None)
+        self._pending_params.pop(data_id, None)
 
     # -- internal ------------------------------------------------------------
 
