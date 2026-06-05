@@ -129,3 +129,69 @@ def plot_correlation_heatmap(df):
     result = base64.b64encode(buf.read()).decode()
     plt.close(fig)
     return result
+
+
+def fig_to_base64(fig, dpi=100):
+    """Convert a matplotlib figure to a base64-encoded PNG string."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
+    buf.seek(0)
+    data = base64.b64encode(buf.read()).decode()
+    plt.close(fig)
+    return data
+
+
+def plot_confusion_matrix(cm, class_names):
+    """Plot confusion matrix, return base64 PNG."""
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+    tick_marks = np.arange(len(class_names))
+    ax.set(xticks=tick_marks, yticks=tick_marks,
+           xticklabels=class_names, yticklabels=class_names,
+           xlabel="Predicted", ylabel="True")
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    thresh = max(max(row) for row in cm) if cm else 0
+    for i in range(len(cm)):
+        for j in range(len(cm[i])):
+            ax.text(j, i, cm[i][j], ha="center", va="center",
+                    color="white" if cm[i][j] > thresh / 2. else "black")
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def plot_roc_curve(y_true, y_score):
+    """Plot ROC curve, return (base64 PNG, auc_score)."""
+    from sklearn.metrics import roc_curve, roc_auc_score
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    auc = roc_auc_score(y_true, y_score)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(fpr, tpr, label=f"ROC (AUC = {auc:.4f})")
+    ax.plot([0, 1], [0, 1], "k--")
+    ax.set(xlabel="False Positive Rate", ylabel="True Positive Rate",
+           title="ROC Curve", xlim=[0, 1], ylim=[0, 1.05])
+    ax.legend()
+    fig.tight_layout()
+    return fig_to_base64(fig), auc
+
+
+def plot_pred_vs_true(y_true, y_pred):
+    """Plot predictions vs true values, return base64 PNG."""
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_true, y_pred, alpha=0.5)
+    lo = min(y_true.min(), y_pred.min())
+    hi = max(y_true.max(), y_pred.max())
+    ax.plot([lo, hi], [lo, hi], "r--")
+    ax.set(xlabel="True Values", ylabel="Predictions", title="Predictions vs True Values")
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def plot_residuals(y_true, y_pred):
+    """Plot residual histogram, return base64 PNG."""
+    fig, ax = plt.subplots(figsize=(6, 4))
+    residuals = y_true - y_pred
+    ax.hist(residuals, bins=30, edgecolor="black", alpha=0.7)
+    ax.set(xlabel="Residual", ylabel="Frequency", title="Residual Distribution")
+    fig.tight_layout()
+    return fig_to_base64(fig)

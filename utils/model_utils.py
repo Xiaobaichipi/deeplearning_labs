@@ -142,16 +142,11 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None, device="cpu"
     """Evaluate a trained model and return metrics + visualization images."""
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
-                                 mean_absolute_error, r2_score,
-                                 roc_auc_score, roc_curve)
-    import base64
-    import io
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+                                 mean_absolute_error, r2_score)
+    from .plot_utils import plot_confusion_matrix, plot_roc_curve, \
+        plot_pred_vs_true, plot_residuals
     from .fonts import setup_chinese_font
     setup_chinese_font()
-    plt.rcParams["axes.unicode_minus"] = False
 
     device = torch.device(device)
     model = model.to(device)
@@ -173,49 +168,17 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None, device="cpu"
             f1 = f1_score(y_true, preds, average=avg, zero_division=0)
             cm = confusion_matrix(y_true, preds).tolist()
 
-            images = {}
-
-            # Confusion matrix
-            fig, ax = plt.subplots(figsize=(6, 5))
-            im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-            ax.figure.colorbar(im, ax=ax)
             classes = (
                 [str(c) for c in target_encoder.classes_]
                 if target_encoder else [str(i) for i in range(len(cm))]
             )
-            tick_marks = np.arange(len(classes))
-            ax.set(xticks=tick_marks, yticks=tick_marks,
-                   xticklabels=classes, yticklabels=classes,
-                   xlabel="Predicted", ylabel="True")
-            plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-            thresh = max(max(row) for row in cm) if cm else 0
-            for i in range(len(cm)):
-                for j in range(len(cm[i])):
-                    ax.text(j, i, cm[i][j], ha="center", va="center",
-                            color="white" if cm[i][j] > thresh / 2. else "black")
-            fig.tight_layout()
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
-            buf.seek(0)
-            images["confusion_matrix"] = base64.b64encode(buf.read()).decode()
-            plt.close(fig)
+
+            images = {"confusion_matrix": plot_confusion_matrix(cm, classes)}
 
             # ROC curve (binary only)
             if len(np.unique(y_true)) == 2:
-                fig, ax = plt.subplots(figsize=(6, 5))
-                fpr, tpr, _ = roc_curve(y_true, probs[:, 1])
-                auc = roc_auc_score(y_true, probs[:, 1])
-                ax.plot(fpr, tpr, label=f"ROC (AUC = {auc:.4f})")
-                ax.plot([0, 1], [0, 1], "k--")
-                ax.set(xlabel="False Positive Rate", ylabel="True Positive Rate",
-                       title="ROC Curve", xlim=[0, 1], ylim=[0, 1.05])
-                ax.legend()
-                fig.tight_layout()
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
-                buf.seek(0)
-                images["roc_curve"] = base64.b64encode(buf.read()).decode()
-                plt.close(fig)
+                roc_img, auc = plot_roc_curve(y_true, probs[:, 1])
+                images["roc_curve"] = roc_img
 
             return {
                 "accuracy": float(acc),
@@ -236,33 +199,10 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None, device="cpu"
             mae = mean_absolute_error(y_true, preds)
             r2 = r2_score(y_true, preds)
 
-            images = {}
-
-            # Predictions vs True
-            fig, ax = plt.subplots(figsize=(6, 5))
-            ax.scatter(y_true, preds, alpha=0.5)
-            min_val = min(y_true.min(), preds.min())
-            max_val = max(y_true.max(), preds.max())
-            ax.plot([min_val, max_val], [min_val, max_val], "r--")
-            ax.set(xlabel="True Values", ylabel="Predictions", title="Predictions vs True Values")
-            fig.tight_layout()
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
-            buf.seek(0)
-            images["pred_vs_true"] = base64.b64encode(buf.read()).decode()
-            plt.close(fig)
-
-            # Residual distribution
-            fig, ax = plt.subplots(figsize=(6, 4))
-            residuals = y_true - preds
-            ax.hist(residuals, bins=30, edgecolor="black", alpha=0.7)
-            ax.set(xlabel="Residual", ylabel="Frequency", title="Residual Distribution")
-            fig.tight_layout()
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
-            buf.seek(0)
-            images["residuals"] = base64.b64encode(buf.read()).decode()
-            plt.close(fig)
+            images = {
+                "pred_vs_true": plot_pred_vs_true(y_true, preds),
+                "residuals": plot_residuals(y_true, preds),
+            }
 
             return {
                 "mse": float(mse),
