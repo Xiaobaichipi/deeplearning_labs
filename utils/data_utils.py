@@ -254,3 +254,39 @@ def normalize_data(X_train, X_test, method="minmax"):
         raise ValueError(f"Unknown normalization method: {method}")
 
     return X_train_norm, X_test_norm, params
+
+
+def normalize_target(y_train, y_test, method="mean"):
+    """Normalize target values for regression so MSE is scale-independent.
+
+    For classification tasks, y is passed through unchanged.
+    Returns (y_train, y_test, params) where params contains mean/std
+    needed to invert the transformation later.
+    """
+    if method is None:
+        return y_train, y_test, {"method": None}
+
+    params = {"method": method}
+    if method == "mean":
+        y_mean = float(np.mean(y_train))
+        y_std = float(np.std(y_train))
+        if y_std == 0:
+            y_std = 1.0
+        y_train_norm = (y_train - y_mean) / y_std
+        y_test_norm = (y_test - y_mean) / y_std
+        params["mean"] = y_mean
+        params["std"] = y_std
+    elif method == "minmax":
+        y_min = float(np.min(y_train))
+        y_max = float(np.max(y_train))
+        denom = y_max - y_min
+        if denom == 0:
+            denom = 1.0
+        y_train_norm = (y_train - y_min) / denom
+        y_test_norm = (y_test - y_min) / denom
+        params["min"] = y_min
+        params["max"] = y_max
+    else:
+        return y_train, y_test, {"method": None}
+
+    return y_train_norm, y_test_norm, params

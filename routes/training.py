@@ -4,7 +4,7 @@ import threading
 
 import torch
 from flask import Blueprint, Response, current_app, jsonify, request
-from utils.data_utils import normalize_data, split_data
+from utils.data_utils import normalize_data, normalize_target, split_data
 from utils.model_utils import create_model, train_model
 from utils.models import get_model_params
 from utils.plot_utils import plot_training_history
@@ -226,6 +226,15 @@ def _setup_training(sm, data_id, df, params):
         split_result["X_train"] = X_train
         split_result["X_test"] = X_test
         split_result["norm_params"] = norm_params
+
+        # Also normalize target for regression so loss is scale-independent
+        if split_result["task_type"] == "regression":
+            y_train, y_test, y_scaler = normalize_target(
+                split_result["y_train"], split_result["y_test"], method=norm_method
+            )
+            split_result["y_train"] = y_train
+            split_result["y_test"] = y_test
+            split_result["y_scaler"] = y_scaler
 
     sm.set_split(data_id, split_result)
 

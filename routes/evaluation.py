@@ -22,6 +22,7 @@ def api_evaluate():
             split_result["X_test"], split_result["y_test"],
             split_result["task_type"],
             target_encoder=split_result.get("target_encoder"),
+            y_scaler=split_result.get("y_scaler"),
             device="cpu",
         )
         return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})
@@ -52,6 +53,18 @@ def api_predict():
 
         preds, probs = predict(model, X, split_result["task_type"], device="cpu")
         target_encoder = split_result.get("target_encoder")
+        y_scaler = split_result.get("y_scaler")
+
+        # Denormalize regression predictions back to original scale
+        if split_result["task_type"] == "regression" and y_scaler:
+            method = y_scaler.get("method")
+            if method == "mean":
+                preds = preds * y_scaler["std"] + y_scaler["mean"]
+                y_true = y_true * y_scaler["std"] + y_scaler["mean"]
+            elif method == "minmax":
+                _min, _max = y_scaler["min"], y_scaler["max"]
+                preds = preds * (_max - _min) + _min
+                y_true = y_true * (_max - _min) + _min
 
         results = []
         for i in range(min(len(preds), 100)):

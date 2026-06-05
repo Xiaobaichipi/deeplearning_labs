@@ -152,7 +152,8 @@ def predict(model, X, task_type, device="cpu"):
             return outputs.squeeze().cpu().numpy(), None
 
 
-def evaluate(model, X_test, y_test, task_type, target_encoder=None, device="cpu"):
+def evaluate(model, X_test, y_test, task_type, target_encoder=None,
+             y_scaler=None, device="cpu"):
     """Evaluate a trained model and return metrics + visualization images."""
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
@@ -207,6 +208,17 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None, device="cpu"
         else:
             preds = outputs.squeeze().cpu().numpy()
             y_true = y_t.cpu().numpy()
+
+            # Denormalize if target was normalized during training
+            if y_scaler:
+                method = y_scaler.get("method")
+                if method == "mean":
+                    y_true = y_true * y_scaler["std"] + y_scaler["mean"]
+                    preds = preds * y_scaler["std"] + y_scaler["mean"]
+                elif method == "minmax":
+                    _min, _max = y_scaler["min"], y_scaler["max"]
+                    y_true = y_true * (_max - _min) + _min
+                    preds = preds * (_max - _min) + _min
 
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))
