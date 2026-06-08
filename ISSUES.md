@@ -1,5 +1,27 @@
 # Issues Log
 
+## 2026-06-08: 新增 Device 选择功能 (v2-project-system 分支)
+
+Hyperparameters 中增加 Device 下拉框，列出 CPU 和所有可用 GPU，支持多显卡并行训练。
+
+### 后端
+
+- **`utils/config.py`** — 新增 `get_available_devices()` 检测并返回所有可用设备列表（含 GPU 型号名）；新增 `parse_device()` 解析用户选择的设备字符串（支持 `"cuda:0  (RTX 3080)"` → `"cuda:0"`，`"all  (DataParallel multi-GPU)"` → `["cuda:0", "cuda:1", ...]`）
+- **`main.py`** — 将 `devices` 列表传入模板 cfg
+- **`utils/model_utils.py`** — `train_model()` 支持 `device` 参数为 list 时使用 `nn.DataParallel` 多 GPU 训练；训练结束后自动 unwrap DataParallel 确保 state_dict 兼容性；`predict()` 和 `evaluate()` 兼容 list 类型 device 参数
+- **`routes/training.py`** — `_build_config()` 从请求参数读取 device，使用 `parse_device()` 解析
+
+### 前端
+
+- **`templates/index.html`** — Hyperparameters 新增 Device `<select>` 下拉框，选项由后端动态生成
+- **`static/js/app.js`** — `startTraining()` 将 `device` 字段加入请求参数
+
+### 测试
+
+- 152 测试全部通过
+
+---
+
 ## 2026-06-08: Bug — 项目激活后 Cross Validation 报 KeyError 'model_type' (v2-project-system 分支)
 
 ### 症状

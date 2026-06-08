@@ -172,6 +172,7 @@ async function startTraining() {
         dropout: parseFloat(document.getElementById("dropout").value) || DEFAULTS.training.dropout,
         patience: parseInt(document.getElementById("patience").value) || DEFAULTS.training.patience,
         normalization: document.getElementById("normalization").value,
+        device: document.getElementById("deviceSelect").value,
     };
 
     document.getElementById("trainError").style.display = "none";

@@ -284,7 +284,7 @@ def _build_config(params, df):
     batch_size = int(params.get("batch_size", default_cfg["batch_size"]))
     epochs = int(params.get("epochs", default_cfg["epochs"]))
     patience = int(params.get("patience", default_cfg["patience"]))
-    device = config.DEVICE
+    device = config.parse_device(params.get("device", config.DEVICE))
 
     model_params = {"dropout": float(params.get("dropout", default_cfg["dropout"]))}
     model_defaults = config.MODEL.get(model_type, {})

@@ -319,6 +319,14 @@
                                 <option value="mean">Mean (Z-score, &mu;=0, &sigma;=1)</option>
                             </select>
                         </div>
+                        <div class="input-group">
+                            <label>Device</label>
+                            <select id="deviceSelect">
+                                {% for d in cfg.devices %}
+                                <option value="{{ d }}">{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     <button class="btn btn-primary" onclick="startTraining()" id="trainBtn">Start Training</button>
                 </div>

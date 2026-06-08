@@ -34,6 +34,7 @@ def index():
         "training": config.TRAINING,
         "model": config.MODEL,
         "cv": config.CV,
+        "devices": config.get_available_devices(),
     })
 
 

@@ -6,6 +6,33 @@ route handlers, model registries, and templates.
 
 import torch
 
+
+def get_available_devices():
+    """Return a list of available device strings for the frontend dropdown."""
+    devices = ["cpu"]
+    if torch.cuda.is_available():
+        for i in range(torch.cuda.device_count()):
+            name = torch.cuda.get_device_name(i)
+            devices.append(f"cuda:{i}  ({name})")
+        if torch.cuda.device_count() > 1:
+            devices.append("all  (DataParallel multi-GPU)")
+    return devices
+
+
+def parse_device(device_str: str) -> str | list[str]:
+    """Parse user-selected device string into a device identifier.
+
+    Returns a single device string (e.g. 'cpu', 'cuda:0') or a list of
+    device strings for DataParallel multi-GPU.
+    """
+    s = device_str.strip()
+    if s.startswith("all"):
+        return [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+    # Strip trailing parenthetical info like "cuda:0  (NVIDIA XXX)"
+    s = s.split("  (")[0].strip()
+    return s
+
+
 TRAINING = {
     "test_size": 0.2,
     "learning_rate": 0.001,

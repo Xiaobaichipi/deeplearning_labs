@@ -28,9 +28,18 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
 
     If *progress_callback* is provided, it is called after each epoch with a dict
     containing ``epoch``, ``train_loss``, ``val_loss``, ``train_metric``, ``val_metric``.
+
+    *device* can be a string (``'cpu'``, ``'cuda:0'``) or a list of device
+    strings for DataParallel multi-GPU (e.g. ``['cuda:0', 'cuda:1']``).
     """
-    device = torch.device(device)
-    model = model.to(device)
+    if isinstance(device, list):
+        device_ids = [torch.device(d) for d in device]
+        _device = device_ids[0]
+        model = model.to(_device)
+        model = nn.DataParallel(model, device_ids=device_ids)
+    else:
+        _device = torch.device(device)
+        model = model.to(_device)
 
     X_train_t = torch.FloatTensor(X_train)
     y_train_t = torch.FloatTensor(y_train) if task_type == "regression" else torch.LongTensor(y_train)
@@ -63,7 +72,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         train_total = 0
 
         for batch_x, batch_y in train_loader:
-            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+            batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
             optimizer.zero_grad()
             outputs = model(batch_x)
 
@@ -91,7 +100,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         val_total = 0
         with torch.no_grad():
             for batch_x, batch_y in val_loader:
-                batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+                batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
                 outputs = model(batch_x)
                 if task_type == "regression":
                     pred = outputs.squeeze(-1)
@@ -147,12 +156,19 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
     if best_state:
         model.load_state_dict(best_state)
 
+    # Unwrap DataParallel so callers always get a clean model for saving
+    if isinstance(model, nn.DataParallel):
+        model = model.module
+
     return model, history
 
 
 def predict(model, X, task_type, device="cpu"):
     """Run inference and return predictions."""
-    device = torch.device(device)
+    if isinstance(device, list):
+        device = torch.device(device[0])
+    else:
+        device = torch.device(device)
     model = model.to(device)
     model.eval()
     X_t = torch.FloatTensor(X).to(device)
@@ -225,8 +241,10 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
     from .plot_utils import plot_confusion_matrix, plot_roc_curve, \
         plot_pred_vs_true, plot_residuals
 
-    device = torch.device(device)
-    model = model.to(device)
+    if isinstance(device, list):
+        device = torch.device(device[0])
+    else:
+        device = torch.device(device)
     model.eval()
     X_t = torch.FloatTensor(X_test).to(device)
     y_t = torch.FloatTensor(y_test) if task_type == "regression" else torch.LongTensor(y_test)
