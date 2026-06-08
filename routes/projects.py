@@ -4,6 +4,7 @@ import os
 import tempfile
 from flask import Blueprint, current_app, jsonify, request, session, send_file
 from utils.data_utils import load_data, get_data_info
+from utils.model_utils import create_model
 from utils.session import allowed_file, get_data_id, json_ok
 
 projects_bp = Blueprint("projects", __name__)
@@ -188,7 +189,6 @@ def load_model_into_session(project_id, model_id):
         input_dim = len(meta.get("feature_names", []))
         output_dim = 1
 
-    from utils.model_utils import create_model
     try:
         model = create_model(
             meta["model_type"], input_dim, output_dim,
@@ -201,10 +201,6 @@ def load_model_into_session(project_id, model_id):
 
     sm.set_model(data_id, model)
     sm.set_model_config(data_id, meta.get("model_params", {}))
-
-    final_metrics = meta.get("final_metrics", {})
-    if final_metrics:
-        sm.set_history(data_id, final_metrics)
 
     return json_ok({
         "success": True,
@@ -282,6 +278,7 @@ def activate_project(project_id):
                 model.load_state_dict(state_dict)
                 model.eval()
                 sm.set_model(data_id, model)
+                sm.set_model_config(data_id, meta.get("model_params", {}))
             except Exception:
                 pass
 
@@ -289,7 +286,8 @@ def activate_project(project_id):
     info["project"] = project
     info["models"] = [
         {"id": m["id"], "model_type": m.get("model_type"),
-         "created_at": m.get("created_at")}
+         "created_at": m.get("created_at"),
+         "final_metrics": m.get("final_metrics", {})}
         for m in models
     ]
     return json_ok({"success": True, "data": info})

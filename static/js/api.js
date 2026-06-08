@@ -415,18 +415,12 @@ async function activateProject(projectId) {
         populateTargetCol(data.data.columns);
 
         // Populate model dropdown for Step 6
-        if (data.data.models && data.data.models.length) {
-            try {
-                const mRes = await fetch(`/api/projects/${projectId}/models`);
-                const mData = await mRes.json();
-                if (!mData.error && mData.models && mData.models.length) {
-                    populateModelDropdown(mData.models);
-                    document.getElementById("modelSelector").style.display = "block";
-                    const latest = mData.models[0];
-                    document.getElementById("modelSelect").value = latest.id;
-                    await loadModelToSession(latest.id);
-                }
-            } catch (_) {}
+        const models = data.data.models || [];
+        if (models.length) {
+            populateModelDropdown(models);
+            document.getElementById("modelSelector").style.display = "block";
+            document.getElementById("modelSelect").value = models[0].id;
+            await loadModelToSession(models[0].id);
         } else {
             document.getElementById("modelSelector").style.display = "none";
         }
@@ -505,7 +499,7 @@ async function refreshModelDropdown() {
             document.getElementById("modelSelector").style.display = "block";
             const latest = models[0];
             document.getElementById("modelSelect").value = latest.id;
-            showLoadedModelBadge(true, latest.model_type);
+            await loadModelToSession(latest.id);
         }
     } catch (err) {
         console.error("refreshModelDropdown:", err.message);
