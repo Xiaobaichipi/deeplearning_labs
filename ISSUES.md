@@ -1,5 +1,25 @@
 # Issues Log
 
+## 2026-06-08: Predictions 增加对比图 + CSV/XLSX 下载 (jiagou_youhua 分支)
+
+### 新增功能
+
+1. **预测值 vs 真实值散点图** — `api_predict()` 返回中增加 `plot_image`（回归任务使用 `plot_pred_vs_true()`），前端表格下方显示
+2. **CSV/XLSX 下载** — 新增 `GET /api/predict/download?source=test&format=csv` 端点，前端两个下载按钮
+
+### 重构
+
+- 提取 `_compute_predictions()` 共享函数，消除 `api_predict()` 和下载端点之间的推理逻辑重复
+
+### 验证
+
+- Predict 端点返回 plot_image ✅
+- CSV 下载 920 bytes，mimetype text/csv ✅
+- XLSX 下载 6368 bytes，mimetype application/vnd.openxmlformats ✅
+- 缺 openpyxl 时优雅降级返回错误提示 ✅
+
+---
+
 ## 2026-06-08: 评估指标改为归一化尺度以避免数值误解 (jiagou_youhua 分支)
 
 ### 变更
