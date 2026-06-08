@@ -46,7 +46,7 @@ def plot_training_history(history):
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     images["training_history"] = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -65,7 +65,7 @@ def plot_feature_importance(feature_names, importance_values, title="Feature Imp
     ax.set_title(title)
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     result = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -99,7 +99,7 @@ def plot_data_distribution(df, columns=None):
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     images["data_distribution"] = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -124,14 +124,14 @@ def plot_correlation_heatmap(df):
                     fontsize=7, color="black" if abs(corr.values[i, j]) < 0.5 else "white")
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     result = base64.b64encode(buf.read()).decode()
     plt.close(fig)
     return result
 
 
-def fig_to_base64(fig, dpi=100):
+def fig_to_base64(fig, dpi=300):
     """Convert a matplotlib figure to a base64-encoded PNG string."""
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")

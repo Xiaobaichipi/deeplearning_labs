@@ -1,5 +1,27 @@
 # Issues Log
 
+## 2026-06-08: 全局 DPI 提升至 300 (jiagou_youhua 分支)
+
+### 变更
+
+所有 matplotlib 绘图函数 DPI 从 100-120 统一提升到 300，消除图片模糊。
+
+| 函数 | 旧 DPI | 新 DPI |
+|---|---|---|
+| `plot_training_history` | 120 | 300 |
+| `plot_feature_importance` | 100 | 300 |
+| `plot_data_distribution` | 100 | 300 |
+| `plot_correlation_heatmap` | 120 | 300 |
+| `fig_to_base64`（默认） | 100 | 300 |
+| `plot_pred_vs_true` | 300 | 300（不变） |
+| `plot_pred_vs_true_line` | 300 | 300（不变） |
+
+### 涉及文件
+
+- `utils/plot_utils.py` — 5 处 dpi 参数修改 + `fig_to_base64()` 默认值变更
+
+---
+
 ## 2026-06-08: 配置 Matt Pocock's Skills 工程架构 (jiagou_youhua 分支)
 
 ### 新增文件
