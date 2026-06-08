@@ -3,6 +3,7 @@
 import os
 import tempfile
 from flask import Blueprint, current_app, jsonify, request, session, send_file
+from utils import config
 from utils.data_utils import load_data, get_data_info
 from utils.model_utils import create_model
 from utils.session import allowed_file, get_data_id, json_ok
@@ -203,7 +204,13 @@ def load_model_into_session(project_id, model_id):
         return jsonify({"error": f"Failed to reconstruct model: {str(e)}"}), 500
 
     sm.set_model(data_id, model)
-    sm.set_model_config(data_id, meta.get("model_params", {}))
+    sm.set_model_config(data_id, {
+        "model_type": meta.get("model_type"),
+        "model_params": meta.get("model_params", {}),
+        "learning_rate": meta.get("learning_rate", config.TRAINING["learning_rate"]),
+        "batch_size": meta.get("batch_size", config.TRAINING["batch_size"]),
+        "device": meta.get("device", config.DEVICE),
+    })
 
     return json_ok({
         "success": True,
@@ -271,7 +278,13 @@ def activate_project(project_id):
             try:
                 model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
                 sm.set_model(data_id, model)
-                sm.set_model_config(data_id, meta.get("model_params", {}))
+                sm.set_model_config(data_id, {
+                    "model_type": meta.get("model_type"),
+                    "model_params": meta.get("model_params", {}),
+                    "learning_rate": meta.get("learning_rate", config.TRAINING["learning_rate"]),
+                    "batch_size": meta.get("batch_size", config.TRAINING["batch_size"]),
+                    "device": meta.get("device", config.DEVICE),
+                })
             except Exception:
                 pass
 
