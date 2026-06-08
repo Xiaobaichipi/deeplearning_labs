@@ -1,5 +1,22 @@
 # Issues Log
 
+## 2026-06-08: 配置 Matt Pocock's Skills 工程架构 (jiagou_youhua 分支)
+
+### 新增文件
+
+- **`CLAUDE.md`** — 新增 `## Agent skills` 区块，引用 `docs/agents/`
+- **`docs/agents/issue-tracker.md`** — Local markdown issue tracker 约定（`.scratch/<feature>/`）
+- **`docs/agents/triage-labels.md`** — 五个 triage 角色映射表
+- **`docs/agents/domain.md`** — 单上下文领域文档消费规则
+
+### 配置项
+
+- Issue tracker: Local markdown（`.scratch/<feature>/issues/`）
+- Triage 标签: 使用默认名称（needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix）
+- 领域文档: 单上下文（`CONTEXT.md` + `docs/adr/` 在根目录）
+
+---
+
 ## 2026-06-08: 测试覆盖 (jiagou_youhua 分支)
 
 ### 新增测试文件
