@@ -10,7 +10,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 
-from .data_utils import denormalize_target
 from .models import get_model_class
 
 
@@ -203,7 +202,7 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
 
 
 def evaluate(model, X_test, y_test, task_type, target_encoder=None,
-             y_scaler=None, device="cpu"):
+             device="cpu"):
     """Evaluate a trained model and return metrics + visualization images."""
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
@@ -256,10 +255,6 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
         else:
             preds = outputs.squeeze().cpu().numpy()
             y_true = y_t.cpu().numpy()
-
-            # Denormalize if target was normalized during training
-            y_true = denormalize_target(y_true, y_scaler)
-            preds = denormalize_target(preds, y_scaler)
 
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))

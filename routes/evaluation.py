@@ -22,7 +22,6 @@ def api_evaluate():
             split_result["X_test"], split_result["y_test"],
             split_result["task_type"],
             target_encoder=split_result.get("target_encoder"),
-            y_scaler=split_result.get("y_scaler"),
             device="cpu",
         )
         return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})
