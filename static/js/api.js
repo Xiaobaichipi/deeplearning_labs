@@ -342,6 +342,151 @@ function downloadHistory(format) {
     window.location.href = `/api/train/history/download?format=${format}`;
 }
 
+/* =============== Project System =============== */
+
+let _activeProjectId = null;
+
+async function loadProjects() {
+    try {
+        const res = await fetch("/api/projects");
+        const data = await res.json();
+        if (data.error) { console.error("loadProjects:", data.error); return; }
+        populateProjectGrid(data.projects || []);
+    } catch (err) {
+        console.error("loadProjects:", err.message);
+    }
+}
+
+async function createProject() {
+    const name = document.getElementById("projectName").value.trim();
+    if (!name) { alert("Please enter a project name"); return; }
+
+    const btn = document.getElementById("createProjectBtn");
+    btn.disabled = true;
+    btn.textContent = "Creating...";
+
+    const fileInput = document.getElementById("projectFileInput");
+    const formData = new FormData();
+    formData.append("name", name);
+    if (fileInput.files.length) {
+        formData.append("file", fileInput.files[0]);
+    }
+
+    try {
+        const res = await fetch("/api/projects", { method: "POST", body: formData });
+        const data = await res.json();
+        if (data.error) { alert("Error: " + data.error); return; }
+
+        hideNewProjectModal();
+        document.getElementById("projectName").value = "";
+        document.getElementById("projectFileInput").value = "";
+        document.getElementById("projectUploadText").textContent = "Click to select file";
+        loadProjects();
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Create";
+    }
+}
+
+async function activateProject(projectId) {
+    const btn = document.querySelector(`[data-project-id="${projectId}"] .project-card-name`);
+    try {
+        const res = await fetch(`/api/projects/${projectId}/activate`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) { alert("Error: " + data.error); return; }
+
+        _activeProjectId = projectId;
+        currentDataInfo = data.data;
+
+        // Switch to training flow
+        document.getElementById("projectList").classList.remove("active");
+        document.getElementById("projectList").style.display = "none";
+        document.getElementById("trainingFlow").style.display = "block";
+        document.getElementById("backToProjectsBtn").style.display = "inline-flex";
+
+        // Populate step 2 with project data
+        populateStep2(data.data);
+        populateStep3Columns(data.data.columns);
+        populateTargetCol(data.data.columns);
+
+        // Show model badges if any
+        if (data.data.models && data.data.models.length) {
+            // Could show existing model indicators here
+        }
+
+        goToStep(2);
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+}
+
+async function deleteProject(projectId) {
+    if (!confirm("Delete this project permanently?")) return;
+    try {
+        await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+        loadProjects();
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+}
+
+/* =============== Model Export =============== */
+
+async function loadProjectModels() {
+    if (!_activeProjectId) return;
+    try {
+        const res = await fetch(`/api/projects/${_activeProjectId}/models`);
+        const data = await res.json();
+        if (data.error) return;
+        populateModelList(data.models || []);
+    } catch (err) {
+        console.error("loadProjectModels:", err.message);
+    }
+}
+
+async function exportModel(modelId) {
+    const defaultName = `${modelId}.pt`;
+    const name = prompt("Export model filename:", defaultName);
+    if (!name) return;
+    const safe = name.trim() || defaultName;
+    const url = `/api/projects/${_activeProjectId}/models/${modelId}/export?name=${encodeURIComponent(safe)}`;
+    window.location.href = url;
+}
+
+async function compareModels() {
+    const cbs = document.querySelectorAll(".model-cb:checked");
+    const modelIds = Array.from(cbs).map((cb) => cb.value);
+    if (!modelIds.length) { alert("Select at least one model to compare."); return; }
+
+    const btn = document.querySelector("#modelCompareAction .btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Comparing...';
+
+    try {
+        const res = await fetch(`/api/projects/${_activeProjectId}/models/compare`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model_ids: modelIds }),
+        });
+        const data = await res.json();
+        if (data.error) { alert("Error: " + data.error); return; }
+
+        const resultDiv = document.getElementById("modelCompareResult");
+        const chartDiv = document.getElementById("modelCompareChart");
+        chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Model Comparison"><div class="caption">Model Predictions Comparison (${data.loaded_count} models)</div></div>`;
+        resultDiv.style.display = "block";
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Compare Selected";
+    }
+}
+
+/* =============== Reset =============== */
+
 async function resetAll() {
     if (!confirm("Reset all data and start over?")) return;
     try {

@@ -1,5 +1,134 @@
 /* UI Rendering Functions */
 
+/* =============== Project System =============== */
+
+function populateProjectGrid(projects) {
+    const grid = document.getElementById("projectGrid");
+    const empty = document.getElementById("projectEmpty");
+
+    if (!projects.length) {
+        grid.innerHTML = "";
+        empty.classList.add("show");
+        return;
+    }
+    empty.classList.remove("show");
+
+    const cards = projects.map((p) => {
+        const name = esc(p.name || "Untitled");
+        const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "";
+        const modelCount = p.model_count || 0;
+        const fileInfo = p.original_filename ? `from ${esc(p.original_filename)}` : "No dataset";
+
+        return `
+            <div class="project-card" data-project-id="${p.id}" onclick="activateProject('${p.id}')">
+                <div class="project-card-name">${name}</div>
+                <div class="project-card-meta">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
+                    ${fileInfo}
+                </div>
+                <div class="project-card-meta">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM4 10h12v6H4v-6z"/></svg>
+                    ${date || "—"}
+                </div>
+                <div class="project-card-footer">
+                    <span class="project-card-badge">${modelCount} model${modelCount !== 1 ? "s" : ""}</span>
+                    <button class="project-card-delete" onclick="event.stopPropagation(); deleteProject('${p.id}')" title="Delete">&#x2715;</button>
+                </div>
+            </div>
+        `;
+    });
+
+    grid.innerHTML = cards.join("");
+
+    // GSAP stagger-in animation
+    if (typeof gsap !== "undefined") {
+        gsap.from(".project-card", {
+            opacity: 0,
+            y: 24,
+            scale: 0.96,
+            duration: 0.4,
+            stagger: 0.06,
+            ease: "power3.out",
+            clearProps: "transform",
+        });
+    }
+}
+
+function showNewProjectModal() {
+    const modal = document.getElementById("newProjectModal");
+    modal.classList.add("show");
+
+    // Wire up file input change
+    document.getElementById("projectFileInput").onchange = function () {
+        const text = document.getElementById("projectUploadText");
+        text.textContent = this.files.length ? this.files[0].name : "Click to select file";
+    };
+}
+
+function hideNewProjectModal() {
+    document.getElementById("newProjectModal").classList.remove("show");
+}
+
+function backToProjects() {
+    _activeProjectId = null;
+    document.getElementById("trainingFlow").style.display = "none";
+    document.getElementById("backToProjectsBtn").style.display = "none";
+
+    const list = document.getElementById("projectList");
+    list.style.display = "block";
+    list.classList.add("active");
+
+    loadProjects();
+}
+
+function populateModelList(models) {
+    const container = document.getElementById("modelList");
+    const actionBar = document.getElementById("modelCompareAction");
+
+    if (!models.length) {
+        container.innerHTML = `<div class="empty-state show" style="padding:40px 0;"><p>No models yet. Train a model to see it here.</p></div>`;
+        if (actionBar) actionBar.style.display = "none";
+        return;
+    }
+
+    const cards = models.map((m) => {
+        const mid = esc(m.id || "—");
+        const mtype = esc(m.model_type || "—");
+        const date = m.created_at ? new Date(m.created_at).toLocaleString() : "—";
+        const target = esc(m.target_name || "—");
+        const fm = m.final_metrics || {};
+        const trainLoss = fm.train_loss != null ? fm.train_loss.toFixed(4) : "—";
+        const valLoss = fm.val_loss != null ? fm.val_loss.toFixed(4) : "—";
+        const epochs = fm.epochs != null ? fm.epochs : "—";
+
+        return `
+            <div class="model-export-card">
+                <label class="model-compare-cb" title="Select for comparison">
+                    <input type="checkbox" class="model-cb" value="${mid}">
+                </label>
+                <div class="model-export-info">
+                    <div class="model-export-name">${mtype} <span class="badge badge-soft">${mid}</span></div>
+                    <div class="model-export-meta">Target: ${target} &middot; Created: ${date}</div>
+                    <div class="model-export-metrics">
+                        <span class="chip">Epochs: ${epochs}</span>
+                        <span class="chip">Train Loss: ${trainLoss}</span>
+                        <span class="chip">Val Loss: ${valLoss}</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = cards.join("");
+
+    // Show action bar and wire checkbox toggle
+    if (actionBar) actionBar.style.display = "block";
+    document.getElementById("modelCompareResult").style.display = "none";
+}
+
+/* =============== Header Dropdown =============== */
+
 function toggleHeaderMenu() {
     document.getElementById("headerMenu").classList.toggle("open");
 }

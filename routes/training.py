@@ -4,7 +4,7 @@ import queue
 import threading
 
 import torch
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request, session
 from utils import config
 from utils.data_utils import normalize_data, normalize_target, split_data
 from utils.model_utils import create_model, train_model
@@ -52,6 +52,32 @@ def train():
         sm.set_model(data_id, trained_model)
         sm.set_model_config(data_id, built)
         sm.set_history(data_id, history)
+
+        # Persist to active project
+        pm = current_app.config["project_manager"]
+        active_project_id = session.get("active_project_id")
+        if active_project_id:
+            try:
+                pm.save_split(active_project_id, split_result)
+                model_id = pm.next_model_id(active_project_id)
+                state_dict = trained_model.state_dict()
+                meta = {
+                    "model_type": built["model_type"],
+                    "model_params": built["model_params"],
+                    "final_metrics": {
+                        "train_loss": round(history["train_loss"][-1], 6),
+                        "val_loss": round(history["val_loss"][-1], 6),
+                        "epochs": len(history["train_loss"]),
+                    },
+                    "task_type": split_result["task_type"],
+                    "feature_names": split_result["feature_names"],
+                    "target_name": split_result["target_name"],
+                    "train_size": len(split_result["X_train"]),
+                    "test_size": len(split_result["X_test"]),
+                }
+                pm.save_model(active_project_id, model_id, state_dict, meta)
+            except Exception:
+                pass
 
         return json_ok({
             "success": True,
@@ -131,6 +157,9 @@ def train_stream():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    pm = current_app.config["project_manager"]
+    active_project_id = session.get("active_project_id")
+
     def generate():
         q = queue.Queue()
         train_result = {}
@@ -203,6 +232,27 @@ def train_stream():
             "train_size": len(split_result["X_train"]),
             "test_size": len(split_result["X_test"]),
         }
+
+        # Persist split + model to active project
+        if active_project_id:
+            try:
+                pm.save_split(active_project_id, split_result)
+                model_id = pm.next_model_id(active_project_id)
+                state_dict = train_result["model"].state_dict()
+                meta = {
+                    "model_type": built["model_type"],
+                    "model_params": built["model_params"],
+                    "final_metrics": final["final_metrics"],
+                    "task_type": split_result["task_type"],
+                    "feature_names": split_result["feature_names"],
+                    "target_name": split_result["target_name"],
+                    "train_size": final["train_size"],
+                    "test_size": final["test_size"],
+                }
+                pm.save_model(active_project_id, model_id, state_dict, meta)
+            except Exception:
+                pass
+
         yield f"event: complete\ndata: {json.dumps(final)}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")

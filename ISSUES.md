@@ -1,6 +1,98 @@
 # Issues Log
 
-## 2026-06-08: 修复回归 MAE 为 sum 而非 mean + 强制 y 归一化 (jiagou_youhua 分支)
+## 2026-06-08: 项目系统 (Projects) — 持久化存储 + 前端项目列表 (jiagou_youhua 分支)
+
+### 概述
+
+新增项目系统，每个数据集成为一个"项目"（Project），上传的数据集、训练好的模型均持久化存储到磁盘，支持随时重新激活。
+
+### 后端
+
+**新增 `utils/project_manager.py`** — `ProjectManager` 类，文件级持久化：
+
+- 项目目录结构：`projects/<project_id>/`
+  - `config.json` — name / timestamps / model_count
+  - `dataset/data.csv` — 上传的数据集（内部统一 CSV 格式）
+  - `splits/latest.json` — 最近一次训练数据拆分（numpy→JSON 序列化，支持 LabelEncoder 重建）
+  - `models/<model_id>/state_dict.pt` — PyTorch 模型参数
+  - `models/<model_id>/config.json` — 超参数、最终指标等元数据
+
+**新增 `routes/projects.py`** — Blueprint `projects_bp`：
+
+- `GET /api/projects` — 列出所有项目（按更新时间降序）
+- `POST /api/projects` — 创建项目（支持 multipart 上传数据集）
+- `GET /api/projects/<id>` — 获取单个项目信息
+- `DELETE /api/projects/<id>` — 删除项目
+- `POST /api/projects/<id>/activate` — 激活项目，将数据集/拆分/模型恢复到 SessionManager
+- 激活时存储 `session["active_project_id"]`
+
+**训练自动保存** — `routes/training.py` SSE 流和同步训练完成后：
+
+- 自动 `pm.save_split(project_id, split_result)` 保存拆分数据
+- 自动 `pm.save_model(project_id, model_id, state_dict, meta)` 保存模型
+
+### 前端
+
+- **项目列表首页** — `#projectList` 作为默认页面（取代直接展示 Step 1）
+- **项目卡片网格** — `.project-grid` CSS Grid + `.project-card` 卡片，显示名称/文件名/日期/模型数
+- **GSAP 入场动画** — 卡片 `stagger: 0.06` 从下向上淡入，`clearProps: "transform"` 避免与 CSS hover 冲突
+- **New Project 模态框** — 支持填写项目名 + 上传数据集
+- **← Projects 返回按钮** — `backToProjects()` 切回项目列表，重新加载项目数据
+- **训练流程** — Activate 项目后进入训练流程，Step 2 自动加载数据预览
+- 调用 `projectManager.save_model()` 时使用 `next_model_id()` 自动生成 ID（`model_001`, `model_002`, …）
+
+### 测试
+
+- `test_routes.py` — 新增 `TestProjectCRUD`（8 个测试）和 `TestProjectActivation`（4 个测试）
+- 覆盖：空列表、创建（含/不含文件）、无效格式、存在性/不存在查询、删除、激活、激活后训练→模型持久化验证
+- fixture 隔离：`client()` 使用 tempdir 隔离 project 存储路径
+- 测试总数 140（新增 13），0 failed
+
+### 涉及文件
+
+- `utils/project_manager.py` — **新增** 190 行
+- `routes/projects.py` — **新增** 119 行
+- `routes/__init__.py` — 导出 `projects_bp`
+- `routes/training.py` — SSE 流 + 同步训练增加持久化存储；引用 `session`
+- `main.py` — 注册 `ProjectManager` + `projects_bp`；`/api/reset` 清理 `active_project_id`
+- `templates/index.html` — 项目列表区 + trainingFlow 包装 + 模态框 + GSAP CDN
+- `static/css/style.css` — `.project-grid` / `.project-card` / `.modal-overlay` / `.empty-state` 等样式
+- `static/js/ui.js` — `populateProjectGrid()` / `showNewProjectModal()` / `backToProjects()` / `hideNewProjectModal()`
+- `static/js/api.js` — `loadProjects()` / `createProject()` / `activateProject()` / `deleteProject()`
+- `static/js/app.js` — 初始化时 `loadProjects()`；全局 `_activeProjectId`
+
+---
+
+## 2026-06-08: Phase 2 — 模型导出功能 (jiagou_youhua 分支)
+
+在项目系统中增加模型文件导出功能，用户可下载训练好的模型（state_dict.pt），支持自定义导出文件名。
+
+- **后端**：`GET /api/projects/<id>/models` 列出模型；`GET /api/projects/<id>/models/<mid>/export?name=` 下载
+- **前端**：Step 6 新增 Models 标签，每行显示模型信息 + Export 按钮，弹出 prompt 自定义文件名
+- **测试**：新增 `TestModelExport`（6 个测试），总数 146，0 failed
+
+---
+
+## 2026-06-08: Phase 3 — 多模型预测对比图 (jiagou_youhua 分支)
+
+在 Models 标签页中增加多模型对比功能，用户可选中多个已训练的模型，生成对比折线图。
+
+### 后端
+
+- **`utils/plot_utils.py:plot_model_comparison()`** — 新建绘图函数，接收 `y_true` + `predictions_dict`，黑色虚线显示真实值，8 色循环显示各模型预测值
+- **`POST /api/projects/<id>/models/compare`** — 接受 `{"model_ids": [...]}`，加载各模型 → 推理 → 反归一化 → 渲染对比图返回 base64
+
+### 前端
+
+- Models 标签每行左侧新增复选框，底部 **Compare Selected** 按钮
+- 点击后在按钮下方展示对比图，支持任意数量模型（≥1）
+
+### 测试
+
+- 新增 `TestModelComparison`（5 个测试）— 双模型、单模型、空参数、无效 ID、不存在项目
+- 测试总数 152（新增 6），0 failed
+
+--- + 强制 y 归一化 (jiagou_youhua 分支)
 
 ### Bug 1: MAE 累加缺少除以样本总数
 

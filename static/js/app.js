@@ -35,6 +35,18 @@ document.addEventListener("click", (e) => {
     contentParent.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
     const target = contentParent.querySelector("#tab" + tabId.charAt(0).toUpperCase() + tabId.slice(1));
     if (target) target.classList.add("active");
+
+    // Load models when the Models tab is activated
+    if (tabId === "models" && _activeProjectId) {
+        loadProjectModels();
+    }
+});
+
+/* =============== Project Init =============== */
+
+// Load projects on page load
+document.addEventListener("DOMContentLoaded", function () {
+    loadProjects();
 });
 
 /* =============== Upload =============== */

@@ -201,6 +201,35 @@ def plot_pred_vs_true_line(y_true, y_pred):
     return fig_to_base64(fig, dpi=300)
 
 
+def plot_model_comparison(y_true, predictions_dict):
+    """Line chart comparing true values against multiple model predictions.
+
+    Args:
+        y_true: 1-D array of true values.
+        predictions_dict: dict mapping model_label -> 1-D prediction array.
+    Returns:
+        base64 PNG string.
+    """
+    fig, ax = plt.subplots(figsize=(7, 4))
+    indices = np.arange(len(y_true))
+
+    ax.plot(indices, y_true, label="True Values", color="#000000",
+            linewidth=2, linestyle="--", alpha=0.7)
+
+    colors = ["#3b82f6", "#ea580c", "#27c93f", "#8b5cf6", "#f59e0b",
+              "#ec4899", "#06b6d4", "#84cc16"]
+    for i, (label, y_pred) in enumerate(predictions_dict.items()):
+        color = colors[i % len(colors)]
+        ax.plot(indices, y_pred, label=label, color=color,
+                linewidth=1.5, alpha=0.85)
+
+    ax.set(xlabel="Sample Index", ylabel="Value",
+           title="Model Predictions Comparison")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    return fig_to_base64(fig, dpi=300)
+
+
 def plot_residuals(y_true, y_pred):
     """Plot residual histogram, return base64 PNG."""
     fig, ax = plt.subplots(figsize=(5, 4))

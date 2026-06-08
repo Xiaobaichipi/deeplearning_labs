@@ -5,14 +5,17 @@ import tempfile
 
 import pytest
 from main import app
+from utils.project_manager import ProjectManager
 
 
 @pytest.fixture
 def client():
-    """Flask test client with a dedicated upload dir."""
+    """Flask test client with isolated upload + project dirs."""
     with tempfile.TemporaryDirectory() as tmpdir:
         app.config["UPLOAD_DIR"] = tmpdir
         app.config["TESTING"] = True
+        app.config["PROJECTS_DIR"] = os.path.join(tmpdir, "projects")
+        app.config["project_manager"] = ProjectManager(app.config["PROJECTS_DIR"])
         with app.test_client() as c:
             yield c
 
@@ -386,3 +389,277 @@ class TestReset:
     def test_reset_without_session_still_succeeds(self, client):
         resp = client.post("/api/reset")
         assert resp.status_code == 200
+
+
+# =============================================================================
+# Project CRUD
+# =============================================================================
+
+class TestProjectCRUD:
+    """Project CRUD endpoints (/api/projects)."""
+
+    def test_list_projects_empty(self, client):
+        resp = client.get("/api/projects")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["projects"] == []
+
+    def test_create_project_minimal(self, client):
+        resp = client.post("/api/projects", data={"name": "Test Project"})
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["project"]["name"] == "Test Project"
+        assert data["project"]["model_count"] == 0
+
+    def test_create_project_missing_name(self, client):
+        resp = client.post("/api/projects", data={"name": ""})
+        assert resp.status_code == 400
+        assert "error" in resp.get_json()
+
+    def test_create_project_with_csv(self, client, csv_data):
+        with open(csv_data, "rb") as f:
+            resp = client.post("/api/projects", data={
+                "name": "CSV Project",
+                "file": f,
+            }, content_type="multipart/form-data")
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["project"]["original_filename"].endswith(".csv")
+
+    def test_create_project_invalid_format(self, client):
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(b"fake-image")
+            png_path = f.name
+        with open(png_path, "rb") as f:
+            resp = client.post("/api/projects", data={
+                "name": "Bad File",
+                "file": f,
+            }, content_type="multipart/form-data")
+        os.unlink(png_path)
+        assert resp.status_code == 400
+        assert "not supported" in resp.get_json()["error"]
+
+    def test_get_project(self, client):
+        create = client.post("/api/projects", data={"name": "My Project"})
+        pid = create.get_json()["project"]["id"]
+        resp = client.get(f"/api/projects/{pid}")
+        assert resp.status_code == 200
+        assert resp.get_json()["project"]["name"] == "My Project"
+
+    def test_get_project_not_found(self, client):
+        resp = client.get("/api/projects/nonexistent")
+        assert resp.status_code == 404
+
+    def test_delete_project(self, client):
+        create = client.post("/api/projects", data={"name": "Delete Me"})
+        pid = create.get_json()["project"]["id"]
+        resp = client.delete(f"/api/projects/{pid}")
+        assert resp.status_code == 200
+        # Verify gone
+        resp2 = client.get(f"/api/projects/{pid}")
+        assert resp2.status_code == 404
+
+    def test_list_after_create(self, client):
+        client.post("/api/projects", data={"name": "P1"})
+        client.post("/api/projects", data={"name": "P2"})
+        resp = client.get("/api/projects")
+        assert len(resp.get_json()["projects"]) == 2
+
+
+# =============================================================================
+# Project Activation
+# =============================================================================
+
+class TestProjectActivation:
+    """Activate a project and verify data/model loading."""
+
+    def test_activate_project_with_data(self, client, csv_data):
+        with open(csv_data, "rb") as f:
+            create = client.post("/api/projects", data={
+                "name": "Activate Test",
+                "file": f,
+            }, content_type="multipart/form-data")
+        pid = create.get_json()["project"]["id"]
+
+        resp = client.post(f"/api/projects/{pid}/activate")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert "columns" in data["data"]
+        assert "target" in data["data"]["columns"]
+
+    def test_activate_project_no_dataset(self, client):
+        create = client.post("/api/projects", data={"name": "No Data"})
+        pid = create.get_json()["project"]["id"]
+        resp = client.post(f"/api/projects/{pid}/activate")
+        assert resp.status_code == 400
+
+    def test_activate_nonexistent(self, client):
+        resp = client.post("/api/projects/nonexistent/activate")
+        assert resp.status_code == 404
+
+    def test_activate_and_train_persists_model(self, client, csv_data):
+        """Activate → train → model is persisted to the project."""
+        with open(csv_data, "rb") as f:
+            create = client.post("/api/projects", data={
+                "name": "Train Persist",
+                "file": f,
+            }, content_type="multipart/form-data")
+        pid = create.get_json()["project"]["id"]
+
+        # Activate (this sets session cookie via test client)
+        client.post(f"/api/projects/{pid}/activate")
+
+        # Train
+        train_resp = client.post("/api/train", json={
+            "target_col": "target",
+            "model_type": "mlp",
+            "epochs": 3,
+            "hidden_layers": "4,2",
+            "batch_size": 4,
+        })
+        assert train_resp.status_code == 200
+
+        # Verify model persisted
+        project = client.get(f"/api/projects/{pid}").get_json()["project"]
+        assert project["model_count"] == 1
+
+        # Reactivate and check model list
+        reactivate = client.post(f"/api/projects/{pid}/activate").get_json()
+        models = reactivate["data"].get("models", [])
+        assert len(models) == 1
+        assert models[0]["model_type"] == "mlp"
+
+
+# =============================================================================
+# Model Export
+# =============================================================================
+
+class TestModelExport:
+    """Model list and export endpoints (/api/projects/<id>/models)."""
+
+    def _setup_project_with_model(self, client, csv_data):
+        """Helper: create project, activate, train → returns project_id."""
+        with open(csv_data, "rb") as f:
+            create = client.post("/api/projects", data={
+                "name": "Export Test",
+                "file": f,
+            }, content_type="multipart/form-data")
+        pid = create.get_json()["project"]["id"]
+        client.post(f"/api/projects/{pid}/activate")
+        client.post("/api/train", json={
+            "target_col": "target",
+            "model_type": "mlp",
+            "epochs": 3,
+            "hidden_layers": "4,2",
+            "batch_size": 4,
+        })
+        return pid
+
+    def test_list_models(self, client, csv_data):
+        pid = self._setup_project_with_model(client, csv_data)
+        resp = client.get(f"/api/projects/{pid}/models")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data["models"]) == 1
+        assert data["models"][0]["model_type"] == "mlp"
+        assert "final_metrics" in data["models"][0]
+
+    def test_list_models_empty(self, client):
+        create = client.post("/api/projects", data={"name": "No Train"})
+        pid = create.get_json()["project"]["id"]
+        resp = client.get(f"/api/projects/{pid}/models")
+        assert resp.get_json()["models"] == []
+
+    def test_list_models_nonexistent_project(self, client):
+        resp = client.get("/api/projects/nonexistent/models")
+        assert resp.status_code == 404
+
+    def test_export_model(self, client, csv_data):
+        pid = self._setup_project_with_model(client, csv_data)
+        resp = client.get(f"/api/projects/{pid}/models/model_001/export")
+        assert resp.status_code == 200
+        # Should be a binary download
+        assert len(resp.data) > 0
+        assert resp.mimetype == "application/octet-stream" or resp.mimetype.startswith("application/")
+
+    def test_export_model_with_custom_name(self, client, csv_data):
+        pid = self._setup_project_with_model(client, csv_data)
+        resp = client.get(f"/api/projects/{pid}/models/model_001/export?name=my_model.pt")
+        assert resp.status_code == 200
+        cd = resp.headers.get("Content-Disposition", "")
+        assert "my_model.pt" in cd
+
+    def test_export_model_not_found(self, client, csv_data):
+        pid = self._setup_project_with_model(client, csv_data)
+        resp = client.get(f"/api/projects/{pid}/models/model_999/export")
+        assert resp.status_code == 404
+
+    def test_export_model_nonexistent_project(self, client):
+        resp = client.get("/api/projects/nonexistent/models/model_001/export")
+        assert resp.status_code == 404
+
+
+# =============================================================================
+# Model Comparison
+# =============================================================================
+
+class TestModelComparison:
+    """Multi-model prediction comparison endpoint."""
+
+    def _setup_with_two_models(self, client, csv_data):
+        """Helper: create project, train two models, return project_id."""
+        with open(csv_data, "rb") as f:
+            create = client.post("/api/projects", data={
+                "name": "Compare Test",
+                "file": f,
+            }, content_type="multipart/form-data")
+        pid = create.get_json()["project"]["id"]
+        client.post(f"/api/projects/{pid}/activate")
+        client.post("/api/train", json={
+            "target_col": "target", "model_type": "mlp",
+            "epochs": 3, "hidden_layers": "8,4", "batch_size": 4,
+        })
+        client.post("/api/train", json={
+            "target_col": "target", "model_type": "mlp",
+            "epochs": 3, "hidden_layers": "16,8", "batch_size": 4,
+        })
+        return pid
+
+    def test_compare_two_models(self, client, csv_data):
+        pid = self._setup_with_two_models(client, csv_data)
+        resp = client.post(f"/api/projects/{pid}/models/compare", json={
+            "model_ids": ["model_001", "model_002"],
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["loaded_count"] == 2
+        assert len(data["plot_image"]) > 100
+
+    def test_compare_no_model_ids(self, client, csv_data):
+        pid = self._setup_with_two_models(client, csv_data)
+        resp = client.post(f"/api/projects/{pid}/models/compare", json={})
+        assert resp.status_code == 400
+        assert "No model_ids" in resp.get_json()["error"]
+
+    def test_compare_invalid_model_id(self, client, csv_data):
+        pid = self._setup_with_two_models(client, csv_data)
+        resp = client.post(f"/api/projects/{pid}/models/compare", json={
+            "model_ids": ["model_999"],
+        })
+        assert resp.status_code == 400
+
+    def test_compare_single_model(self, client, csv_data):
+        pid = self._setup_with_two_models(client, csv_data)
+        resp = client.post(f"/api/projects/{pid}/models/compare", json={
+            "model_ids": ["model_001"],
+        })
+        assert resp.status_code == 200
+        assert resp.get_json()["loaded_count"] == 1
+
+    def test_compare_nonexistent_project(self, client):
+        resp = client.post("/api/projects/nonexistent/models/compare", json={
+            "model_ids": ["model_001"],
+        })
+        assert resp.status_code == 404
