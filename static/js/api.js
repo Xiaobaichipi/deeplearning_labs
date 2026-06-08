@@ -347,12 +347,29 @@ async function runPredict() {
         });
         html += "</tbody></table>";
         document.getElementById("predTable").innerHTML = html;
+
+        // Show chart if available
+        const chartDiv = document.getElementById("predChart");
+        if (data.plot_image) {
+            chartDiv.style.display = "grid";
+            chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Predictions vs True"><div class="caption">Predictions vs True Values</div></div>`;
+        } else {
+            chartDiv.style.display = "none";
+        }
+
+        // Show download buttons
+        document.getElementById("predDownload").style.display = "flex";
     } catch (err) {
         alert("Error: " + err.message);
     } finally {
         btn.disabled = false;
         btn.textContent = "Generate Predictions";
     }
+}
+
+function downloadPredictions(format) {
+    const source = document.getElementById("predictSource").value;
+    window.location.href = `/api/predict/download?source=${source}&format=${format}`;
 }
 
 async function resetAll() {
@@ -372,6 +389,8 @@ async function resetAll() {
         document.getElementById("trainError").style.display = "none";
         document.getElementById("evalMetrics").style.display = "none";
         document.getElementById("predResults").style.display = "none";
+        document.getElementById("predChart").style.display = "none";
+        document.getElementById("predDownload").style.display = "none";
         document.getElementById("cvResults").style.display = "none";
         document.getElementById("dataStats").innerHTML = "";
         document.getElementById("previewTable").innerHTML = "";
