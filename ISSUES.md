@@ -1,5 +1,22 @@
 # Issues Log
 
+## 2026-06-08: Predictions 图表调整——缩小尺寸 + 新增折线图 (jiagou_youhua 分支)
+
+### 变更
+
+1. **散点图缩小** — `plot_pred_vs_true()` 的 figsize 从 (6,5) 改为 (5,4)，dpi 从 100 提升到 300，点大小调小
+2. **新增折线图** — `plot_pred_vs_true_line()`：以样本序号为 X 轴，蓝色 True Values / 橙色 Predictions 双折线对比
+3. **API 返回两张图** — `api_predict()` 的 JSON 响应新增 `line_plot_image` 字段
+4. **前端并排展示** — `predChart` 内 scatter + line 两个 `.image-card` 并排显示
+
+### 涉及文件
+
+- `utils/plot_utils.py` — 修改 `plot_pred_vs_true()` + 新增 `plot_pred_vs_true_line()`
+- `routes/evaluation.py` — 引入并返回 `line_plot_image`
+- `static/js/api.js` — 前端展示两张图
+
+---
+
 ## 2026-06-08: Predictions 增加对比图 + CSV/XLSX 下载 (jiagou_youhua 分支)
 
 ### 新增功能
