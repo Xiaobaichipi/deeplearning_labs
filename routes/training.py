@@ -284,7 +284,19 @@ def _build_config(params, df):
     batch_size = int(params.get("batch_size", default_cfg["batch_size"]))
     epochs = int(params.get("epochs", default_cfg["epochs"]))
     patience = int(params.get("patience", default_cfg["patience"]))
+    import torch
     device = config.parse_device(params.get("device", config.DEVICE))
+    if not isinstance(device, list) and device.startswith("cuda") and not torch.cuda.is_available():
+        raise ValueError(
+            f"CUDA is not available: the NVIDIA driver is too old (driver 535 supports CUDA 12.x, "
+            f"but PyTorch was compiled with CUDA {torch.version.cuda}). "
+            f"Please update your NVIDIA driver or install a PyTorch version matching your driver."
+        )
+    elif isinstance(device, list) and not torch.cuda.is_available():
+        raise ValueError(
+            f"Multi-GPU training requires CUDA, but the NVIDIA driver is too old "
+            f"(driver 535 supports CUDA 12.x, PyTorch needs CUDA {torch.version.cuda})."
+        )
 
     model_params = {"dropout": float(params.get("dropout", default_cfg["dropout"]))}
     model_defaults = config.MODEL.get(model_type, {})
