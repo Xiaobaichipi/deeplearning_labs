@@ -203,7 +203,7 @@ def plot_pred_vs_true_line(y_true, y_pred):
 
 def plot_residuals(y_true, y_pred):
     """Plot residual histogram, return base64 PNG."""
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(5, 4))
     residuals = y_true - y_pred
     ax.hist(residuals, bins=30, edgecolor="black", alpha=0.7)
     ax.set(xlabel="Residual", ylabel="Frequency", title="Residual Distribution")

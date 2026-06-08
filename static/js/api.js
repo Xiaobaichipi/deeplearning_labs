@@ -135,7 +135,7 @@ async function startTraining() {
 
     // Hide previous results, show progress panel
     document.getElementById("trainError").style.display = "none";
-    document.getElementById("trainingImages").innerHTML = "";
+
     document.getElementById("trainingSummary").style.display = "none";
 
     try {
@@ -174,15 +174,6 @@ async function startTraining() {
                 <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
                 <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
             `;
-
-            const imgDiv = document.getElementById("trainingImages");
-            imgDiv.innerHTML = "";
-            if (data.images) {
-                Object.entries(data.images).forEach(([key, img]) => {
-                    const label = key === "training_history" ? "Training History (Loss & Metric)" : key;
-                    imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label}</div></div>`;
-                });
-            }
 
             document.getElementById("trainingSummary").style.display = "block";
             document.getElementById("summaryMetrics").innerHTML = `
@@ -347,6 +338,10 @@ function downloadPredictions(format) {
     window.location.href = `/api/predict/download?source=test&format=${format}`;
 }
 
+function downloadHistory(format) {
+    window.location.href = `/api/train/history/download?format=${format}`;
+}
+
 async function resetAll() {
     if (!confirm("Reset all data and start over?")) return;
     try {
@@ -369,7 +364,6 @@ async function resetAll() {
         document.getElementById("cvResults").style.display = "none";
         document.getElementById("dataStats").innerHTML = "";
         document.getElementById("previewTable").innerHTML = "";
-        document.getElementById("trainingImages").innerHTML = "";
         document.getElementById("evalImages").innerHTML = "";
     } catch (err) {
         alert("Error: " + err.message);

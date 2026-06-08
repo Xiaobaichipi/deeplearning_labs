@@ -335,11 +335,13 @@
 
             <div id="trainingInfo" class="stats-grid"></div>
 
-            <div id="trainingImages" class="image-grid"></div>
-
             <div id="trainingSummary" style="display:none;" class="card">
                 <h3 class="card-title">Training Summary</h3>
                 <div id="summaryMetrics" class="metrics-grid"></div>
+                <div style="margin-top:16px;display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="downloadHistory('csv')">Download Loss/Metric CSV</button>
+                    <button class="btn btn-secondary btn-sm" onclick="downloadHistory('xlsx')">Download Loss/Metric Excel</button>
+                </div>
             </div>
         </div>
 

@@ -1,5 +1,27 @@
 # Issues Log
 
+## 2026-06-08: Predictions 简化 + Training 重构 (jiagou_youhua 分支)
+
+### 变更
+
+1. **Residual 图比例调整** — `figsize=(6,4)` → `(5,4)`，适配 eval 卡片容器
+2. **移除冗余 Training History 图** — `plot_training_history` 调用和 `trainingImages` 容器全删除。Live Training Progress 的 Chart.js 已实时展示 Loss/Metric 曲线，不再需要训练后静态 matplotlib 图
+3. **新增 Loss/Metric 数据下载** — 新端点 `GET /api/train/history/download?format=csv|xlsx`，训练完成后 Training Summary 区追加两个下载按钮
+
+### 涉及文件
+
+- `utils/plot_utils.py` — residual plot figsize 调整
+- `routes/training.py` — 去掉 `plot_training_history` 导入和调用；新增 `/api/train/history/download` 端点
+- `templates/index.html` — 去掉 `trainingImages` 容器；Training Summary 增加下载按钮
+- `static/js/api.js` — SSE complete handler 移除 trainingImages 渲染；`resetAll()` 移除 trainingImages 清理；新增 `downloadHistory()` 函数
+
+### 测试
+
+- `test_routes.py` — 新增 `test_history_download_csv`、`test_history_download_without_training_returns_400`
+- 总计 126 tests, 0 failed
+
+---
+
 ## 2026-06-08: 简化 Predictions 页面——去掉表格 + 下拉框 (jiagou_youhua 分支)
 
 ### 变更

@@ -172,8 +172,6 @@ class TestTraining:
         assert "history" in data
         assert "train_loss" in data["history"]
         assert "val_loss" in data["history"]
-        assert "images" in data
-        assert "training_history" in data["images"]
 
     def test_train_without_upload_returns_400(self, client):
         resp = client.post("/api/train", json={"target_col": "target"})
@@ -233,6 +231,25 @@ class TestTrainSetupAndStream:
         # Parse SSE output
         text = resp.get_data(as_text=True)
         assert "event: progress" in text or "event: complete" in text
+
+    def test_history_download_csv(self, client, csv_data):
+        with open(csv_data, "rb") as f:
+            client.post("/api/upload", data={"file": f}, content_type="multipart/form-data")
+        client.post("/api/train", json={
+            "target_col": "target",
+            "model_type": "mlp",
+            "epochs": 2,
+            "hidden_layers": "4",
+            "batch_size": 4,
+        })
+        resp = client.get("/api/train/history/download?format=csv")
+        assert resp.status_code == 200
+        assert resp.mimetype == "text/csv"
+        assert resp.headers["Content-Disposition"].startswith("attachment")
+
+    def test_history_download_without_training_returns_400(self, client):
+        resp = client.get("/api/train/history/download")
+        assert resp.status_code == 400
 
 
 # =============================================================================

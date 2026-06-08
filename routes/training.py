@@ -1,3 +1,4 @@
+import io
 import json
 import queue
 import threading
@@ -8,7 +9,7 @@ from utils import config
 from utils.data_utils import normalize_data, normalize_target, split_data
 from utils.model_utils import create_model, train_model
 from utils.models import get_model_params
-from utils.plot_utils import plot_training_history
+
 from utils.session import get_data_id, json_ok
 
 training_bp = Blueprint("training", __name__)
@@ -52,8 +53,6 @@ def train():
         sm.set_model_config(data_id, built)
         sm.set_history(data_id, history)
 
-        plot_images = plot_training_history(history)
-
         return json_ok({
             "success": True,
             "history": {
@@ -67,7 +66,6 @@ def train():
                 "val_loss": round(history["val_loss"][-1], 6),
                 "epochs": len(history["train_loss"]),
             },
-            "images": plot_images,
             "task_type": split_result["task_type"],
             "input_dim": split_result["input_dim"],
             "output_dim": output_dim,
@@ -184,7 +182,6 @@ def train_stream():
         sm.set_history(data_id, train_result["history"])
 
         history = train_result["history"]
-        plot_images = plot_training_history(history)
 
         final = {
             "history": {
@@ -198,7 +195,6 @@ def train_stream():
                 "val_loss": round(history["val_loss"][-1], 6),
                 "epochs": len(history["train_loss"]),
             },
-            "images": plot_images,
             "task_type": split_result["task_type"],
             "input_dim": split_result["input_dim"],
             "output_dim": output_dim,
@@ -210,6 +206,47 @@ def train_stream():
         yield f"event: complete\ndata: {json.dumps(final)}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
+
+
+@training_bp.route("/api/train/history/download")
+def history_download():
+    """Download training history (loss/metric per epoch) as CSV/XLSX."""
+    sm = current_app.config["session_manager"]
+    data_id = get_data_id()
+    history = sm.get_history(data_id)
+    if not history:
+        return jsonify({"error": "No training history found"}), 400
+
+    fmt = request.args.get("format", "csv")
+    import pandas as pd
+    df = pd.DataFrame({
+        "epoch": list(range(1, len(history["train_loss"]) + 1)),
+        "train_loss": history["train_loss"],
+        "val_loss": history["val_loss"],
+        "train_metric": history["train_metric"],
+        "val_metric": history["val_metric"],
+    })
+    output = io.BytesIO()
+
+    if fmt == "csv":
+        df.to_csv(output, index=False)
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=training_history.csv"},
+        )
+    else:
+        try:
+            df.to_excel(output, index=False, engine="openpyxl")
+        except ImportError:
+            return jsonify({"error": "openpyxl not installed; use format=csv instead"}), 400
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment;filename=training_history.xlsx"},
+        )
 
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
