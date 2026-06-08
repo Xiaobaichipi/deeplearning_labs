@@ -223,8 +223,8 @@ def history_download():
         "epoch": list(range(1, len(history["train_loss"]) + 1)),
         "train_loss": history["train_loss"],
         "val_loss": history["val_loss"],
-        "train_metric": history["train_metric"],
-        "val_metric": history["val_metric"],
+        "train_mae": history["train_metric"],
+        "val_mae": history["val_metric"],
     })
     output = io.BytesIO()
 

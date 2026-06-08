@@ -6,6 +6,7 @@ This module provides shared training infrastructure.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
@@ -55,6 +56,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
+        train_mae = 0.0
         train_correct = 0
         train_total = 0
 
@@ -64,7 +66,9 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             outputs = model(batch_x)
 
             if task_type == "regression":
-                loss = criterion(outputs.squeeze(), batch_y)
+                pred = outputs.squeeze(-1)
+                loss = criterion(pred, batch_y)
+                train_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
             else:
                 loss = criterion(outputs, batch_y)
                 _, predicted = torch.max(outputs, 1)
@@ -79,6 +83,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
 
         model.eval()
         val_loss = 0.0
+        val_mae = 0.0
         val_correct = 0
         val_total = 0
         with torch.no_grad():
@@ -86,7 +91,9 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 batch_x, batch_y = batch_x.to(device), batch_y.to(device)
                 outputs = model(batch_x)
                 if task_type == "regression":
-                    loss = criterion(outputs.squeeze(-1), batch_y)
+                    pred = outputs.squeeze(-1)
+                    loss = criterion(pred, batch_y)
+                    val_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
                 else:
                     loss = criterion(outputs, batch_y)
                     _, predicted = torch.max(outputs, 1)
@@ -105,8 +112,8 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             history["train_metric"].append(float(train_acc))
             history["val_metric"].append(float(val_acc))
         else:
-            history["train_metric"].append(float(train_loss))
-            history["val_metric"].append(float(val_loss))
+            history["train_metric"].append(float(train_mae))
+            history["val_metric"].append(float(val_mae))
 
         scheduler.step(val_loss)
 

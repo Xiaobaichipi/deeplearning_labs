@@ -147,8 +147,8 @@ function _initCharts() {
         data: {
             labels: [],
             datasets: [
-                { label: "Train Metric", data: [], borderColor: "#27c93f", backgroundColor: "rgba(39,201,63,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
-                { label: "Val Metric",   data: [], borderColor: "#ffbd2e", backgroundColor: "rgba(255,189,46,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+                { label: "Train MAE", data: [], borderColor: "#27c93f", backgroundColor: "rgba(39,201,63,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+                { label: "Val MAE",   data: [], borderColor: "#ffbd2e", backgroundColor: "rgba(255,189,46,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
             ],
         },
         options: {
@@ -156,7 +156,7 @@ function _initCharts() {
             plugins: { legend: { position: "bottom", labels: { boxWidth: 12, padding: 12 } } },
             scales: {
                 x: { title: { display: true, text: "Epoch" } },
-                y: { title: { display: true, text: "Score" }, beginAtZero: false },
+                y: { title: { display: true, text: "MAE" }, beginAtZero: false },
             },
         },
     });
