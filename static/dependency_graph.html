@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepLearning Labs - Code Graph</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'loose'});</script>
+<style>
+  body { margin: 0; padding: 20px; background: #f5f5f5; font-family: -apple-system,sans-serif; }
+  .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { margin: 0 0 4px 0; font-size: 20px; }
+  .subtitle { color: #666; font-size: 14px; margin: 0 0 20px 0; }
+  .mermaid { overflow: auto; }
+  .legend { margin-top: 16px; padding: 12px 16px; background: #fafafa; border-radius: 8px; font-size: 13px; color: #555; display: flex; gap: 24px; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>DeepLearning Labs — Code Dependency Graph</h1>
+  <p class="subtitle">Generated from CodeGraph index</p>
+  <div class="mermaid">
+graph TB
+  %% Nodes grouped by layer
+  subgraph G_Entry["Entry"]
+    n0_main["main"]
+  end
+  subgraph G_Routes["Routes"]
+    n0_routes___init__["routes.__init__"]
+    n1_data["data"]
+    n2_evaluation["evaluation"]
+    n3_training["training"]
+    n4_projects["projects"]
+  end
+  subgraph G_Utils["Utils"]
+    n0_utils___init__["utils.__init__"]
+    n1_data_utils["data_utils"]
+    n2_fonts["fonts"]
+    n3_model_utils["model_utils"]
+    n4_plot_utils["plot_utils"]
+    n5_session["session"]
+    n6_project_manager["project_manager"]
+  end
+  subgraph G_Models["Models"]
+    n0_utils___init__["utils.__init__"]
+    n1_base["base"]
+    n2_cnn["cnn"]
+    n3_gru["gru"]
+    n4_lstm["lstm"]
+    n5_mlp["mlp"]
+    n6_rnn["rnn"]
+    n7_transformer["transformer"]
+  end
+  subgraph G_Frontend["Frontend"]
+    n0_api["api"]
+    n1_app["app"]
+    n2_ui["ui"]
+  end
+
+  %% Edges
+  n1_data -->|18| n5_session
+  n2_evaluation -->|14| n5_session
+  n1_data -->|8| n4_plot_utils
+  n0_api -->|8| n2_ui
+  n1_data -->|7| n1_data_utils
+  n3_training -->|6| n5_session
+  n4_projects -->|5| n5_session
+  n3_model_utils -->|4| n4_plot_utils
+  n4_projects -->|4| n6_project_manager
+  n2_evaluation -->|2| n3_model_utils
+  n3_training -->|2| n1_data_utils
+  n3_training -->|2| n3_model_utils
+  n4_projects -->|2| n1_data_utils
+  n4_projects -->|1| n3_model_utils
+  n4_projects -->|1| n4_plot_utils
+  n0_main -->|1| n5_session
+  n0_main -->|1| n6_project_manager
+  n3_training -->|1| n0_utils___init__
+  n3_training -->|1| n4_plot_utils
+  n3_model_utils -->|1| n0_utils___init__
+  n3_model_utils -->|1| n2_fonts
+  n5_session -->|1| n1_data_utils
+  </div>
+  <div class="legend">
+    <span>→ <strong>call count</strong>  Function calls</span>
+    <span>⇢ <strong>import count</strong>  Imports</span>
+    <span>Click the browser refresh if graph doesn't render</span>
+  </div>
+</div>
+</body>
+</html>

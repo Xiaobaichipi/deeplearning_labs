@@ -92,6 +92,15 @@
 - 新增 `TestModelComparison`（5 个测试）— 双模型、单模型、空参数、无效 ID、不存在项目
 - 测试总数 152（新增 6），0 failed
 
+---
+
+## 2026-06-08: Bug 修复 — New Project 上传文件名溢出 (v2-project-system 分支)
+
+**问题**: New Project 模态框中选择长文件名后，文件名文字超出上传框边界。
+
+**修复**: `#projectUploadText` 追加 `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`，超长文件名截断为 `…`。
+`.modal-content .upload-zone` 追加 `max-width: 100%; box-sizing: border-box` 防止容器溢出。
+
 --- + 强制 y 归一化 (jiagou_youhua 分支)
 
 ### Bug 1: MAE 累加缺少除以样本总数
