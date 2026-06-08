@@ -86,7 +86,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 batch_x, batch_y = batch_x.to(device), batch_y.to(device)
                 outputs = model(batch_x)
                 if task_type == "regression":
-                    loss = criterion(outputs.squeeze(), batch_y)
+                    loss = criterion(outputs.squeeze(-1), batch_y)
                 else:
                     loss = criterion(outputs, batch_y)
                     _, predicted = torch.max(outputs, 1)
@@ -149,7 +149,7 @@ def predict(model, X, task_type, device="cpu"):
             predictions = torch.argmax(outputs, dim=1)
             return predictions.cpu().numpy(), probabilities.cpu().numpy()
         else:
-            return outputs.squeeze().cpu().numpy(), None
+            return np.atleast_1d(outputs.squeeze().cpu().numpy()), None
 
 
 def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
@@ -253,8 +253,8 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
                 "images": images,
             }
         else:
-            preds = outputs.squeeze().cpu().numpy()
-            y_true = y_t.cpu().numpy()
+            preds = np.atleast_1d(outputs.squeeze().cpu().numpy())
+            y_true = np.atleast_1d(y_t.cpu().numpy())
 
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))

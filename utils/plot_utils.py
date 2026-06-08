@@ -143,6 +143,8 @@ def fig_to_base64(fig, dpi=100):
 
 def plot_confusion_matrix(cm, class_names):
     """Plot confusion matrix, return base64 PNG."""
+    if not cm or not class_names:
+        return None
     fig, ax = plt.subplots(figsize=(6, 5))
     im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
     ax.figure.colorbar(im, ax=ax)

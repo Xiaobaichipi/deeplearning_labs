@@ -1,0 +1,179 @@
+# DeepLearning Labs
+
+> 基于浏览器的表格数据深度学习实验平台。上传、探索、清洗、训练、评估、预测 —— 全在浏览器中完成，后端由 PyTorch 驱动。
+
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c)](https://pytorch.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.0%2B-black)](https://flask.palletsprojects.com/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+---
+
+## 功能特性
+
+- **📤 上传与探索** — 拖拽导入 CSV/Excel，自动检测编码；数据预览、列信息、统计信息、分布直方图、相关性热力图
+- **🧹 清洗与填充** — 去重、IQR 离群值处理、多种缺失值填充策略（均值/中位数/众数/前向填充/后向填充/常量）
+- **🧠 多架构模型** — MLP、CNN（1D）、RNN、LSTM、GRU、Transformer —— 全部支持超参配置
+- **📊 实时训练** — SSE 流式传输每 epoch 进度，实时 Loss/Metric 曲线图（Chart.js），早停机制 + 学习率调度
+- **📈 评估与可视化** — 回归指标（MSE/RMSE/MAE/R²）、分类指标（准确率/精确率/召回率/F1）、混淆矩阵、ROC 曲线、残差分布图
+- **🔁 交叉验证** — K 折 CV 使用与训练相同的 PyTorch 模型架构
+- **🔮 预测与导出** — 对训练集/测试集生成预测，散点图 + 折线图对比；结果导出为 CSV 或 Excel
+- **🔌 可扩展** — 简单模型注册机制 —— 添加新架构只需一个文件 + 一条注册项
+
+---
+
+## 快速开始
+
+### 环境要求
+
+- Python 3.10+
+- pip
+
+### 安装与运行
+
+```bash
+# 克隆或下载项目
+cd deeplearning_labs
+
+# 安装依赖（CPU 版 PyTorch 即可）
+pip install -r requirements.txt
+
+# 启动服务
+python main.py
+```
+
+打开浏览器访问 **http://localhost:5000**。
+
+> **GPU 加速**：如拥有 CUDA 显卡，可安装 CUDA 版 PyTorch 加速训练：
+> ```bash
+> pip install torch --index-url https://download.pytorch.org/whl/cu118
+> ```
+
+### 使用启动脚本
+
+```bash
+./start.sh              # 默认端口 5000 启动
+./start.sh 8080         # 自定义端口启动
+./start.sh stop         # 停止服务
+./start.sh status       # 查看运行状态
+```
+
+---
+
+## 使用向导
+
+界面采用 6 步引导流程：
+
+| 步骤 | 操作 | 结果 |
+|---|---|---|
+| **1. 上传** | 拖拽或点击上传 CSV/XLSX | 自动检测编码，数据加载到会话 |
+| **2. 探索** | 浏览各个标签页 | 数据预览、列信息、统计、分布图、相关性图 |
+| **3. 清洗填充** | 勾选清洗选项、选择填充策略 | 去重、离群值修剪、缺失值填充 |
+| **4. 模型配置** | 选择模型架构与超参数 | MLP/CNN/RNN/LSTM/GRU/Transformer 选型 + 归一化配置 |
+| **5. 训练** | 点击"Start Training" | 实时进度条 + Loss/Metric 曲线、早停、训练历史图 |
+| **6. 评估预测** | 运行评估/交叉验证/预测 | 指标、可视化图表、预测结果表格 + 对比图、CSV/XLSX 下载 |
+
+---
+
+## 支持的模型
+
+| 模型 | 描述 | 关键参数 |
+|---|---|---|
+| **MLP** | 全连接前馈网络 | 隐藏层结构、dropout |
+| **CNN 1D** | 一维卷积网络 | 通道数、卷积核大小、dropout |
+| **RNN** | 标准循环神经网络 | 隐藏层大小、层数、双向、dropout |
+| **LSTM** | 长短期记忆网络 | 隐藏层大小、层数、双向、dropout |
+| **GRU** | 门控循环单元网络 | 隐藏层大小、层数、双向、dropout |
+| **Transformer** | Transformer 编码器 | d_model、注意力头数、前馈维度、层数、dropout |
+
+添加新模型请参考[模型扩展指南](templates/models_guide.html)。
+
+---
+
+## 项目架构
+
+```
+deeplearning_labs/
+├── main.py                     # Flask 入口
+├── routes/
+│   ├── data.py                 # 上传、清洗、填充端点
+│   ├── training.py             # 训练（同步 + SSE 流）
+│   └── evaluation.py           # 评估、预测、交叉验证、下载
+├── utils/
+│   ├── model_utils.py          # 训练循环、推理、CV、评估
+│   ├── data_utils.py           # 加载、拆分、归一化、清洗、填充
+│   ├── plot_utils.py           # Matplotlib → base64 PNG
+│   ├── session.py              # SessionManager（状态缓存）
+│   ├── config.py               # 集中化默认配置
+│   ├── fonts.py                # 中文字体检测
+│   └── models/                 # 模型注册（MLP、CNN、RNN 等）
+├── static/
+│   ├── js/app.js               # 事件绑定与初始化
+│   ├── js/api.js               # API 调用函数
+│   ├── js/ui.js                # DOM 渲染与 Chart.js
+│   └── css/style.css           # 全局样式
+├── templates/
+│   ├── index.html              # 主应用界面
+│   └── models_guide.html       # 模型扩展文档
+├── uploads/                    # 上传数据（按会话隔离）
+├── outputs/                    # 生成输出
+├── docs/
+│   └── PRD.md                  # 产品需求文档
+├── start.sh                    # 启停脚本
+└── requirements.txt            # Python 依赖
+```
+
+### 关键设计决策
+
+- **Flask Blueprint 路由组织** — data、training、evaluation 分离为独立模块
+- **SSE（Server-Sent Events）** 实现实时训练进度 — 比 WebSocket 更简单，Flask 原生支持
+- **SessionManager 内存缓存 + 磁盘回退** — 在 Flask debug 重载后自动恢复数据
+- **模型注册机制** — 添加模型 = 一个文件 + 一条注册项，无需修改其他代码
+- **Chart.js 实时图表** — `animation: false` 避免 SSE 高频更新时闪烁
+- **matplotlib Agg 后端** — 服务端渲染为 base64 PNG，内嵌到页面中
+
+---
+
+## 默认配置
+
+超参默认值集中管理在 `utils/config.py`：
+
+```python
+TRAINING = {
+    "test_size": 0.2, "learning_rate": 0.001,
+    "batch_size": 32, "epochs": 50,
+    "patience": 10, "dropout": 0.2,
+    "normalization": "none",
+}
+
+MODEL = { ... }  # 各架构默认值
+CV = {"default_folds": 5, "max_epochs_per_fold": 20}
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+```
+
+---
+
+## 开发
+
+```bash
+# 安装开发依赖（可选）
+pip install pytest pytest-cov
+
+# 运行测试（添加测试后）
+pytest tests/
+
+# 启动调试模式（默认开启）
+python main.py  # 代码修改后自动重载
+```
+
+---
+
+## 项目状态
+
+当前在 `jiagou_youhua` 分支上活跃开发。完整变更日志见 [ISSUES.md](ISSUES.md)。
+
+---
+
+## 许可证
+
+MIT

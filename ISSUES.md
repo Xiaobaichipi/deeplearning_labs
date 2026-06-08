@@ -1,5 +1,25 @@
 # Issues Log
 
+## 2026-06-08: 测试覆盖 (jiagou_youhua 分支)
+
+### 新增测试文件
+
+- **`tests/test_data_utils.py`** — 28 个测试覆盖 normalize, split, clean, fill 函数
+- **`tests/test_session.py`** — 24 个测试覆盖 SessionManager CRUD + 磁盘重载
+- **`tests/test_model_utils.py`** — 20 个测试覆盖模型创建、训练、推理、评估、交叉验证
+- **`tests/test_plot_utils.py`** — 21 个测试覆盖所有绘图函数的 base64 PNG 输出有效性
+- **`tests/test_routes.py`** — 31 个测试覆盖 Flask 路由端到端（上传→训练→评估→预测→下载→重置）
+
+### 代码修复
+
+- `utils/plot_utils.py:plot_confusion_matrix()` — 空矩阵时返回 `None` 避免 matplotlib crash
+- `utils/model_utils.py` — `predict()` 和 `evaluate()` 回归分支使用 `np.atleast_1d` 防止单样本场景下 0-d 标量导致 sklearn 报错
+- `utils/model_utils.py` — 训练循环中 `outputs.squeeze()` → `squeeze(-1)` 避免单样本 batch 的维度广播 warning
+
+### 总计
+
+124 tests, 0 failed, 0 skipped
+
 ## 2026-06-08: Predictions 图表调整——缩小尺寸 + 新增折线图 (jiagou_youhua 分支)
 
 ### 变更
