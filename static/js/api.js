@@ -368,6 +368,7 @@ async function resetAll() {
         document.getElementById("cleanReport").style.display = "none";
         document.getElementById("trainingSummary").style.display = "none";
         document.getElementById("trainingProgress").style.display = "none";
+        destroyCharts();
         document.getElementById("trainError").style.display = "none";
         document.getElementById("evalMetrics").style.display = "none";
         document.getElementById("predResults").style.display = "none";

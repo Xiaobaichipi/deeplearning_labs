@@ -1,5 +1,29 @@
 # Issues Log
 
+## 2026-06-08: 训练进度实时曲线图 (jiagou_youhua 分支)
+
+### 变更描述
+
+在实时训练面板（Live Training Progress）的指标数字卡片下方，增加 2 个并排的趋势图：
+
+- **Loss 曲线** — Train Loss（蓝）/ Val Loss（红），epoch 维度实时延伸
+- **Metric 曲线** — Train Metric（绿）/ Val Metric（黄），epoch 维度实时延伸
+
+### 技术方案
+
+- 使用 Chart.js (CDN) 绘制折线图，`animation: false` 避免频繁更新时的闪烁
+- 每收到一个 SSE progress 事件，向 `_chartData` 追加数据点，调用 `chart.update("none")` 无动画刷新
+- 每次 `initTrainingProgress()` 时调用 `destroyCharts()` + `_initCharts()` 重置
+- `destroyCharts()` 暴露为全局函数，供 `resetAll()` 清理
+
+### 涉及文件
+
+- `templates/index.html` — Chart.js CDN script + 2 个 canvas 容器
+- `static/js/ui.js` — 图表初始化、数据追加、更新逻辑
+- `static/css/style.css` — `.chart-box` 容器高度 + 移动端 1 列堆叠
+
+---
+
 ## 2026-06-05: 新增归一化功能后上传数据不显示
 
 ### Bug描述

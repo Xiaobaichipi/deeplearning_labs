@@ -588,6 +588,8 @@ tr:hover td { background: var(--surface-soft); }
     .inline-group { flex-direction: column; }
     .inline-group .input-group { min-width: 100%; }
     .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    #trainingCharts { grid-template-columns: 1fr; }
+    .chart-box { min-height: 200px; height: 200px; }
 }
 
 /* =============== Live Training Progress =============== */
@@ -605,4 +607,11 @@ tr:hover td { background: var(--surface-soft); }
     background: #000000;
     border-radius: 9999px;
     transition: width 0.3s ease;
+}
+
+/* Chart.js canvas containers */
+.chart-box {
+    position: relative;
+    min-height: 260px;
+    height: 260px;
 }

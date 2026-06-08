@@ -110,14 +110,104 @@ function esc(str) {
 
 /* =============== Live Training Progress =============== */
 
+/* ── Charts (Chart.js) ───────────────────────────────────── */
+
+let _lossChart = null;
+let _metricChart = null;
+let _chartData = { epochs: [], trainLoss: [], valLoss: [], trainMetric: [], valMetric: [] };
+
+function _initCharts() {
+    const ctx1 = document.getElementById("lossChart");
+    const ctx2 = document.getElementById("metricChart");
+    if (!ctx1 || !ctx2) return;
+    if (_lossChart) { _lossChart.destroy(); _lossChart = null; }
+    if (_metricChart) { _metricChart.destroy(); _metricChart = null; }
+
+    _lossChart = new Chart(ctx1, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                { label: "Train Loss", data: [], borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+                { label: "Val Loss",   data: [], borderColor: "#ff5f56", backgroundColor: "rgba(255,95,86,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { position: "bottom", labels: { boxWidth: 12, padding: 12 } } },
+            scales: {
+                x: { title: { display: true, text: "Epoch" } },
+                y: { title: { display: true, text: "Loss" }, beginAtZero: false },
+            },
+        },
+    });
+
+    _metricChart = new Chart(ctx2, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                { label: "Train Metric", data: [], borderColor: "#27c93f", backgroundColor: "rgba(39,201,63,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+                { label: "Val Metric",   data: [], borderColor: "#ffbd2e", backgroundColor: "rgba(255,189,46,0.08)", fill: true, tension: 0.3, pointRadius: 0 },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { position: "bottom", labels: { boxWidth: 12, padding: 12 } } },
+            scales: {
+                x: { title: { display: true, text: "Epoch" } },
+                y: { title: { display: true, text: "Score" }, beginAtZero: false },
+            },
+        },
+    });
+}
+
+function _appendChartPoint(metrics) {
+    _chartData.epochs.push(metrics.epoch);
+    _chartData.trainLoss.push(metrics.train_loss);
+    _chartData.valLoss.push(metrics.val_loss);
+    _chartData.trainMetric.push(metrics.train_metric);
+    _chartData.valMetric.push(metrics.val_metric);
+}
+
+function _updateCharts() {
+    if (!_lossChart || !_metricChart) return;
+    _lossChart.data.labels = _chartData.epochs.slice();
+    _lossChart.data.datasets[0].data = _chartData.trainLoss.slice();
+    _lossChart.data.datasets[1].data = _chartData.valLoss.slice();
+    _lossChart.update("none");
+
+    _metricChart.data.labels = _chartData.epochs.slice();
+    _metricChart.data.datasets[0].data = _chartData.trainMetric.slice();
+    _metricChart.data.datasets[1].data = _chartData.valMetric.slice();
+    _metricChart.update("none");
+}
+
+function destroyCharts() {
+    if (_lossChart) { _lossChart.destroy(); _lossChart = null; }
+    if (_metricChart) { _metricChart.destroy(); _metricChart = null; }
+    _chartData = { epochs: [], trainLoss: [], valLoss: [], trainMetric: [], valMetric: [] };
+}
+
+/* ── Panel controls ─────────────────────────────────────── */
+
 function initTrainingProgress(total) {
-    document.getElementById("trainingProgress").style.display = "block";
+    const panel = document.getElementById("trainingProgress");
+    panel.style.display = "block";
+
+    // Show chart area
+    const chartsDiv = document.getElementById("trainingCharts");
+    if (chartsDiv) chartsDiv.style.display = "grid";
+
     document.getElementById("progressCurrentEpoch").textContent = "0";
     document.getElementById("progressTotalEpochs").textContent = total;
     document.getElementById("progressBar").style.width = "0%";
     updateProgressMetrics({
         train_loss: "—", val_loss: "—", train_metric: "—", val_metric: "—",
     });
+
+    destroyCharts();
+    _initCharts();
 }
 
 function updateTrainingProgress(metrics) {
@@ -125,6 +215,8 @@ function updateTrainingProgress(metrics) {
     document.getElementById("progressCurrentEpoch").textContent = metrics.epoch;
     document.getElementById("progressBar").style.width = Math.min(pct, 100) + "%";
     updateProgressMetrics(metrics);
+    _appendChartPoint(metrics);
+    _updateCharts();
 }
 
 function updateProgressMetrics(m) {
