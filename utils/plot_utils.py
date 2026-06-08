@@ -176,15 +176,27 @@ def plot_roc_curve(y_true, y_score):
 
 
 def plot_pred_vs_true(y_true, y_pred):
-    """Plot predictions vs true values, return base64 PNG."""
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_true, y_pred, alpha=0.5)
+    """Plot predictions vs true values (scatter), return base64 PNG."""
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.scatter(y_true, y_pred, alpha=0.5, s=15)
     lo = min(y_true.min(), y_pred.min())
     hi = max(y_true.max(), y_pred.max())
-    ax.plot([lo, hi], [lo, hi], "r--")
+    ax.plot([lo, hi], [lo, hi], "r--", linewidth=1)
     ax.set(xlabel="True Values", ylabel="Predictions", title="Predictions vs True Values")
     fig.tight_layout()
-    return fig_to_base64(fig)
+    return fig_to_base64(fig, dpi=300)
+
+
+def plot_pred_vs_true_line(y_true, y_pred):
+    """Plot true vs predicted as two lines by sample index, return base64 PNG."""
+    fig, ax = plt.subplots(figsize=(5, 4))
+    indices = np.arange(len(y_true))
+    ax.plot(indices, y_true, label="True Values", color="#2563eb", linewidth=1.5)
+    ax.plot(indices, y_pred, label="Predictions", color="#ea580c", linewidth=1.5, alpha=0.8)
+    ax.set(xlabel="Sample Index", ylabel="Value", title="Predictions vs True Values (Line)")
+    ax.legend()
+    fig.tight_layout()
+    return fig_to_base64(fig, dpi=300)
 
 
 def plot_residuals(y_true, y_pred):

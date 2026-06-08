@@ -352,7 +352,11 @@ async function runPredict() {
         const chartDiv = document.getElementById("predChart");
         if (data.plot_image) {
             chartDiv.style.display = "grid";
-            chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Predictions vs True"><div class="caption">Predictions vs True Values</div></div>`;
+            let html = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Predictions vs True (Scatter)"><div class="caption">Scatter: Predictions vs True Values</div></div>`;
+            if (data.line_plot_image) {
+                html += `<div class="image-card"><img src="data:image/png;base64,${data.line_plot_image}" alt="Predictions vs True (Line)"><div class="caption">Line: Predictions vs True Values</div></div>`;
+            }
+            chartDiv.innerHTML = html;
         } else {
             chartDiv.style.display = "none";
         }

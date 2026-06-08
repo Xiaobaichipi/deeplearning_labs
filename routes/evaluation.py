@@ -3,7 +3,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 from utils import config
 from utils.data_utils import denormalize_target
 from utils.model_utils import cross_validate_model, evaluate, predict
-from utils.plot_utils import plot_pred_vs_true
+from utils.plot_utils import plot_pred_vs_true, plot_pred_vs_true_line
 from utils.session import get_data_id, json_ok
 
 evaluation_bp = Blueprint("evaluation", __name__)
@@ -47,8 +47,10 @@ def api_predict():
 
         # Plot: pred vs true (regression only)
         plot_img = None
+        line_plot_img = None
         if task_type == "regression":
             plot_img = plot_pred_vs_true(y_true[:len(preds)], preds)
+            line_plot_img = plot_pred_vs_true_line(y_true[:len(preds)], preds)
 
         results = []
         for i in range(min(len(preds), 100)):
@@ -70,6 +72,7 @@ def api_predict():
             "task_type": task_type,
             "count": len(preds),
             "plot_image": plot_img,
+            "line_plot_image": line_plot_img,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
