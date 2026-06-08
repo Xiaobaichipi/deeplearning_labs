@@ -1,8 +1,8 @@
 from flask import Blueprint, current_app, jsonify, request
-from sklearn.model_selection import KFold, cross_val_score
-from sklearn.neural_network import MLPClassifier, MLPRegressor
 
-from utils.model_utils import evaluate, predict
+from utils import config
+from utils.data_utils import denormalize_target
+from utils.model_utils import cross_validate_model, evaluate, predict
 from utils.session import get_data_id, json_ok
 
 evaluation_bp = Blueprint("evaluation", __name__)
@@ -56,15 +56,9 @@ def api_predict():
         y_scaler = split_result.get("y_scaler")
 
         # Denormalize regression predictions back to original scale
-        if split_result["task_type"] == "regression" and y_scaler:
-            method = y_scaler.get("method")
-            if method == "mean":
-                preds = preds * y_scaler["std"] + y_scaler["mean"]
-                y_true = y_true * y_scaler["std"] + y_scaler["mean"]
-            elif method == "minmax":
-                _min, _max = y_scaler["min"], y_scaler["max"]
-                preds = preds * (_max - _min) + _min
-                y_true = y_true * (_max - _min) + _min
+        if split_result["task_type"] == "regression":
+            preds = denormalize_target(preds, y_scaler)
+            y_true = denormalize_target(y_true, y_scaler)
 
         results = []
         for i in range(min(len(preds), 100)):
@@ -98,37 +92,34 @@ def api_validate():
         return jsonify({"error": "Model not trained yet"}), 400
     try:
         split_result = sm.get_split(data_id)
-        X_train = split_result["X_train"]
-        y_train = split_result["y_train"]
+        model_config = sm.get_model_config(data_id)
+        if not model_config:
+            return jsonify({"error": "Model configuration not found; re-train the model"}), 400
 
         params = request.get_json() or {}
-        n_splits = int(params.get("n_splits", 5))
-        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        n_splits = int(params.get("n_splits", config.CV["default_folds"]))
+        output_dim = (
+            split_result["n_classes"]
+            if split_result["task_type"] == "classification"
+            else 1
+        )
 
-        if split_result["task_type"] == "classification":
-            scores = cross_val_score(
-                MLPClassifier(
-                    hidden_layer_sizes=(64, 32), max_iter=200,
-                    random_state=42, early_stopping=True,
-                ),
-                X_train, y_train, cv=kf, scoring="accuracy",
-            )
-        else:
-            scores = cross_val_score(
-                MLPRegressor(
-                    hidden_layer_sizes=(64, 32), max_iter=200,
-                    random_state=42, early_stopping=True,
-                ),
-                X_train, y_train, cv=kf, scoring="r2",
-            )
+        result = cross_validate_model(
+            model_type=model_config["model_type"],
+            input_dim=split_result["input_dim"],
+            output_dim=output_dim,
+            X=split_result["X_train"],
+            y=split_result["y_train"],
+            task_type=split_result["task_type"],
+            model_params=model_config["model_params"],
+            n_splits=n_splits,
+            epochs=config.CV["max_epochs_per_fold"],
+            batch_size=model_config.get("batch_size", config.TRAINING["batch_size"]),
+            lr=model_config.get("learning_rate", config.TRAINING["learning_rate"]),
+            device=model_config.get("device", config.DEVICE),
+        )
 
-        return json_ok({
-            "success": True,
-            "cv_scores": [round(s, 4) for s in scores.tolist()],
-            "mean_score": round(float(scores.mean()), 4),
-            "std_score": round(float(scores.std()), 4),
-            "n_splits": n_splits,
-        })
+        return json_ok({"success": True, **result})
     except Exception as e:
         import traceback
         traceback.print_exc()

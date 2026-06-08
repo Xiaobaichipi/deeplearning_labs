@@ -63,6 +63,7 @@ class SessionManager:
         self._splits: dict = {}
         self._histories: dict = {}
         self._pending_params: dict = {}
+        self._model_configs: dict = {}
 
     # -- data ----------------------------------------------------------------
 
@@ -99,6 +100,14 @@ class SessionManager:
 
     def set_history(self, data_id: str, history: dict):
         self._histories[data_id] = history
+
+    # -- model config ----------------------------------------------------------
+
+    def set_model_config(self, data_id: str, config: dict):
+        self._model_configs[data_id] = config
+
+    def get_model_config(self, data_id: str):
+        return self._model_configs.get(data_id)
 
     # -- pending training params ---------------------------------------------
 

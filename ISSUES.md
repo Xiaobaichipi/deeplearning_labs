@@ -1,5 +1,40 @@
 # Issues Log
 
+## 2026-06-08: 架构深度优化 (jiagou_youhua 分支)
+
+### 候选 1: 交叉验证使用已训练的 PyTorch 模型
+
+**问题**：`/api/validate` 创建了一个 sklearn MLP 模型（硬编码 (64,32) 架构），与用户实际训练的 PyTorch 模型完全无关。
+
+**修复**：
+- 新增 `cross_validate_model()` (`utils/model_utils.py`) — KFold 分割数据后，每折创建一个与训练相同架构的新模型，训练后评分
+- `api_validate()` 从 `SessionManager` 读取 `model_config`（模型类型、参数），传入 `cross_validate_model()`
+- `SessionManager` 新增 `set_model_config()` / `get_model_config()` 存储训练配置
+
+### 候选 2: 反归一化提取为共享函数
+
+**问题**：`y_scaler` 反归一化的 mean/std / minmax 分支在 `model_utils.py:evaluate()` 和 `routes/evaluation.py:api_predict()` 中重复。
+
+**修复**：
+- 新增 `denormalize_target(y, y_scaler)` (`utils/data_utils.py`) — 单行调用替代两处的 10 行重复逻辑
+
+### 候选 3: 配置默认值集中管理
+
+**问题**：学习率、epochs、batch_size 等超参默认值散落在 `routes/training.py` 的路由、模型注册表和 HTML 中。
+
+**修复**：
+- 新增 `utils/config.py` — TRAINING、MODEL、CV 三个配置字典 + DEVICE，统一管理所有训练默认值
+- `_build_config()` 和 `_setup_training()` 改为从 `config` 模块读取默认值
+
+### 候选 4: 移除 evaluate() 中的字体副作用
+
+**问题**：`evaluate()` 在计算指标前调用 `setup_chinese_font()`，全局修改 matplotlib 字体。
+
+**修复**：
+- `plot_utils.py` 已在模块初始化时调用 `setup_chinese_font()`，`evaluate()` 中移除重复调用即可
+
+---
+
 ## 2026-06-08: 训练进度实时曲线图 (jiagou_youhua 分支)
 
 ### 变更描述

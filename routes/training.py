@@ -4,6 +4,7 @@ import threading
 
 import torch
 from flask import Blueprint, Response, current_app, jsonify, request
+from utils import config
 from utils.data_utils import normalize_data, normalize_target, split_data
 from utils.model_utils import create_model, train_model
 from utils.models import get_model_params
@@ -48,6 +49,7 @@ def train():
         )
 
         sm.set_model(data_id, trained_model)
+        sm.set_model_config(data_id, built)
         sm.set_history(data_id, history)
 
         plot_images = plot_training_history(history)
@@ -178,6 +180,7 @@ def train_stream():
 
         # Store results
         sm.set_model(data_id, train_result["model"])
+        sm.set_model_config(data_id, built)
         sm.set_history(data_id, train_result["history"])
 
         history = train_result["history"]
@@ -215,7 +218,7 @@ def train_stream():
 def _setup_training(sm, data_id, df, params):
     """Validate params, split data, apply normalization, and store split."""
     target_col = params["target_col"]
-    test_size = float(params.get("test_size", 0.2))
+    test_size = float(params.get("test_size", config.TRAINING["test_size"]))
     split_result = split_data(df, target_col, test_size=test_size)
 
     norm_method = params.get("normalization", "none")
@@ -241,22 +244,27 @@ def _setup_training(sm, data_id, df, params):
 
 def _build_config(params, df):
     """Build model config dict from request params."""
+    default_cfg = config.TRAINING
     model_type = params.get("model_type", "mlp")
-    learning_rate = float(params.get("learning_rate", 0.001))
-    batch_size = int(params.get("batch_size", 32))
-    epochs = int(params.get("epochs", 50))
-    patience = int(params.get("patience", 10))
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    learning_rate = float(params.get("learning_rate", default_cfg["learning_rate"]))
+    batch_size = int(params.get("batch_size", default_cfg["batch_size"]))
+    epochs = int(params.get("epochs", default_cfg["epochs"]))
+    patience = int(params.get("patience", default_cfg["patience"]))
+    device = config.DEVICE
 
-    model_params = {"dropout": float(params.get("dropout", 0.2))}
+    model_params = {"dropout": float(params.get("dropout", default_cfg["dropout"]))}
+    model_defaults = config.MODEL.get(model_type, {})
     if model_type == "mlp":
-        raw = params.get("hidden_layers", "128,64,32")
+        raw = params.get("hidden_layers", model_defaults.get("hidden_layers", "128,64,32"))
         model_params["hidden_layers"] = [int(x) for x in raw.split(",") if x.strip()]
     else:
         schema = get_model_params(model_type)
         for key, info in schema.items():
             raw = params.get(key)
             if raw is None:
+                fallback = model_defaults.get(key)
+                if fallback is not None:
+                    model_params[key] = fallback
                 continue
             if info["type"] == "int":
                 model_params[key] = int(raw)

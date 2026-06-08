@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 
+from .data_utils import denormalize_target
 from .models import get_model_class
 
 
@@ -152,6 +153,55 @@ def predict(model, X, task_type, device="cpu"):
             return outputs.squeeze().cpu().numpy(), None
 
 
+def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
+                         model_params=None, n_splits=5, epochs=20,
+                         batch_size=32, lr=0.001, device="cpu"):
+    """K-fold cross-validation using the same model architecture as training.
+
+    For each fold: creates a fresh model, trains it, and scores on the
+    held-out fold.  An 80/20 split of the training fold is used as a
+    validation set for early stopping.
+
+    Returns a dict with ``cv_scores``, ``mean_score``, ``std_score``,
+    and ``n_splits``.
+    """
+    from sklearn.model_selection import KFold, train_test_split
+    from sklearn.metrics import accuracy_score, r2_score
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    scores = []
+    model_params = model_params or {}
+
+    for train_idx, val_idx in kf.split(X):
+        X_train_fold, X_val_fold = X[train_idx], X[val_idx]
+        y_train_fold, y_val_fold = y[train_idx], y[val_idx]
+
+        # Further split train data for validation (early stopping)
+        X_tr, X_v, y_tr, y_v = train_test_split(
+            X_train_fold, y_train_fold, test_size=0.2, random_state=42,
+        )
+
+        model = create_model(model_type, input_dim, output_dim, **model_params)
+        trained_model, _ = train_model(
+            model, X_tr, y_tr, X_v, y_v, task_type,
+            epochs=epochs, batch_size=batch_size, lr=lr,
+            patience=max(epochs // 2, 1), device=device,
+        )
+
+        preds, _ = predict(trained_model, X_val_fold, task_type, device=device)
+        if task_type == "classification":
+            scores.append(float(accuracy_score(y_val_fold, preds)))
+        else:
+            scores.append(float(r2_score(y_val_fold, preds)))
+
+    return {
+        "cv_scores": [round(s, 4) for s in scores],
+        "mean_score": round(float(np.mean(scores)), 4),
+        "std_score": round(float(np.std(scores)), 4),
+        "n_splits": n_splits,
+    }
+
+
 def evaluate(model, X_test, y_test, task_type, target_encoder=None,
              y_scaler=None, device="cpu"):
     """Evaluate a trained model and return metrics + visualization images."""
@@ -160,8 +210,6 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
                                  mean_absolute_error, r2_score)
     from .plot_utils import plot_confusion_matrix, plot_roc_curve, \
         plot_pred_vs_true, plot_residuals
-    from .fonts import setup_chinese_font
-    setup_chinese_font()
 
     device = torch.device(device)
     model = model.to(device)
@@ -210,15 +258,8 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
             y_true = y_t.cpu().numpy()
 
             # Denormalize if target was normalized during training
-            if y_scaler:
-                method = y_scaler.get("method")
-                if method == "mean":
-                    y_true = y_true * y_scaler["std"] + y_scaler["mean"]
-                    preds = preds * y_scaler["std"] + y_scaler["mean"]
-                elif method == "minmax":
-                    _min, _max = y_scaler["min"], y_scaler["max"]
-                    y_true = y_true * (_max - _min) + _min
-                    preds = preds * (_max - _min) + _min
+            y_true = denormalize_target(y_true, y_scaler)
+            preds = denormalize_target(preds, y_scaler)
 
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))

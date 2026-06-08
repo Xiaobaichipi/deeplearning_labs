@@ -290,3 +290,28 @@ def normalize_target(y_train, y_test, method="mean"):
         return y_train, y_test, {"method": None}
 
     return y_train_norm, y_test_norm, params
+
+
+def denormalize_target(y, y_scaler):
+    """Inverse transform of normalize_target — restore original scale.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Normalized values.
+    y_scaler : dict or None
+        Scaler params produced by ``normalize_target``.
+
+    Returns
+    -------
+    np.ndarray with original scale restored, or *y* unchanged when
+    *y_scaler* is ``None``.
+    """
+    if y_scaler is None:
+        return y
+    method = y_scaler.get("method")
+    if method == "mean":
+        return y * y_scaler["std"] + y_scaler["mean"]
+    elif method == "minmax":
+        return y * (y_scaler["max"] - y_scaler["min"]) + y_scaler["min"]
+    return y

@@ -6,7 +6,7 @@ import base64
 import io
 import json
 
-from .fonts import get_chinese_font, setup_chinese_font
+from .fonts import setup_chinese_font
 
 # Auto-detect and set Chinese font
 _cn_font = setup_chinese_font()
