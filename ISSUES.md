@@ -1,5 +1,30 @@
 # Issues Log
 
+## 2026-06-08: 评估指标改为归一化尺度以避免数值误解 (jiagou_youhua 分支)
+
+### 变更
+
+用户反馈 `Run Evaluation` 后的 MSE=49.6912 看起来太大，怀疑归一化失效。经排查归一化链路正确——此数值是反归一化后的原始尺度 MSE。
+
+为消除困惑，`evaluate()` 回归分支不再反归一化，评估指标（MSE/RMSE/MAE）直接使用归一化尺度，与训练过程中的 loss 一致。
+
+### 涉及文件
+
+- `utils/model_utils.py:evaluate()` — 移除 `y_scaler` 参数和 `denormalize_target()` 调用
+- `routes/evaluation.py:api_evaluate()` — 不再传 `y_scaler` 给 evaluate()
+
+### 对比验证
+
+使用测试数据（y 范围 88~251）：
+
+| 场景 | Train Loss | Eval MSE | RMSE | R² |
+|---|---|---|---|---|
+| 归一化 + 反归一化(旧) | 0.124 | 90.64 | 9.52 | 0.86 |
+| **归一化 + 归一化(新)** | **0.124** | **0.116** | **0.34** | **0.85** |
+| 无归一化 | 547.12 | 90.45 | 9.51 | 0.86 |
+
+---
+
 ## 2026-06-08: 架构深度优化 (jiagou_youhua 分支)
 
 ### 候选 1: 交叉验证使用已训练的 PyTorch 模型
