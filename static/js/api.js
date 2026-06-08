@@ -1,340 +1,80 @@
-/* API Call Functions */
+/* API Call Functions — pure data fetching, no DOM manipulation */
 
-async function handleUpload(file) {
-    const status = document.getElementById("uploadStatus");
-    status.style.display = "block";
-    status.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Uploading and processing...</div>';
+// ── Data ────────────────────────────────────────────────────────────
 
+async function _uploadFile(file) {
     const formData = new FormData();
     formData.append("file", file);
-
-    try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (data.error) {
-            status.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
-            return;
-        }
-        status.innerHTML = `<div class="alert alert-success">Upload successful! File: ${data.data.filename} (${data.data.shape[0]} rows x ${data.data.shape[1]} columns)</div>`;
-        currentDataInfo = data.data;
-        populateStep2(data.data);
-        populateStep3Columns(data.data.columns);
-        populateTargetCol(data.data.columns);
-        goToStep(2);
-    } catch (err) {
-        status.innerHTML = `<div class="alert alert-error">Upload failed: ${err.message}</div>`;
-    }
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.data;
 }
 
-async function runClean() {
-    const dropCols = Array.from(document.querySelectorAll(".drop-cb:checked")).map((cb) => cb.value);
-    const params = {
-        drop_duplicates: document.getElementById("toggleDedup").classList.contains("active"),
-        drop_columns: dropCols.length ? dropCols : null,
-        handle_outliers: document.getElementById("toggleOutliers").classList.contains("active"),
-        outlier_factor: parseFloat(document.getElementById("outlierFactor").value) || 1.5,
-    };
-
-    try {
-        const res = await fetch("/api/data/clean", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        currentDataInfo = data.data;
-        const reportDiv = document.getElementById("cleanReport");
-        reportDiv.style.display = "block";
-        reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Cleaning Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
-
-        document.getElementById("cleanStats").style.display = "grid";
-        document.getElementById("cleanStats").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
-            <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
-        `;
-
-        const cols = data.data.columns;
-        let html = '<div class="table-wrap"><table><thead><tr>';
-        cols.forEach((c) => { html += `<th>${esc(c)}</th>`; });
-        html += "</tr></thead><tbody>";
-        data.data.sample.slice(0, 20).forEach((row) => {
-            html += "<tr>";
-            cols.forEach((c) => { html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`; });
-            html += "</tr>";
-        });
-        html += "</tbody></table></div>";
-        document.getElementById("cleanTable").style.display = "block";
-        document.getElementById("cleanTable").innerHTML = html;
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
+async function _cleanData(params) {
+    const res = await fetch("/api/data/clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
-async function runFill() {
-    const strategy = document.getElementById("fillStrategy").value;
-    const params = { strategy };
-    if (strategy === "constant") {
-        params.fill_value = document.getElementById("fillConstantValue").value || null;
-    }
-
-    try {
-        const res = await fetch("/api/data/fill", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        currentDataInfo = data.data;
-        const reportDiv = document.getElementById("cleanReport");
-        reportDiv.style.display = "block";
-        reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Fill Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
-
-        document.getElementById("cleanStats").style.display = "grid";
-        document.getElementById("cleanStats").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
-            <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
-            <div class="stat-card"><div class="stat-value">${Object.values(data.data.null_counts).filter((n) => n > 0).length}</div><div class="stat-label">Columns with Nulls Remaining</div></div>
-        `;
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
+async function _fillData(params) {
+    const res = await fetch("/api/data/fill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
-async function startTraining() {
-    const targetCol = document.getElementById("targetCol").value;
-    if (!targetCol) { alert("Please select a target column"); return; }
+// ── Training ────────────────────────────────────────────────────────
 
-    const btn = document.getElementById("trainBtn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Training...';
-
-    const params = {
-        target_col: targetCol,
-        test_size: parseFloat(document.getElementById("testSize").value) || 0.2,
-        model_type: document.getElementById("modelType").value,
-        hidden_layers: document.getElementById("hiddenLayers").value,
-        hidden_channels: parseInt(document.getElementById("hiddenChannels").value) || 64,
-        kernel_size: parseInt(document.getElementById("kernelSize").value) || 3,
-        hidden_size: parseInt(document.getElementById("rnnHiddenSize").value) || 64,
-        num_layers: parseInt(document.getElementById("rnnNumLayers").value) || 2,
-        bidirectional: document.getElementById("toggleBidirectional").classList.contains("active"),
-        d_model: parseInt(document.getElementById("transDModel").value) || 64,
-        nhead: parseInt(document.getElementById("transNhead").value) || 4,
-        dim_feedforward: parseInt(document.getElementById("transDimFeedforward").value) || 256,
-        learning_rate: parseFloat(document.getElementById("learningRate").value) || 0.001,
-        batch_size: parseInt(document.getElementById("batchSize").value) || 32,
-        epochs: parseInt(document.getElementById("epochs").value) || 50,
-        dropout: parseFloat(document.getElementById("dropout").value) || 0.2,
-        patience: parseInt(document.getElementById("patience").value) || 10,
-        normalization: document.getElementById("normalization").value,
-    };
-
-    // Hide previous results, show progress panel
-    document.getElementById("trainError").style.display = "none";
-
-    document.getElementById("trainingSummary").style.display = "none";
-
-    try {
-        // Step 1: POST params to setup endpoint
-        const setupRes = await fetch("/api/train/setup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
-        });
-        const setupData = await setupRes.json();
-        if (setupData.error) { alert("Error: " + setupData.error); return; }
-
-        // Step 2: Show live progress panel
-        const totalEpochs = parseInt(document.getElementById("epochs").value) || 50;
-        initTrainingProgress(totalEpochs);
-        btn.innerHTML = '<span class="spinner"></span> Training...';
-
-        // Step 3: Open SSE stream
-        const evtSource = new EventSource("/api/train/stream");
-
-        evtSource.addEventListener("progress", function (e) {
-            const m = JSON.parse(e.data);
-            updateTrainingProgress(m);
-        });
-
-        evtSource.addEventListener("complete", function (e) {
-            evtSource.close();
-            const data = JSON.parse(e.data);
-
-            // Show training info
-            document.getElementById("trainingInfo").innerHTML = `
-                <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
-                <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
-                <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
-                <div class="stat-card"><div class="stat-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="stat-label">Avg Time / Epoch</div></div>
-                <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
-                <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
-                <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
-            `;
-
-            document.getElementById("trainingSummary").style.display = "block";
-            document.getElementById("summaryMetrics").innerHTML = `
-                <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
-                <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
-                <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
-                <div class="metric-card"><div class="metric-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="metric-label">Avg Time / Epoch</div></div>
-                <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
-            `;
-
-            goToStep(6);
-            refreshModelDropdown();
-            btn.disabled = false;
-            btn.textContent = "Start Training";
-        });
-
-        evtSource.addEventListener("error", function (e) {
-            evtSource.close();
-            let msg = "Training connection lost";
-            try { msg = JSON.parse(e.data).error || msg; } catch (_) {}
-            showTrainError(msg);
-            btn.disabled = false;
-            btn.textContent = "Start Training";
-        });
-    } catch (err) {
-        showTrainError(err.message);
-        btn.disabled = false;
-        btn.textContent = "Start Training";
-    }
+async function _setupTraining(params) {
+    const res = await fetch("/api/train/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
-async function runEvaluation() {
-    const btn = document.getElementById("evalBtn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Evaluating...';
+// ── Evaluation ──────────────────────────────────────────────────────
 
-    try {
-        const res = await fetch("/api/evaluate", { method: "POST" });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        const evalData = data.evaluation;
-        const metricsDiv = document.getElementById("evalMetrics");
-        metricsDiv.style.display = "grid";
-        metricsDiv.innerHTML = "";
-
-        if (evalData.task_type === "classification") {
-            metricsDiv.innerHTML = `
-                <div class="metric-card"><div class="metric-value">${(evalData.accuracy * 100).toFixed(2)}%</div><div class="metric-label">Accuracy</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.precision.toFixed(4)}</div><div class="metric-label">Precision</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.recall.toFixed(4)}</div><div class="metric-label">Recall</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.f1_score.toFixed(4)}</div><div class="metric-label">F1 Score</div></div>
-            `;
-        } else {
-            metricsDiv.innerHTML = `
-                <div class="metric-card"><div class="metric-value">${evalData.mse.toFixed(4)}</div><div class="metric-label">MSE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.rmse.toFixed(4)}</div><div class="metric-label">RMSE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.mae.toFixed(4)}</div><div class="metric-label">MAE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.r2.toFixed(4)}</div><div class="metric-label">R² Score</div></div>
-            `;
-        }
-
-        const imgDiv = document.getElementById("evalImages");
-        imgDiv.innerHTML = "";
-        if (evalData.images) {
-            Object.entries(evalData.images).forEach(([key, img]) => {
-                const label_map = {
-                    confusion_matrix: "Confusion Matrix",
-                    roc_curve: "ROC Curve",
-                    pred_vs_true: "Predictions vs True Values",
-                    residuals: "Residual Distribution",
-                };
-                imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label_map[key] || key}</div></div>`;
-            });
-        }
-    } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Run Evaluation";
-    }
+async function _evaluateModel() {
+    const res = await fetch("/api/evaluate", { method: "POST" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
-async function runValidation() {
-    const btn = document.getElementById("validBtn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Running...';
-
-    try {
-        const nSplits = parseInt(document.getElementById("cvFolds").value) || 5;
-        const res = await fetch("/api/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ n_splits: nSplits }),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        const div = document.getElementById("cvResults");
-        div.style.display = "block";
-        div.innerHTML = `
-            <div class="card">
-                <h3 class="card-title">Cross-Validation Results (${data.n_splits}-fold)</h3>
-                <div class="metrics-grid">
-                    <div class="metric-card"><div class="metric-value">${(data.mean_score * 100).toFixed(2)}%</div><div class="metric-label">Mean Score</div></div>
-                    <div class="metric-card"><div class="metric-value">${(data.std_score * 100).toFixed(2)}%</div><div class="metric-label">Std Dev</div></div>
-                </div>
-                <div style="margin-top:12px;font-size:14px;">
-                    <strong style="color:var(--ink);">Per-fold scores:</strong>
-                    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                        ${data.cv_scores.map((s, i) => `<span class="chip">Fold ${i + 1}: ${(s * 100).toFixed(2)}%</span>`).join("")}
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Run Cross Validation";
-    }
+async function _validateModel(params) {
+    const res = await fetch("/api/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
-async function runPredict() {
-    const btn = document.getElementById("predBtn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Predicting...';
-
-    try {
-        const res = await fetch("/api/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ use_test: true }),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        document.getElementById("predResults").style.display = "block";
-
-        // Show chart if available
-        const chartDiv = document.getElementById("predChart");
-        if (data.plot_image) {
-            chartDiv.style.display = "grid";
-            let html = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Predictions vs True (Scatter)"><div class="caption">Scatter: Predictions vs True Values</div></div>`;
-            if (data.line_plot_image) {
-                html += `<div class="image-card"><img src="data:image/png;base64,${data.line_plot_image}" alt="Predictions vs True (Line)"><div class="caption">Line: Predictions vs True Values</div></div>`;
-            }
-            chartDiv.innerHTML = html;
-        } else {
-            chartDiv.style.display = "none";
-        }
-
-        // Show download buttons
-        document.getElementById("predDownload").style.display = "flex";
-    } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Generate Predictions";
-    }
+async function _predictModel() {
+    const res = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ use_test: true }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }
 
 function downloadPredictions(format) {
@@ -345,232 +85,56 @@ function downloadHistory(format) {
     window.location.href = `/api/train/history/download?format=${format}`;
 }
 
-/* =============== Project System =============== */
+// ── Projects ────────────────────────────────────────────────────────
 
-let _activeProjectId = null;
-
-async function loadProjects() {
-    try {
-        const res = await fetch("/api/projects");
-        const data = await res.json();
-        if (data.error) { console.error("loadProjects:", data.error); return; }
-        populateProjectGrid(data.projects || []);
-    } catch (err) {
-        console.error("loadProjects:", err.message);
-    }
+async function _loadProjects() {
+    const res = await fetch("/api/projects");
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.projects || [];
 }
 
-async function createProject() {
-    const name = document.getElementById("projectName").value.trim();
-    if (!name) { alert("Please enter a project name"); return; }
-
-    const btn = document.getElementById("createProjectBtn");
-    btn.disabled = true;
-    btn.textContent = "Creating...";
-
-    const fileInput = document.getElementById("projectFileInput");
-    const formData = new FormData();
-    formData.append("name", name);
-    if (fileInput.files.length) {
-        formData.append("file", fileInput.files[0]);
-    }
-
-    try {
-        const res = await fetch("/api/projects", { method: "POST", body: formData });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        hideNewProjectModal();
-        document.getElementById("projectName").value = "";
-        document.getElementById("projectFileInput").value = "";
-        document.getElementById("projectUploadText").textContent = "Click to select file";
-        loadProjects();
-    } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Create";
-    }
+async function _createProject(formData) {
+    const res = await fetch("/api/projects", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.project;
 }
 
-async function activateProject(projectId) {
-    const btn = document.querySelector(`[data-project-id="${projectId}"] .project-card-name`);
-    try {
-        const res = await fetch(`/api/projects/${projectId}/activate`, { method: "POST" });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        _activeProjectId = projectId;
-        currentDataInfo = data.data;
-
-        // Switch to training flow
-        document.getElementById("projectList").classList.remove("active");
-        document.getElementById("projectList").style.display = "none";
-        document.getElementById("trainingFlow").style.display = "block";
-        document.getElementById("backToProjectsBtn").style.display = "inline-flex";
-
-        // Populate step 2 with project data
-        populateStep2(data.data);
-        populateStep3Columns(data.data.columns);
-        populateTargetCol(data.data.columns);
-
-        // Populate model dropdown for Step 6
-        const models = data.data.models || [];
-        if (models.length) {
-            populateModelDropdown(models);
-            document.getElementById("modelSelector").style.display = "block";
-            document.getElementById("modelSelect").value = models[0].id;
-            await loadModelToSession(models[0].id);
-        } else {
-            document.getElementById("modelSelector").style.display = "none";
-        }
-
-        goToStep(2);
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
+async function _activateProject(projectId) {
+    const res = await fetch(`/api/projects/${projectId}/activate`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.data;
 }
 
-async function deleteProject(projectId) {
-    if (!confirm("Delete this project permanently?")) return;
-    try {
-        await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
-        loadProjects();
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
+async function _deleteProject(projectId) {
+    const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
 }
 
-/* =============== Model Export =============== */
-
-async function loadProjectModels() {
-    if (!_activeProjectId) return;
-    try {
-        const res = await fetch(`/api/projects/${_activeProjectId}/models`);
-        const data = await res.json();
-        if (data.error) return;
-        populateModelList(data.models || []);
-    } catch (err) {
-        console.error("loadProjectModels:", err.message);
-    }
+async function _loadProjectModels(projectId) {
+    const res = await fetch(`/api/projects/${projectId}/models`);
+    const data = await res.json();
+    if (data.error) return [];
+    return data.models || [];
 }
 
-/* =============== Model Selector (Step 6) =============== */
-
-function showLoadedModelBadge(ok, text) {
-    const badge = document.getElementById("loadedModelBadge");
-    if (!badge) return;
-    if (ok) {
-        badge.textContent = "Loaded: " + text;
-        badge.style.display = "inline-block";
-    } else {
-        badge.style.display = "none";
-    }
+async function _loadModelToSession(projectId, modelId) {
+    const res = await fetch(`/api/projects/${projectId}/load-model/${modelId}`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.model;
 }
 
-async function loadModelToSession(modelId) {
-    if (!_activeProjectId) return null;
-    try {
-        const res = await fetch(`/api/projects/${_activeProjectId}/load-model/${modelId}`, { method: "POST" });
-        const data = await res.json();
-        if (data.error) {
-            console.error("loadModelToSession:", data.error);
-            showLoadedModelBadge(false);
-            return null;
-        }
-        showLoadedModelBadge(true, data.model.model_type);
-        return data.model;
-    } catch (err) {
-        console.error("loadModelToSession:", err.message);
-        showLoadedModelBadge(false);
-        return null;
-    }
-}
-
-async function refreshModelDropdown() {
-    if (!_activeProjectId) return;
-    try {
-        const res = await fetch(`/api/projects/${_activeProjectId}/models`);
-        const data = await res.json();
-        if (data.error) return;
-        const models = data.models || [];
-        if (models.length) {
-            populateModelDropdown(models);
-            document.getElementById("modelSelector").style.display = "block";
-            const latest = models[0];
-            document.getElementById("modelSelect").value = latest.id;
-            await loadModelToSession(latest.id);
-        }
-    } catch (err) {
-        console.error("refreshModelDropdown:", err.message);
-    }
-}
-
-async function exportModel(modelId) {
-    const defaultName = `${modelId}.pt`;
-    const name = prompt("Export model filename:", defaultName);
-    if (!name) return;
-    const safe = name.trim() || defaultName;
-    const url = `/api/projects/${_activeProjectId}/models/${modelId}/export?name=${encodeURIComponent(safe)}`;
-    window.location.href = url;
-}
-
-async function compareModels() {
-    const cbs = document.querySelectorAll(".model-cb:checked");
-    const modelIds = Array.from(cbs).map((cb) => cb.value);
-    if (!modelIds.length) { alert("Select at least one model to compare."); return; }
-
-    const btn = document.querySelector("#modelCompareAction .btn");
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Comparing...';
-
-    try {
-        const res = await fetch(`/api/projects/${_activeProjectId}/models/compare`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model_ids: modelIds }),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        const resultDiv = document.getElementById("modelCompareResult");
-        const chartDiv = document.getElementById("modelCompareChart");
-        chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Model Comparison"><div class="caption">Model Predictions Comparison (${data.loaded_count} models)</div></div>`;
-        resultDiv.style.display = "block";
-    } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = "Compare Selected";
-    }
-}
-
-/* =============== Reset =============== */
-
-async function resetAll() {
-    if (!confirm("Reset all data and start over?")) return;
-    try {
-        await fetch("/api/reset", { method: "POST" });
-        currentDataInfo = null;
-        document.querySelectorAll(".step-item").forEach((s) => s.classList.remove("active"));
-        document.querySelector('.step-item[data-step="1"]').classList.add("active");
-        document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
-        document.getElementById("step1").classList.add("active");
-        document.getElementById("uploadStatus").style.display = "none";
-        document.getElementById("cleanReport").style.display = "none";
-        document.getElementById("trainingSummary").style.display = "none";
-        document.getElementById("trainingProgress").style.display = "none";
-        destroyCharts();
-        document.getElementById("trainError").style.display = "none";
-        document.getElementById("evalMetrics").style.display = "none";
-        document.getElementById("predResults").style.display = "none";
-        document.getElementById("predChart").style.display = "none";
-        document.getElementById("predDownload").style.display = "none";
-        document.getElementById("cvResults").style.display = "none";
-        document.getElementById("dataStats").innerHTML = "";
-        document.getElementById("previewTable").innerHTML = "";
-        document.getElementById("evalImages").innerHTML = "";
-    } catch (err) {
-        alert("Error: " + err.message);
-    }
+async function _compareModels(projectId, modelIds) {
+    const res = await fetch(`/api/projects/${projectId}/models/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_ids: modelIds }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
 }

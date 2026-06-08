@@ -19,73 +19,91 @@
 <body>
 <div class="container">
   <h1>DeepLearning Labs — Code Dependency Graph</h1>
-  <p class="subtitle">Generated from CodeGraph index</p>
+  <p class="subtitle">Generated from CodeGraph index (2026-06-08)</p>
   <div class="mermaid">
 graph TB
-  %% Nodes grouped by layer
+  %% Entry
   subgraph G_Entry["Entry"]
-    n0_main["main"]
-  end
-  subgraph G_Routes["Routes"]
-    n0_routes___init__["routes.__init__"]
-    n1_data["data"]
-    n2_evaluation["evaluation"]
-    n3_training["training"]
-    n4_projects["projects"]
-  end
-  subgraph G_Utils["Utils"]
-    n0_utils___init__["utils.__init__"]
-    n1_data_utils["data_utils"]
-    n2_fonts["fonts"]
-    n3_model_utils["model_utils"]
-    n4_plot_utils["plot_utils"]
-    n5_session["session"]
-    n6_project_manager["project_manager"]
-  end
-  subgraph G_Models["Models"]
-    n0_utils___init__["utils.__init__"]
-    n1_base["base"]
-    n2_cnn["cnn"]
-    n3_gru["gru"]
-    n4_lstm["lstm"]
-    n5_mlp["mlp"]
-    n6_rnn["rnn"]
-    n7_transformer["transformer"]
-  end
-  subgraph G_Frontend["Frontend"]
-    n0_api["api"]
-    n1_app["app"]
-    n2_ui["ui"]
+    n0_main["main.py"]
   end
 
-  %% Edges
-  n1_data -->|18| n5_session
-  n2_evaluation -->|14| n5_session
-  n1_data -->|8| n4_plot_utils
-  n0_api -->|8| n2_ui
-  n1_data -->|7| n1_data_utils
-  n3_training -->|6| n5_session
-  n4_projects -->|10| n5_session
-  n3_model_utils -->|4| n4_plot_utils
-  n4_projects -->|8| n6_project_manager
-  n2_evaluation -->|2| n3_model_utils
-  n3_training -->|2| n1_data_utils
-  n3_training -->|2| n3_model_utils
-  n4_projects -->|2| n1_data_utils
-  n4_projects -->|3| n3_model_utils
-  n4_projects -->|1| n4_plot_utils
-  n0_main -->|1| n5_session
-  n0_main -->|1| n6_project_manager
-  n3_training -->|1| n0_utils___init__
-  n3_training -->|1| n4_plot_utils
-  n3_model_utils -->|1| n0_utils___init__
-  n3_model_utils -->|1| n2_fonts
-  n5_session -->|1| n1_data_utils
+  %% Routes
+  subgraph G_Routes["Routes"]
+    n0_routes___init__["routes/__init__.py"]
+    n1_data["routes/data.py"]
+    n2_evaluation["routes/evaluation.py"]
+    n3_training["routes/training.py"]
+    n4_projects["routes/projects.py"]
+  end
+
+  %% Utils
+  subgraph G_Utils["Utils"]
+    n0_utils___init__["utils/__init__.py"]
+    n1_config["utils/config.py"]
+    n2_data_utils["utils/data_utils.py"]
+    n3_fonts["utils/fonts.py"]
+    n4_model_utils["utils/model_utils.py"]
+    n5_plot_utils["utils/plot_utils.py"]
+    n6_session["utils/session.py"]
+    n7_project_manager["utils/project_manager.py"]
+  end
+
+  %% Models
+  subgraph G_Models["Models"]
+    n0_models___init__["utils/models/__init__.py"]
+    n1_base["utils/models/base.py"]
+    n2_cnn["utils/models/cnn.py"]
+    n3_gru["utils/models/gru.py"]
+    n4_lstm["utils/models/lstm.py"]
+    n5_mlp["utils/models/mlp.py"]
+    n6_rnn["utils/models/rnn.py"]
+    n7_transformer["utils/models/transformer.py"]
+  end
+
+  %% Frontend
+  subgraph G_Frontend["Frontend JS"]
+    n0_api["static/js/api.js"]
+    n1_app["static/js/app.js"]
+    n2_ui["static/js/ui.js"]
+  end
+
+  %% Edges — cross-file dependencies
+  n1_data -->|28| n6_session
+  n2_evaluation -->|30| n6_session
+  n3_training -->|23| n6_session
+  n4_projects -->|18| n6_session
+  n1_data -->|8| n5_plot_utils
+  n1_data -->|7| n2_data_utils
+  n4_projects -->|20| n7_project_manager
+  n4_projects -->|4| n2_data_utils
+  n4_projects -->|2| n4_model_utils
+  n4_projects -->|1| n5_plot_utils
+  n2_evaluation -->|3| n4_model_utils
+  n2_evaluation -->|2| n2_data_utils
+  n2_evaluation -->|2| n5_plot_utils
+  n3_training -->|3| n2_data_utils
+  n3_training -->|3| n7_project_manager
+  n3_training -->|2| n4_model_utils
+  n3_training -->|1| n0_models___init__
+  n4_model_utils -->|4| n5_plot_utils
+  n4_model_utils -->|1| n0_models___init__
+  n6_session -->|1| n2_data_utils
+  n0_main -->|1| n6_session
+  n1_app -->|35| n2_ui
+  n1_app -->|17| n0_api
+
+  %% Model inheritance
+  n2_cnn -->|extends| n1_base
+  n3_gru -->|extends| n1_base
+  n4_lstm -->|extends| n1_base
+  n5_mlp -->|extends| n1_base
+  n6_rnn -->|extends| n1_base
+  n7_transformer -->|extends| n1_base
   </div>
   <div class="legend">
-    <span>→ <strong>call count</strong>  Function calls</span>
-    <span>⇢ <strong>import count</strong>  Imports</span>
-    <span>Click the browser refresh if graph doesn't render</span>
+    <span>→ <strong>N</strong>  Cross-file call/import count</span>
+    <span>⇢ <strong>extends</strong>  Class inheritance</span>
+    <span>Refresh page if graph doesn't render</span>
   </div>
 </div>
 </body>

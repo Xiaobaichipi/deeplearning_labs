@@ -510,6 +510,110 @@ b382cd1 refactor: 引入 SessionManager
 
 ---
 
+## 2026-06-08: 候选 C — 消除路由样板代码 (v2-project-system 分支)
+
+### 问题
+
+Flask 路由函数中存在大量重复的 try/except 模板、`current_app.config["session_manager"]` 重复获取、以及 `if not data` 空值检查。每个路由平均约 18 行，其中 10 行是防御性样板代码。
+
+### 方案
+
+引入三个基础设施组件：
+
+1. **`RouteError(Exception)`** — 携带 HTTP status_code 的自定义异常，允许路由直接 `raise RouteError("msg", 400)` 终止请求
+2. **`handle_errors` 装饰器** — 捕获 `RouteError` → `jsonify` + status_code；捕获未预期异常 → traceback 日志 + 500
+3. **`get_sm()` / `ensure_data()` 快捷函数** — `get_sm()` 替代 `current_app.config["session_manager"]`；`ensure_data()` 替代 `if not data: abort(400)`
+
+### 效果
+
+- **`routes/data.py`** — 5 个路由全部使用 `@handle_errors`，零 try/except，从 ~90 行缩减到 ~40 行纯业务逻辑
+- **`routes/evaluation.py`** — 4 个路由同样改造，`if not sm.has_model()` 替换为 `raise RouteError("Model not trained yet")`
+- **`routes/training.py`** — `train()` 和 `train_setup()` 使用装饰器，SSE 流保持独立
+- 所有路由统一错误返回格式：`{"error": "message"}` + 合适的 HTTP 状态码
+
+### 涉及文件
+
+- `utils/session.py` — 新增 `RouteError`、`handle_errors` 装饰器、`get_sm()`、`ensure_data()`
+- `routes/data.py` — 全面采用新机制重写
+- `routes/evaluation.py` — 全面采用新机制重写
+- `routes/training.py` — 部分采用新机制重写
+- `tests/test_routes.py` — 维持 82 测试通过
+
+---
+
+## 2026-06-08: 候选 D — 前端 API/DOM 分离 (v2-project-system 分支)
+
+### 问题
+
+前端 JS 长期存在 API 调用与 DOM 操作混合的问题。`api.js` 中一个函数既负责 `fetch()` 又负责 `document.getElementById()` 渲染，导致无法独立测试、逻辑混乱。
+
+### 方案
+
+将前端 JS 重构为严格的三层架构：
+
+| 层 | 文件 | 职责 | DOM 操作 | fetch 调用 |
+|---|---|---|---|---|
+| **API** | `api.js` | 纯数据获取 | 禁止 | 唯一来源 |
+| **Orchestration** | `app.js` | 流程编排 | 读（form） | 调用 api.js |
+| **UI** | `ui.js` | 视图渲染 | 读写（全部） | 禁止 |
+
+### 具体变更
+
+- **`api.js`** — 所有函数重命名为 `_` 前缀（`_uploadFile`、`_cleanData` 等），移除全部 `document.getElementById` 调用（计数归零）。每个函数仅做：fetch → 解析 → 错误检查 → 返回数据
+- **`ui.js`** — 新增 `showUploadResult()`、`showCleanResult()`、`showTrainingComplete()`、`showEvalResult()`、`showCVResult()`、`showPredResult()`、`showLoadedModelBadge()`、`resetAllUI()`、`showProjectList()`、`hideProjectList()`、`showUploadLoading()`、`showUploadError()` 等函数。零 fetch 调用
+- **`app.js`** — 保留旧函数名称（`handleUpload`、`startTraining` 等）兼容 HTML `onclick`；每个函数链式调用：读取 form → 调用 `_` API → 调用 UI 渲染。管理全局状态（`currentDataInfo`、`_activeProjectId`）
+
+### 额外修复
+
+- **Transformer num_layers 读取错误** — 原代码对 transformer 模型也读取 `rnnNumLayers` 输入框，修复为根据 `modelType` 值选择 `transNumLayers` 或 `rnnNumLayers`
+- **`resetAll()` 未清除 `_activeProjectId`** — 修复为显式设置 `_activeProjectId = null`
+
+### 涉及文件
+
+- `static/js/api.js` — 全面重写（~200 行纯 API 层）
+- `static/js/ui.js` — 新增 12 个渲染函数
+- `static/js/app.js` — 状态管理 + 编排逻辑重写（~310 行）
+
+---
+
+## 2026-06-08: 候选 E — 消除超参数默认值重复 (v2-project-system 分支)
+
+### 问题
+
+训练超参数（learning_rate、batch_size、epochs、dropout 等）和模型参数（hidden_channels、kernel_size、d_model、nhead 等）的默认值散落在三个地方：
+1. `utils/config.py` — 定义 TRAINING/MODEL/CV 字典
+2. `templates/index.html` — `<input value="...">` 硬编码
+3. `static/js/app.js` — JS `||` 回退值硬编码
+
+修改默认值需要同步三处，极易遗漏。
+
+### 方案
+
+通过 Jinja2 模板注入将 config.py 作为唯一真相源，不再手动同步 HTML 和 JS 中的硬编码值。
+
+### 具体变更
+
+1. **config.py 增加 CV 配置** — 增加 `DEFAULT_FOLDS`、`DEFAULT_SEED` 到 CV 字典
+2. **`main.py` 传递配置** — `render_template("index.html", cfg={"training": config.TRAINING, "model": config.MODEL, "cv": config.CV})`
+3. **`index.html`** — 添加 `<script id="config-data" type="application/json">{{ cfg | tojson }}</script>` JSON 数据块；15 个 `<input value>` 改为 `{{ cfg.training.xxx }}` / `{{ cfg.model.xxx }}`
+4. **`app.js`** — `const DEFAULTS = JSON.parse(document.getElementById("config-data").textContent)`；所有 `||` 回退改为 `|| DEFAULTS.training.xxx` / `|| DEFAULTS.model.xxx`
+
+### 效果
+
+- 15 个 HTML `value` 硬编码 → 0
+- 15+ 个 JS `||` 回退字面量 → 0
+- 修改默认值只需编辑 `utils/config.py`
+- 新增超参数只需在 config.py 添加 + HTML 添加输入框，JS 自动获取默认值
+
+### 涉及文件
+
+- `utils/config.py` — 新增 CV 配置字典
+- `main.py` — 传递 cfg 给模板
+- `templates/index.html` — config-data JSON 块 + 15 处输入值替换
+- `static/js/app.js` — DEFAULTS 全局对象 + 回退引用替换
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

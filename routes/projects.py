@@ -14,6 +14,18 @@ def _pm():
     return current_app.config["project_manager"]
 
 
+def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
+    """Reconstruct a model from saved metadata and state dict."""
+    model = create_model(
+        meta["model_type"], input_dim, output_dim,
+        **meta.get("model_params", {}),
+    )
+    model.load_state_dict(state_dict)
+    if eval_mode:
+        model.eval()
+    return model
+
+
 @projects_bp.route("/api/projects", methods=["GET"])
 def list_projects():
     return json_ok({"projects": _pm().list_projects()})
@@ -124,7 +136,7 @@ def compare_models(project_id):
     output_dim = 1
 
     from utils.data_utils import denormalize_target
-    from utils.model_utils import create_model, predict
+    from utils.model_utils import predict
     from utils.plot_utils import plot_model_comparison
 
     predictions_dict = {}
@@ -134,11 +146,7 @@ def compare_models(project_id):
         if state_dict is None:
             continue
         try:
-            model = create_model(
-                meta["model_type"], input_dim, output_dim,
-                **meta.get("model_params", {}),
-            )
-            model.load_state_dict(state_dict)
+            model = _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=False)
             preds, _ = predict(model, X_test, task_type, device="cpu")
             preds = denormalize_target(preds, y_scaler)
             label = f"{meta.get('model_type', 'model')} ({mid})"
@@ -190,12 +198,7 @@ def load_model_into_session(project_id, model_id):
         output_dim = 1
 
     try:
-        model = create_model(
-            meta["model_type"], input_dim, output_dim,
-            **meta.get("model_params", {}),
-        )
-        model.load_state_dict(state_dict)
-        model.eval()
+        model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
     except Exception as e:
         return jsonify({"error": f"Failed to reconstruct model: {str(e)}"}), 500
 
@@ -255,12 +258,7 @@ def activate_project(project_id):
             if state_dict is None:
                 continue
             try:
-                from utils.model_utils import create_model
-                model = create_model(
-                    meta["model_type"], input_dim, output_dim,
-                    **meta.get("model_params", {}),
-                )
-                model.load_state_dict(state_dict)
+                model = _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=False)
                 sm.set_model(f"{data_id}_{mid}", model)
             except Exception:
                 pass
@@ -271,12 +269,7 @@ def activate_project(project_id):
         state_dict, meta = pm.load_model(project_id, latest["id"])
         if state_dict is not None:
             try:
-                model = create_model(
-                    meta["model_type"], input_dim, output_dim,
-                    **meta.get("model_params", {}),
-                )
-                model.load_state_dict(state_dict)
-                model.eval()
+                model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
                 sm.set_model(data_id, model)
                 sm.set_model_config(data_id, meta.get("model_params", {}))
             except Exception:

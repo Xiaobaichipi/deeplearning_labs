@@ -10,7 +10,9 @@ from utils.data_utils import normalize_data, normalize_target, split_data
 from utils.model_utils import create_model, train_model
 from utils.models import get_model_params
 
-from utils.session import get_data_id, json_ok
+from utils.session import (
+    RouteError, ensure_data, get_data_id, get_sm, handle_errors, json_ok,
+)
 
 training_bp = Blueprint("training", __name__)
 
@@ -18,60 +20,50 @@ training_bp = Blueprint("training", __name__)
 
 
 @training_bp.route("/api/train", methods=["POST"])
+@handle_errors
 def train():
-    sm = current_app.config["session_manager"]
+    sm = get_sm()
     data_id = get_data_id()
-    df = sm.get_data(data_id)
-    if df is None:
-        return jsonify({"error": "No data uploaded"}), 400
-    try:
-        params = request.get_json() or {}
-        _setup_training(sm, data_id, df, params)
-        built = _build_config(params, df)
-        split_result = sm.get_split(data_id)
-        output_dim = (
-            split_result["n_classes"]
-            if split_result["task_type"] == "classification"
-            else 1
-        )
+    df = ensure_data(sm, data_id)
+    params = request.get_json() or {}
+    _setup_training(sm, data_id, df, params)
+    built = _build_config(params, df)
+    split_result = sm.get_split(data_id)
+    output_dim = (
+        split_result["n_classes"]
+        if split_result["task_type"] == "classification"
+        else 1
+    )
 
-        history, final = _run_and_persist(
-            sm, data_id, split_result, built, output_dim,
-            pm=current_app.config["project_manager"],
-            active_project_id=session.get("active_project_id"),
-        )
-        return json_ok({"success": True, **final})
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+    history, final = _run_and_persist(
+        sm, data_id, split_result, built, output_dim,
+        pm=current_app.config["project_manager"],
+        active_project_id=session.get("active_project_id"),
+    )
+    return json_ok({"success": True, **final})
 
 
 # ── Real-time training via SSE ───────────────────────────────────────────────
 
 
 @training_bp.route("/api/train/setup", methods=["POST"])
+@handle_errors
 def train_setup():
     """Store training params; the SSE stream will pick them up."""
-    sm = current_app.config["session_manager"]
+    sm = get_sm()
     data_id = get_data_id()
-    df = sm.get_data(data_id)
-    if df is None:
-        return jsonify({"error": "No data uploaded"}), 400
+    df = ensure_data(sm, data_id)
 
     params = request.get_json() or {}
     target_col = params.get("target_col")
     if not target_col:
-        return jsonify({"error": "Please select a target column"}), 400
+        raise RouteError("Please select a target column")
     if target_col not in df.columns:
-        return jsonify({"error": f"Target column '{target_col}' not found"}), 400
+        raise RouteError(f"Target column '{target_col}' not found")
 
-    try:
-        _setup_training(sm, data_id, df, params)
-        sm.set_pending_params(data_id, params)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    _setup_training(sm, data_id, df, params)
+    sm.set_pending_params(data_id, params)
+    return jsonify({"success": True})
 
 
 @training_bp.route("/api/train/stream")

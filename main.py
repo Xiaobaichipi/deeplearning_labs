@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, render_template, session
 
 from routes import data_bp, evaluation_bp, projects_bp, training_bp
+from utils import config
 from utils.project_manager import ProjectManager
 from utils.session import SessionManager
 
@@ -29,7 +30,11 @@ app.register_blueprint(projects_bp)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", cfg={
+        "training": config.TRAINING,
+        "model": config.MODEL,
+        "cv": config.CV,
+    })
 
 
 @app.route("/models-guide")

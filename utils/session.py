@@ -1,12 +1,14 @@
 """Per-session state management with automatic disk reload."""
 
+import functools
 import math
 import os
+import traceback
 import uuid
 import numpy as np
 import pandas as pd
 import torch
-from flask import jsonify, session
+from flask import current_app, jsonify, session
 
 from .data_utils import load_data
 
@@ -47,6 +49,42 @@ def get_data_id():
 def allowed_file(filename):
     _, ext = os.path.splitext(filename)
     return ext.lower() in ALLOWED_EXTENSIONS
+
+
+class RouteError(Exception):
+    """Carry an HTTP status code for @handle_errors."""
+
+    def __init__(self, message, status_code=400):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def handle_errors(f):
+    """Decorator: wrap route handler with try/except + JSON error response."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except RouteError as e:
+            return jsonify({"error": e.message}), e.status_code
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
+    return wrapper
+
+
+def get_sm():
+    """Shortcut: current_app.config['session_manager']."""
+    return current_app.config["session_manager"]
+
+
+def ensure_data(sm, data_id):
+    """Get data or raise RouteError."""
+    df = sm.get_data(data_id)
+    if df is None:
+        raise RouteError("No data uploaded")
+    return df
 
 
 class SessionManager:

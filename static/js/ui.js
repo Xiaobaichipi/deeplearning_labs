@@ -1,4 +1,4 @@
-/* UI Rendering Functions */
+/* UI Rendering Functions — pure DOM manipulation, no API calls */
 
 /* =============== Project System =============== */
 
@@ -40,16 +40,10 @@ function populateProjectGrid(projects) {
 
     grid.innerHTML = cards.join("");
 
-    // GSAP stagger-in animation
     if (typeof gsap !== "undefined") {
         gsap.from(".project-card", {
-            opacity: 0,
-            y: 24,
-            scale: 0.96,
-            duration: 0.4,
-            stagger: 0.06,
-            ease: "power3.out",
-            clearProps: "transform",
+            opacity: 0, y: 24, scale: 0.96, duration: 0.4,
+            stagger: 0.06, ease: "power3.out", clearProps: "transform",
         });
     }
 }
@@ -57,8 +51,6 @@ function populateProjectGrid(projects) {
 function showNewProjectModal() {
     const modal = document.getElementById("newProjectModal");
     modal.classList.add("show");
-
-    // Wire up file input change
     document.getElementById("projectFileInput").onchange = function () {
         const text = document.getElementById("projectUploadText");
         text.textContent = this.files.length ? this.files[0].name : "Click to select file";
@@ -69,16 +61,19 @@ function hideNewProjectModal() {
     document.getElementById("newProjectModal").classList.remove("show");
 }
 
-function backToProjects() {
-    _activeProjectId = null;
+function showProjectList() {
     document.getElementById("trainingFlow").style.display = "none";
     document.getElementById("backToProjectsBtn").style.display = "none";
-
     const list = document.getElementById("projectList");
     list.style.display = "block";
     list.classList.add("active");
+}
 
-    loadProjects();
+function hideProjectList() {
+    document.getElementById("projectList").classList.remove("active");
+    document.getElementById("projectList").style.display = "none";
+    document.getElementById("trainingFlow").style.display = "block";
+    document.getElementById("backToProjectsBtn").style.display = "inline-flex";
 }
 
 function populateModelList(models) {
@@ -123,8 +118,6 @@ function populateModelList(models) {
     });
 
     container.innerHTML = cards.join("");
-
-    // Show action bar and wire checkbox toggle
     if (actionBar) actionBar.style.display = "block";
     document.getElementById("modelCompareResult").style.display = "none";
 }
@@ -148,13 +141,15 @@ function populateModelDropdown(models) {
     document.getElementById("modelSelector").style.display = "block";
 }
 
-async function onModelSelect(modelId) {
+function showLoadedModelBadge(ok, text) {
     const badge = document.getElementById("loadedModelBadge");
-    if (!modelId) {
-        if (badge) badge.style.display = "none";
-        return;
+    if (!badge) return;
+    if (ok) {
+        badge.textContent = "Loaded: " + text;
+        badge.style.display = "inline-block";
+    } else {
+        badge.style.display = "none";
     }
-    await loadModelToSession(modelId);
 }
 
 /* =============== Header Dropdown =============== */
@@ -163,6 +158,8 @@ function toggleHeaderMenu() {
     document.getElementById("headerMenu").classList.toggle("open");
 }
 
+/* =============== Navigation =============== */
+
 function goToStep(n) {
     document.querySelectorAll(".step-item").forEach((s) => s.classList.remove("active"));
     document.querySelector(`.step-item[data-step="${n}"]`).classList.add("active");
@@ -170,8 +167,9 @@ function goToStep(n) {
     document.getElementById("step" + n).classList.add("active");
 }
 
+/* =============== Step 2: Data Exploration =============== */
+
 function populateStep2(info) {
-    // Stats
     document.getElementById("dataStats").innerHTML = `
         <div class="stat-card"><div class="stat-value">${info.shape[1]}</div><div class="stat-label">Columns</div></div>
         <div class="stat-card"><div class="stat-value">${info.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
@@ -179,23 +177,23 @@ function populateStep2(info) {
         <div class="stat-card"><div class="stat-value">${info.columns.length}</div><div class="stat-label">Features</div></div>
     `;
 
-    // Preview table
     const cols = info.columns;
     let html = "<table><thead><tr>";
     cols.forEach((c) => { html += `<th>${esc(c)}</th>`; });
     html += "</tr></thead><tbody>";
     info.sample.forEach((row) => {
         html += "<tr>";
-        cols.forEach((c) => { html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`; });
+        cols.forEach((c) => {
+            html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`;
+        });
         html += "</tr>";
     });
     html += "</tbody></table>";
     document.getElementById("previewTable").innerHTML = html;
 
-    // Info text
-    let infoText = `Dataset Info\n`;
+    let infoText = "Dataset Info\n";
     infoText += `Shape: ${info.shape[0]} rows x ${info.shape[1]} columns\n\n`;
-    infoText += `Column dtypes:\n`;
+    infoText += "Column dtypes:\n";
     Object.entries(info.dtypes).forEach(([col, dt]) => {
         const nulls = info.null_counts[col];
         const nullPct = info.null_pcts[col];
@@ -203,7 +201,6 @@ function populateStep2(info) {
     });
     document.getElementById("dataInfoText").textContent = infoText;
 
-    // Describe table
     let descHtml = '<div class="table-wrap"><table><thead><tr><th>Metric</th>';
     Object.keys(info.describe).forEach((col) => { descHtml += `<th>${esc(col)}</th>`; });
     descHtml += "</tr></thead><tbody>";
@@ -219,7 +216,6 @@ function populateStep2(info) {
     descHtml += "</tbody></table></div>";
     document.getElementById("describeTable").innerHTML = descHtml;
 
-    // Viz images
     const vizDiv = document.getElementById("vizImages");
     vizDiv.innerHTML = "";
     if (info.distribution_images) {
@@ -265,6 +261,182 @@ function esc(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+/* =============== Result Display Functions =============== */
+
+function showUploadResult(data) {
+    const status = document.getElementById("uploadStatus");
+    status.style.display = "block";
+    status.innerHTML = `<div class="alert alert-success">Upload successful! File: ${data.filename} (${data.shape[0]} rows x ${data.shape[1]} columns)</div>`;
+}
+
+function showUploadError(msg) {
+    const status = document.getElementById("uploadStatus");
+    status.style.display = "block";
+    status.innerHTML = `<div class="alert alert-error">${msg}</div>`;
+}
+
+function showUploadLoading() {
+    const status = document.getElementById("uploadStatus");
+    status.style.display = "block";
+    status.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Uploading and processing...</div>';
+}
+
+function showCleanResult(data) {
+    const reportDiv = document.getElementById("cleanReport");
+    reportDiv.style.display = "block";
+    reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Cleaning Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
+
+    document.getElementById("cleanStats").style.display = "grid";
+    document.getElementById("cleanStats").innerHTML = `
+        <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
+        <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
+    `;
+
+    const cols = data.data.columns;
+    let html = '<div class="table-wrap"><table><thead><tr>';
+    cols.forEach((c) => { html += `<th>${esc(c)}</th>`; });
+    html += "</tr></thead><tbody>";
+    data.data.sample.slice(0, 20).forEach((row) => {
+        html += "<tr>";
+        cols.forEach((c) => {
+            html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`;
+        });
+        html += "</tr>";
+    });
+    html += "</tbody></table></div>";
+    document.getElementById("cleanTable").style.display = "block";
+    document.getElementById("cleanTable").innerHTML = html;
+}
+
+function showFillResult(data) {
+    const reportDiv = document.getElementById("cleanReport");
+    reportDiv.style.display = "block";
+    reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Fill Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
+
+    document.getElementById("cleanStats").style.display = "grid";
+    document.getElementById("cleanStats").innerHTML = `
+        <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
+        <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
+        <div class="stat-card"><div class="stat-value">${Object.values(data.data.null_counts).filter((n) => n > 0).length}</div><div class="stat-label">Columns with Nulls Remaining</div></div>
+    `;
+}
+
+function showTrainingComplete(data) {
+    document.getElementById("trainingInfo").innerHTML = `
+        <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
+        <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
+        <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
+        <div class="stat-card"><div class="stat-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="stat-label">Avg Time / Epoch</div></div>
+        <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
+        <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
+        <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
+    `;
+    document.getElementById("trainingSummary").style.display = "block";
+    document.getElementById("summaryMetrics").innerHTML = `
+        <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
+        <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
+        <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
+        <div class="metric-card"><div class="metric-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="metric-label">Avg Time / Epoch</div></div>
+        <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
+    `;
+}
+
+function showEvalResult(data) {
+    const evalData = data.evaluation;
+    const metricsDiv = document.getElementById("evalMetrics");
+    metricsDiv.style.display = "grid";
+    metricsDiv.innerHTML = "";
+
+    if (evalData.task_type === "classification") {
+        metricsDiv.innerHTML = `
+            <div class="metric-card"><div class="metric-value">${(evalData.accuracy * 100).toFixed(2)}%</div><div class="metric-label">Accuracy</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.precision.toFixed(4)}</div><div class="metric-label">Precision</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.recall.toFixed(4)}</div><div class="metric-label">Recall</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.f1_score.toFixed(4)}</div><div class="metric-label">F1 Score</div></div>
+        `;
+    } else {
+        metricsDiv.innerHTML = `
+            <div class="metric-card"><div class="metric-value">${evalData.mse.toFixed(4)}</div><div class="metric-label">MSE</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.rmse.toFixed(4)}</div><div class="metric-label">RMSE</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.mae.toFixed(4)}</div><div class="metric-label">MAE</div></div>
+            <div class="metric-card"><div class="metric-value">${evalData.r2.toFixed(4)}</div><div class="metric-label">R² Score</div></div>
+        `;
+    }
+
+    const imgDiv = document.getElementById("evalImages");
+    imgDiv.innerHTML = "";
+    if (evalData.images) {
+        const label_map = {
+            confusion_matrix: "Confusion Matrix",
+            roc_curve: "ROC Curve",
+            pred_vs_true: "Predictions vs True Values",
+            residuals: "Residual Distribution",
+        };
+        Object.entries(evalData.images).forEach(([key, img]) => {
+            imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label_map[key] || key}</div></div>`;
+        });
+    }
+}
+
+function showCVResult(data) {
+    const div = document.getElementById("cvResults");
+    div.style.display = "block";
+    div.innerHTML = `
+        <div class="card">
+            <h3 class="card-title">Cross-Validation Results (${data.n_splits}-fold)</h3>
+            <div class="metrics-grid">
+                <div class="metric-card"><div class="metric-value">${(data.mean_score * 100).toFixed(2)}%</div><div class="metric-label">Mean Score</div></div>
+                <div class="metric-card"><div class="metric-value">${(data.std_score * 100).toFixed(2)}%</div><div class="metric-label">Std Dev</div></div>
+            </div>
+            <div style="margin-top:12px;font-size:14px;">
+                <strong style="color:var(--ink);">Per-fold scores:</strong>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                    ${data.cv_scores.map((s, i) => `<span class="chip">Fold ${i + 1}: ${(s * 100).toFixed(2)}%</span>`).join("")}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function showPredResult(data) {
+    document.getElementById("predResults").style.display = "block";
+
+    const chartDiv = document.getElementById("predChart");
+    if (data.plot_image) {
+        chartDiv.style.display = "grid";
+        let html = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Predictions vs True (Scatter)"><div class="caption">Scatter: Predictions vs True Values</div></div>`;
+        if (data.line_plot_image) {
+            html += `<div class="image-card"><img src="data:image/png;base64,${data.line_plot_image}" alt="Predictions vs True (Line)"><div class="caption">Line: Predictions vs True Values</div></div>`;
+        }
+        chartDiv.innerHTML = html;
+    } else {
+        chartDiv.style.display = "none";
+    }
+
+    document.getElementById("predDownload").style.display = "flex";
+}
+
+function resetAllUI() {
+    document.querySelectorAll(".step-item").forEach((s) => s.classList.remove("active"));
+    document.querySelector('.step-item[data-step="1"]').classList.add("active");
+    document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+    document.getElementById("step1").classList.add("active");
+    document.getElementById("uploadStatus").style.display = "none";
+    document.getElementById("cleanReport").style.display = "none";
+    document.getElementById("trainingSummary").style.display = "none";
+    document.getElementById("trainingProgress").style.display = "none";
+    destroyCharts();
+    document.getElementById("trainError").style.display = "none";
+    document.getElementById("evalMetrics").style.display = "none";
+    document.getElementById("predResults").style.display = "none";
+    document.getElementById("predChart").style.display = "none";
+    document.getElementById("predDownload").style.display = "none";
+    document.getElementById("cvResults").style.display = "none";
+    document.getElementById("dataStats").innerHTML = "";
+    document.getElementById("previewTable").innerHTML = "";
+    document.getElementById("evalImages").innerHTML = "";
 }
 
 /* =============== Live Training Progress =============== */
@@ -354,7 +526,6 @@ function initTrainingProgress(total) {
     const panel = document.getElementById("trainingProgress");
     panel.style.display = "block";
 
-    // Show chart area
     const chartsDiv = document.getElementById("trainingCharts");
     if (chartsDiv) chartsDiv.style.display = "grid";
 
