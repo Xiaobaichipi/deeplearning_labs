@@ -92,6 +92,38 @@
 - 新增 `TestModelComparison`（5 个测试）— 双模型、单模型、空参数、无效 ID、不存在项目
 - 测试总数 152（新增 6），0 failed
 
+## 2026-06-08: 平均每轮耗时 + Step 6 模型选择器 (jiagou_youhua 分支)
+
+### 新增功能
+
+1. **平均每轮训练耗时** — Training Summary 新增 `Avg Time / Epoch` 指标
+   - 后端 `train_model()` 记录每轮时间 → `avg_epoch_time` 加入 `final_metrics`
+   - Training Summary 的 stats-grid 和 metrics-grid 均显示该指标
+   - Models 标签页的模型卡片也显示 `Time/Epoch` 芯片
+
+2. **Step 6 共享模型选择器** — Evaluation / Cross Validation / Predictions 可切换已训练模型
+   - 新增 `POST /api/projects/<id>/load-model/<model_id>` — 从磁盘加载模型到 SessionManager
+   - Step 6 顶部添加 Active Model 下拉框，选择即加载
+   - 激活项目时自动加载最新模型到主槽位（`data_id`，非带后缀的 key）
+   - 训练完成后自动刷新下拉框，选中刚训练的模型
+
+### 后端
+
+- **`utils/model_utils.py`** — 新增 `import time`；history 增加 `epoch_times` 列表；每轮记录耗时
+- **`routes/training.py`** — 同步/SSE 路径均计算 `avg_epoch_time` 加入 `final_metrics` 和持久化 `meta`
+- **`routes/projects.py`** — 新增 `load_model_into_session()` 端点；`activate_project()` 自动加载最新模型到 SessionManager 主槽位
+
+### 前端
+
+- **`templates/index.html`** — Step 6 标签栏上方插入模型选择器（select + loaded badge）
+- **`static/js/api.js`** — `loadModelToSession()` / `showLoadedModelBadge()` / `refreshModelDropdown()`；`activateProject()` 激活后自动填充下拉框
+- **`static/js/ui.js`** — `populateModelDropdown()` / `onModelSelect()`；avg_epoch_time 展示
+- **`static/js/app.js`** — 进入 Step 6 时显示模型选择器
+
+### 测试
+
+- 58 现有测试全部通过，无需新增测试
+
 ---
 
 ## 2026-06-08: Bug 修复 — New Project 上传文件名溢出 (v2-project-system 分支)

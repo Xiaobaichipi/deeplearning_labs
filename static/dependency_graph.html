@@ -65,14 +65,14 @@ graph TB
   n0_api -->|8| n2_ui
   n1_data -->|7| n1_data_utils
   n3_training -->|6| n5_session
-  n4_projects -->|5| n5_session
+  n4_projects -->|10| n5_session
   n3_model_utils -->|4| n4_plot_utils
-  n4_projects -->|4| n6_project_manager
+  n4_projects -->|8| n6_project_manager
   n2_evaluation -->|2| n3_model_utils
   n3_training -->|2| n1_data_utils
   n3_training -->|2| n3_model_utils
   n4_projects -->|2| n1_data_utils
-  n4_projects -->|1| n3_model_utils
+  n4_projects -->|3| n3_model_utils
   n4_projects -->|1| n4_plot_utils
   n0_main -->|1| n5_session
   n0_main -->|1| n6_project_manager

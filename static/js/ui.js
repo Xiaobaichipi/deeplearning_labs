@@ -100,6 +100,7 @@ function populateModelList(models) {
         const trainLoss = fm.train_loss != null ? fm.train_loss.toFixed(4) : "—";
         const valLoss = fm.val_loss != null ? fm.val_loss.toFixed(4) : "—";
         const epochs = fm.epochs != null ? fm.epochs : "—";
+        const avgTime = fm.avg_epoch_time != null ? fm.avg_epoch_time.toFixed(2) + "s" : "—";
 
         return `
             <div class="model-export-card">
@@ -113,6 +114,7 @@ function populateModelList(models) {
                         <span class="chip">Epochs: ${epochs}</span>
                         <span class="chip">Train Loss: ${trainLoss}</span>
                         <span class="chip">Val Loss: ${valLoss}</span>
+                        <span class="chip">Time/Epoch: ${avgTime}</span>
                     </div>
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>
@@ -125,6 +127,34 @@ function populateModelList(models) {
     // Show action bar and wire checkbox toggle
     if (actionBar) actionBar.style.display = "block";
     document.getElementById("modelCompareResult").style.display = "none";
+}
+
+/* =============== Model Selector Dropdown =============== */
+
+function populateModelDropdown(models) {
+    const select = document.getElementById("modelSelect");
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Select a model --</option>';
+    models.forEach((m) => {
+        const mid = esc(m.id || "");
+        const mtype = esc(m.model_type || "unknown");
+        const fm = m.final_metrics || {};
+        const epochs = fm.epochs != null ? ` (${fm.epochs} epochs)` : "";
+        const opt = document.createElement("option");
+        opt.value = mid;
+        opt.textContent = `${mtype} - ${mid}${epochs}`;
+        select.appendChild(opt);
+    });
+    document.getElementById("modelSelector").style.display = "block";
+}
+
+async function onModelSelect(modelId) {
+    const badge = document.getElementById("loadedModelBadge");
+    if (!modelId) {
+        if (badge) badge.style.display = "none";
+        return;
+    }
+    await loadModelToSession(modelId);
 }
 
 /* =============== Header Dropdown =============== */

@@ -170,6 +170,7 @@ async function startTraining() {
                 <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
                 <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
                 <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
+                <div class="stat-card"><div class="stat-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="stat-label">Avg Time / Epoch</div></div>
                 <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
                 <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
                 <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
@@ -180,10 +181,12 @@ async function startTraining() {
                 <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
                 <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
                 <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
+                <div class="metric-card"><div class="metric-value">${data.final_metrics.avg_epoch_time.toFixed(2)}s</div><div class="metric-label">Avg Time / Epoch</div></div>
                 <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
             `;
 
             goToStep(6);
+            refreshModelDropdown();
             btn.disabled = false;
             btn.textContent = "Start Training";
         });
@@ -411,9 +414,21 @@ async function activateProject(projectId) {
         populateStep3Columns(data.data.columns);
         populateTargetCol(data.data.columns);
 
-        // Show model badges if any
+        // Populate model dropdown for Step 6
         if (data.data.models && data.data.models.length) {
-            // Could show existing model indicators here
+            try {
+                const mRes = await fetch(`/api/projects/${projectId}/models`);
+                const mData = await mRes.json();
+                if (!mData.error && mData.models && mData.models.length) {
+                    populateModelDropdown(mData.models);
+                    document.getElementById("modelSelector").style.display = "block";
+                    const latest = mData.models[0];
+                    document.getElementById("modelSelect").value = latest.id;
+                    await loadModelToSession(latest.id);
+                }
+            } catch (_) {}
+        } else {
+            document.getElementById("modelSelector").style.display = "none";
         }
 
         goToStep(2);
@@ -443,6 +458,57 @@ async function loadProjectModels() {
         populateModelList(data.models || []);
     } catch (err) {
         console.error("loadProjectModels:", err.message);
+    }
+}
+
+/* =============== Model Selector (Step 6) =============== */
+
+function showLoadedModelBadge(ok, text) {
+    const badge = document.getElementById("loadedModelBadge");
+    if (!badge) return;
+    if (ok) {
+        badge.textContent = "Loaded: " + text;
+        badge.style.display = "inline-block";
+    } else {
+        badge.style.display = "none";
+    }
+}
+
+async function loadModelToSession(modelId) {
+    if (!_activeProjectId) return null;
+    try {
+        const res = await fetch(`/api/projects/${_activeProjectId}/load-model/${modelId}`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) {
+            console.error("loadModelToSession:", data.error);
+            showLoadedModelBadge(false);
+            return null;
+        }
+        showLoadedModelBadge(true, data.model.model_type);
+        return data.model;
+    } catch (err) {
+        console.error("loadModelToSession:", err.message);
+        showLoadedModelBadge(false);
+        return null;
+    }
+}
+
+async function refreshModelDropdown() {
+    if (!_activeProjectId) return;
+    try {
+        const res = await fetch(`/api/projects/${_activeProjectId}/models`);
+        const data = await res.json();
+        if (data.error) return;
+        const models = data.models || [];
+        if (models.length) {
+            populateModelDropdown(models);
+            document.getElementById("modelSelector").style.display = "block";
+            const latest = models[0];
+            document.getElementById("modelSelect").value = latest.id;
+            showLoadedModelBadge(true, latest.model_type);
+        }
+    } catch (err) {
+        console.error("refreshModelDropdown:", err.message);
     }
 }
 

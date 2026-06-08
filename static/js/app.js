@@ -19,6 +19,13 @@ document.querySelectorAll(".step-item").forEach((item) => {
         item.classList.add("active");
         document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
         document.getElementById("step" + step).classList.add("active");
+
+        // Show model selector when entering Step 6 if models exist
+        if (step === "6") {
+            const sel = document.getElementById("modelSelector");
+            const select = document.getElementById("modelSelect");
+            if (sel && select && select.options.length > 1) sel.style.display = "block";
+        }
     });
 });
 

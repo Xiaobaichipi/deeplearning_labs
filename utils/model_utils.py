@@ -4,6 +4,7 @@ Model classes live in utils/models/ — add new models there.
 This module provides shared training infrastructure.
 """
 
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -48,12 +49,13 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         optimizer, mode="min", factor=0.5, patience=patience // 2
     )
 
-    history = {"train_loss": [], "val_loss": [], "train_metric": [], "val_metric": []}
+    history = {"train_loss": [], "val_loss": [], "train_metric": [], "val_metric": [], "epoch_times": []}
     best_val_loss = float("inf")
     best_state = None
     patience_counter = 0
 
     for epoch in range(epochs):
+        epoch_start = time.time()
         model.train()
         train_loss = 0.0
         train_mae = 0.0
@@ -117,6 +119,9 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             history["train_metric"].append(float(train_mae))
             history["val_metric"].append(float(val_mae))
 
+        epoch_time = time.time() - epoch_start
+        history["epoch_times"].append(round(epoch_time, 4))
+
         scheduler.step(val_loss)
 
         if progress_callback:
@@ -127,6 +132,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 "val_loss": float(val_loss),
                 "train_metric": history["train_metric"][-1],
                 "val_metric": history["val_metric"][-1],
+                "epoch_time": round(epoch_time, 4),
             })
 
         if val_loss < best_val_loss:

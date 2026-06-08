@@ -53,6 +53,8 @@ def train():
         sm.set_model_config(data_id, built)
         sm.set_history(data_id, history)
 
+        avg_epoch_time = round(sum(history["epoch_times"]) / len(history["epoch_times"]), 2)
+
         # Persist to active project
         pm = current_app.config["project_manager"]
         active_project_id = session.get("active_project_id")
@@ -68,6 +70,7 @@ def train():
                         "train_loss": round(history["train_loss"][-1], 6),
                         "val_loss": round(history["val_loss"][-1], 6),
                         "epochs": len(history["train_loss"]),
+                        "avg_epoch_time": avg_epoch_time,
                     },
                     "task_type": split_result["task_type"],
                     "feature_names": split_result["feature_names"],
@@ -91,6 +94,7 @@ def train():
                 "train_loss": round(history["train_loss"][-1], 6),
                 "val_loss": round(history["val_loss"][-1], 6),
                 "epochs": len(history["train_loss"]),
+                "avg_epoch_time": avg_epoch_time,
             },
             "task_type": split_result["task_type"],
             "input_dim": split_result["input_dim"],
@@ -211,6 +215,7 @@ def train_stream():
         sm.set_history(data_id, train_result["history"])
 
         history = train_result["history"]
+        avg_epoch_time = round(sum(history["epoch_times"]) / len(history["epoch_times"]), 2)
 
         final = {
             "history": {
@@ -223,6 +228,7 @@ def train_stream():
                 "train_loss": round(history["train_loss"][-1], 6),
                 "val_loss": round(history["val_loss"][-1], 6),
                 "epochs": len(history["train_loss"]),
+                "avg_epoch_time": avg_epoch_time,
             },
             "task_type": split_result["task_type"],
             "input_dim": split_result["input_dim"],

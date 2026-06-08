@@ -160,6 +160,68 @@ def compare_models(project_id):
     })
 
 
+@projects_bp.route("/api/projects/<project_id>/load-model/<model_id>", methods=["POST"])
+def load_model_into_session(project_id, model_id):
+    """Load a saved model into SessionManager primary slot for evaluation/prediction."""
+    sm = current_app.config["session_manager"]
+    pm = _pm()
+    data_id = get_data_id()
+
+    project = pm.get_project(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    state_dict, meta = pm.load_model(project_id, model_id)
+    if state_dict is None:
+        return jsonify({"error": "Model not found"}), 404
+
+    split_result = pm.load_split(project_id)
+    if split_result:
+        sm.set_split(data_id, split_result)
+        input_dim = split_result.get("input_dim", len(meta.get("feature_names", [])))
+        output_dim = (
+            split_result["n_classes"]
+            if split_result.get("task_type") == "classification"
+            else 1
+        )
+    else:
+        input_dim = len(meta.get("feature_names", []))
+        output_dim = 1
+
+    from utils.model_utils import create_model
+    try:
+        model = create_model(
+            meta["model_type"], input_dim, output_dim,
+            **meta.get("model_params", {}),
+        )
+        model.load_state_dict(state_dict)
+        model.eval()
+    except Exception as e:
+        return jsonify({"error": f"Failed to reconstruct model: {str(e)}"}), 500
+
+    sm.set_model(data_id, model)
+    sm.set_model_config(data_id, meta.get("model_params", {}))
+
+    final_metrics = meta.get("final_metrics", {})
+    if final_metrics:
+        sm.set_history(data_id, final_metrics)
+
+    return json_ok({
+        "success": True,
+        "model": {
+            "id": model_id,
+            "model_type": meta.get("model_type"),
+            "model_params": meta.get("model_params", {}),
+            "final_metrics": final_metrics,
+            "task_type": meta.get("task_type"),
+            "feature_names": meta.get("feature_names", []),
+            "target_name": meta.get("target_name"),
+            "train_size": meta.get("train_size"),
+            "test_size": meta.get("test_size"),
+        },
+    })
+
+
 @projects_bp.route("/api/projects/<project_id>/activate", methods=["POST"])
 def activate_project(project_id):
     """Load project data + split into SessionManager so the UI can resume."""
@@ -204,6 +266,22 @@ def activate_project(project_id):
                 )
                 model.load_state_dict(state_dict)
                 sm.set_model(f"{data_id}_{mid}", model)
+            except Exception:
+                pass
+
+    # Load latest model into primary session slot
+    if split_result and models:
+        latest = models[0]
+        state_dict, meta = pm.load_model(project_id, latest["id"])
+        if state_dict is not None:
+            try:
+                model = create_model(
+                    meta["model_type"], input_dim, output_dim,
+                    **meta.get("model_params", {}),
+                )
+                model.load_state_dict(state_dict)
+                model.eval()
+                sm.set_model(data_id, model)
             except Exception:
                 pass
 
