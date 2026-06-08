@@ -772,6 +772,14 @@ tr:hover td { background: var(--surface-soft); }
 #projectUploadText {
     font-size: 14px;
     color: var(--charcoal);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.modal-content .upload-zone {
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ── Model Comparison ───────────────────────────────── */
