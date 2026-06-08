@@ -1,5 +1,41 @@
 # Issues Log
 
+## 2026-06-08: Bug — 项目激活后 Cross Validation 报 KeyError 'model_type' (v2-project-system 分支)
+
+### 症状
+
+训练完模型后，点击 Step 6 → Cross Validation → Run，页面显示 `Error: 'model_type'`。
+
+### 根因
+
+`routes/projects.py` 中 `load_model_into_session()` 和 `activate_project()` 调用 `sm.set_model_config()` 时只存储了 `meta.get("model_params", {})`。而 `routes/evaluation.py:api_validate()` 需要从 model_config 读取 `model_type` 和 `model_params` 等多个字段。
+
+对比训练流程：`routes/training.py:203` 存储的是 `_build_config()` 返回的完整 dict（含 `model_type`、`model_params`、`learning_rate`、`batch_size`、`device`），因此训练后直接 Cross Validation 正常，但项目激活/加载模型后调用 `api_validate()` 就报了 KeyError。
+
+### 修复
+
+`routes/projects.py` 两处 `sm.set_model_config()` 改为存储完整配置字典：
+
+```python
+sm.set_model_config(data_id, {
+    "model_type": meta.get("model_type"),
+    "model_params": meta.get("model_params", {}),
+    "learning_rate": meta.get("learning_rate", config.TRAINING["learning_rate"]),
+    "batch_size": meta.get("batch_size", config.TRAINING["batch_size"]),
+    "device": meta.get("device", config.DEVICE),
+})
+```
+
+### 涉及文件
+
+- `routes/projects.py` — 两处 set_model_config 调用修复，新增 `from utils import config`
+
+### 测试
+
+58 个 route 测试全部通过。
+
+---
+
 ## 2026-06-08: 项目系统 (Projects) — 持久化存储 + 前端项目列表 (jiagou_youhua 分支)
 
 ### 概述
