@@ -17,7 +17,7 @@
 - **📊 Real-Time Training** — SSE-streamed per-epoch progress with live Loss/Metric curves (Chart.js), early stopping, and LR scheduling
 - **📈 Evaluation & Visualization** — Regression metrics (MSE/RMSE/MAE/R²), classification metrics (accuracy/precision/recall/F1), confusion matrix, ROC curve, residual plots
 - **🔁 Cross-Validation** — K-fold CV using the same PyTorch model architecture as training
-- **🔮 Predict & Export** — Generate predictions on train/test sets with scatter + line comparison charts; download results as CSV or Excel
+- **🔮 Predict & Export** — Scatter + line comparison charts; download results as CSV or Excel
 - **🔌 Extensible** — Simple model registry — add new architectures by dropping in a file and one registry entry
 
 ---
@@ -71,7 +71,7 @@ The interface is organized as a 6-step wizard:
 | **3. Clean & Fill** | Toggle options | Duplicate removal, outlier clipping (IQR), missing value imputation |
 | **4. Model Config** | Select model & params | Architecture choice (MLP/CNN/RNN/LSTM/GRU/Transformer), hyperparameters, normalization |
 | **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, training history plots |
-| **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, visualizations, prediction table + charts, CSV/XLSX download |
+| **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, visualizations, charts, CSV/XLSX download |
 
 ---
 
