@@ -375,18 +375,8 @@
 
             <div class="tab-content" id="tabPred">
                 <div class="card">
-                    <div class="form-row">
-                        <div class="input-group">
-                            <label>Data to predict</label>
-                            <select id="predictSource">
-                                <option value="test">Test set</option>
-                                <option value="train">Training set</option>
-                            </select>
-                        </div>
-                    </div>
                     <button class="btn btn-primary" onclick="runPredict()" id="predBtn">Generate Predictions</button>
                     <div id="predResults" style="display:none;margin-top:16px;">
-                        <div class="table-wrap" id="predTable"></div>
                         <div id="predChart" class="image-grid" style="display:none;margin-top:16px;"></div>
                         <div id="predDownload" style="display:none;margin-top:16px;display:flex;gap:8px;">
                             <button class="btn btn-secondary btn-sm" onclick="downloadPredictions('csv')">Download CSV</button>

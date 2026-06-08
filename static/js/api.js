@@ -310,43 +310,15 @@ async function runPredict() {
     btn.innerHTML = '<span class="spinner"></span> Predicting...';
 
     try {
-        const useTest = document.getElementById("predictSource").value === "test";
         const res = await fetch("/api/predict", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ use_test: useTest }),
+            body: JSON.stringify({ use_test: true }),
         });
         const data = await res.json();
         if (data.error) { alert("Error: " + data.error); return; }
 
         document.getElementById("predResults").style.display = "block";
-
-        const predictions = data.predictions;
-        let html = "<table><thead><tr><th>#</th><th>True Value</th><th>Prediction</th>";
-        if (predictions[0] && predictions[0].prediction_label !== undefined) {
-            html += "<th>Predicted Label</th><th>True Label</th>";
-        }
-        if (predictions[0] && predictions[0].probabilities) {
-            html += "<th>Confidence</th>";
-        }
-        html += "</tr></thead><tbody>";
-
-        predictions.forEach((p) => {
-            html += `<tr>
-                <td>${p.index}</td>
-                <td>${data.task_type === "classification" ? (p.true_label !== undefined ? esc(p.true_label) : p.true_value) : p.true_value.toFixed(4)}</td>
-                <td><strong>${data.task_type === "classification" ? (p.prediction_label !== undefined ? esc(p.prediction_label) : p.prediction) : p.prediction.toFixed(4)}</strong></td>`;
-            if (p.prediction_label !== undefined) {
-                html += `<td>${esc(p.prediction_label)}</td><td>${esc(p.true_label)}</td>`;
-            }
-            if (p.probabilities) {
-                const maxProb = Math.max(...p.probabilities);
-                html += `<td>${(maxProb * 100).toFixed(1)}%</td>`;
-            }
-            html += "</tr>";
-        });
-        html += "</tbody></table>";
-        document.getElementById("predTable").innerHTML = html;
 
         // Show chart if available
         const chartDiv = document.getElementById("predChart");
@@ -372,8 +344,7 @@ async function runPredict() {
 }
 
 function downloadPredictions(format) {
-    const source = document.getElementById("predictSource").value;
-    window.location.href = `/api/predict/download?source=${source}&format=${format}`;
+    window.location.href = `/api/predict/download?source=test&format=${format}`;
 }
 
 async function resetAll() {

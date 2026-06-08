@@ -1,5 +1,21 @@
 # Issues Log
 
+## 2026-06-08: 简化 Predictions 页面——去掉表格 + 下拉框 (jiagou_youhua 分支)
+
+### 变更
+
+- **移除 `predictSource` 下拉框** — 不再支持选择 train/test，固定预测 test 集
+- **移除预测数据表格** — `predTable` 的 HTML 表格渲染代码全部删除
+- **保留两张图表** — 散点图 + 折线对比图正常展示
+- **保留下载按钮** — CSV/XLSX 下载固定为 test 集预测结果
+
+### 涉及文件
+
+- `templates/index.html` — 去掉 `predictSource` select 和 `predTable` div
+- `static/js/api.js` — `runPredict()` 移除表格渲染逻辑；`downloadPredictions()` 固定 source=test
+
+---
+
 ## 2026-06-08: 全局 DPI 提升至 300 (jiagou_youhua 分支)
 
 ### 变更
