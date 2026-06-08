@@ -245,6 +245,7 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
         device = torch.device(device[0])
     else:
         device = torch.device(device)
+    model = model.to(device)
     model.eval()
     X_t = torch.FloatTensor(X_test).to(device)
     y_t = torch.FloatTensor(y_test) if task_type == "regression" else torch.LongTensor(y_test)
