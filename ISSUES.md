@@ -1,5 +1,38 @@
 # Issues Log
 
+## 2026-06-08: 修复回归 MAE 为 sum 而非 mean + 强制 y 归一化 (jiagou_youhua 分支)
+
+### Bug 1: MAE 累加缺少除以样本总数
+
+**症状**：Train MAE / Val MAE 显示值极大（如 681.61 / 162.16），即使启用归一化后仍未改善。
+
+**根因**：`train_model()` 中对每个 batch 累加 `F.l1_loss(pred, batch_y).item() * batch_x.size(0)` 得到各 batch 的 L1 之和，但在 epoch 结束时缺少 `/= len(train_loader.dataset)` 转换为均值。对比 `train_loss` 有正确的 `train_loss /= len(train_loader.dataset)` 行。
+
+效果：存储在 `history["train_metric"]` 和 `history["val_metric"]` 中的 MAE 实际是 **所有样本的 L1 总和**，而非均值。用户有 N 个训练样本时，MAE ≈ N × 真实均值。
+
+**修复**：在 `utils/model_utils.py` 第 83 行添加 `train_mae /= len(train_loader.dataset)`，第 105 行添加 `val_mae /= len(val_loader.dataset)`。
+
+### Bug 2: 回归目标不随 X 归一化独立启用
+
+**症状**：当用户选择归一化="none"（默认）时，y 保持原始尺度，MAE/MSE 在 y 值量级大时仍然很大。
+
+**根因**：`_setup_training()` 将 y 归一化放在 `if norm_method in ("minmax", "mean"):` 块内，意味着 y 归一化与 X 归一化绑定。用户只想做特征归一化或不做 X 归一化时，y 得不到归一化。
+
+**修复**：将回归 y 归一化逻辑移出 X 归一化条件块。当 X 归一化="none" 时，y 默认使用 "mean" (z-score) 归一化，确保 Loss/MAE 始终在无量纲尺度。
+
+### 涉及文件
+
+- `utils/model_utils.py` — 添加 `train_mae /= len(train_loader.dataset)` 和 `val_mae /= len(val_loader.dataset)`
+- `routes/training.py` — `_setup_training()` 回归 y 归一化与 X 归一化解耦，始终独立执行
+- `tests/test_model_utils.py` — 新增 `TestTrainMAEScale.test_mae_is_mean_not_sum`
+- `tests/test_routes.py` — 新增 MAE < 10.0 断言到 `test_train_returns_history`
+
+### 测试
+
+- 测试总数 127（新增 1），0 failed
+
+---
+
 ## 2026-06-08: Predictions 简化 + Training 重构 (jiagou_youhua 分支)
 
 ### 变更

@@ -80,6 +80,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             train_loss += loss.item() * batch_x.size(0)
 
         train_loss /= len(train_loader.dataset)
+        train_mae /= len(train_loader.dataset)
 
         model.eval()
         val_loss = 0.0
@@ -102,6 +103,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 val_loss += loss.item() * batch_x.size(0)
 
         val_loss /= len(val_loader.dataset)
+        val_mae /= len(val_loader.dataset)
 
         train_acc = train_correct / train_total if train_total > 0 else 0
         val_acc = val_correct / val_total if val_total > 0 else 0

@@ -267,14 +267,15 @@ def _setup_training(sm, data_id, df, params):
         split_result["X_test"] = X_test
         split_result["norm_params"] = norm_params
 
-        # Also normalize target for regression so loss is scale-independent
-        if split_result["task_type"] == "regression":
-            y_train, y_test, y_scaler = normalize_target(
-                split_result["y_train"], split_result["y_test"], method=norm_method
-            )
-            split_result["y_train"] = y_train
-            split_result["y_test"] = y_test
-            split_result["y_scaler"] = y_scaler
+    # Always normalize target for regression so loss/metric are scale-independent
+    if split_result["task_type"] == "regression":
+        y_norm = norm_method if norm_method in ("minmax", "mean") else "mean"
+        y_train, y_test, y_scaler = normalize_target(
+            split_result["y_train"], split_result["y_test"], method=y_norm
+        )
+        split_result["y_train"] = y_train
+        split_result["y_test"] = y_test
+        split_result["y_scaler"] = y_scaler
 
     sm.set_split(data_id, split_result)
 

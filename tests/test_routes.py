@@ -172,6 +172,10 @@ class TestTraining:
         assert "history" in data
         assert "train_loss" in data["history"]
         assert "val_loss" in data["history"]
+        # MAE should be per-sample mean, not sum across all samples.
+        # With forced y-normalization, MAE on z-score/minmax scale < 10.
+        assert data["history"]["train_metric"][-1] < 10.0
+        assert data["history"]["val_metric"][-1] < 10.0
 
     def test_train_without_upload_returns_400(self, client):
         resp = client.post("/api/train", json={"target_col": "target"})

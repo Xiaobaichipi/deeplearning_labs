@@ -197,6 +197,21 @@ class TestCrossValidate:
 
 
 # =============================================================================
+# train_model regression MAE scale
+# =============================================================================
+
+class TestTrainMAEScale:
+    def test_mae_is_mean_not_sum(self, regression_data):
+        """Regression train_metric should be per-sample mean, not sum across samples."""
+        model, history = _train_mlp_regression(regression_data, epochs=5)
+        y_train = regression_data["y_train"]
+        y_range = max(float(y_train.max() - y_train.min()), 1.0)
+        # Mean MAE cannot be orders of magnitude larger than y's range.
+        # Sum MAE (bug) ≈ n_samples * typical_error >> y_range.
+        assert history["train_metric"][-1] < y_range * 2
+
+
+# =============================================================================
 # evaluate
 # =============================================================================
 
