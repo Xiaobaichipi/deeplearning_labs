@@ -208,7 +208,7 @@ def load_model_into_session(project_id, model_id):
             "id": model_id,
             "model_type": meta.get("model_type"),
             "model_params": meta.get("model_params", {}),
-            "final_metrics": final_metrics,
+            "final_metrics": meta.get("final_metrics", {}),
             "task_type": meta.get("task_type"),
             "feature_names": meta.get("feature_names", []),
             "target_name": meta.get("target_name"),

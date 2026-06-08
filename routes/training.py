@@ -35,75 +35,12 @@ def train():
             else 1
         )
 
-        model = create_model(
-            built["model_type"], split_result["input_dim"], output_dim,
-            **built["model_params"],
+        history, final = _run_and_persist(
+            sm, data_id, split_result, built, output_dim,
+            pm=current_app.config["project_manager"],
+            active_project_id=session.get("active_project_id"),
         )
-        trained_model, history = train_model(
-            model,
-            split_result["X_train"], split_result["y_train"],
-            split_result["X_test"], split_result["y_test"],
-            split_result["task_type"],
-            epochs=built["epochs"], batch_size=built["batch_size"],
-            lr=built["learning_rate"], patience=built["patience"],
-            device=built["device"],
-        )
-
-        sm.set_model(data_id, trained_model)
-        sm.set_model_config(data_id, built)
-        sm.set_history(data_id, history)
-
-        avg_epoch_time = round(sum(history["epoch_times"]) / len(history["epoch_times"]), 2)
-
-        # Persist to active project
-        pm = current_app.config["project_manager"]
-        active_project_id = session.get("active_project_id")
-        if active_project_id:
-            try:
-                pm.save_split(active_project_id, split_result)
-                model_id = pm.next_model_id(active_project_id)
-                state_dict = trained_model.state_dict()
-                meta = {
-                    "model_type": built["model_type"],
-                    "model_params": built["model_params"],
-                    "final_metrics": {
-                        "train_loss": round(history["train_loss"][-1], 6),
-                        "val_loss": round(history["val_loss"][-1], 6),
-                        "epochs": len(history["train_loss"]),
-                        "avg_epoch_time": avg_epoch_time,
-                    },
-                    "task_type": split_result["task_type"],
-                    "feature_names": split_result["feature_names"],
-                    "target_name": split_result["target_name"],
-                    "train_size": len(split_result["X_train"]),
-                    "test_size": len(split_result["X_test"]),
-                }
-                pm.save_model(active_project_id, model_id, state_dict, meta)
-            except Exception:
-                pass
-
-        return json_ok({
-            "success": True,
-            "history": {
-                "train_loss": [round(x, 6) for x in history["train_loss"]],
-                "val_loss": [round(x, 6) for x in history["val_loss"]],
-                "train_metric": [round(x, 6) for x in history["train_metric"]],
-                "val_metric": [round(x, 6) for x in history["val_metric"]],
-            },
-            "final_metrics": {
-                "train_loss": round(history["train_loss"][-1], 6),
-                "val_loss": round(history["val_loss"][-1], 6),
-                "epochs": len(history["train_loss"]),
-                "avg_epoch_time": avg_epoch_time,
-            },
-            "task_type": split_result["task_type"],
-            "input_dim": split_result["input_dim"],
-            "output_dim": output_dim,
-            "feature_names": split_result["feature_names"],
-            "target_name": split_result["target_name"],
-            "train_size": len(split_result["X_train"]),
-            "test_size": len(split_result["X_test"]),
-        })
+        return json_ok({"success": True, **final})
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -173,22 +110,12 @@ def train_stream():
 
         def do_train():
             try:
-                model = create_model(
-                    built["model_type"], split_result["input_dim"], output_dim,
-                    **built["model_params"],
-                )
-                trained_model, history = train_model(
-                    model,
-                    split_result["X_train"], split_result["y_train"],
-                    split_result["X_test"], split_result["y_test"],
-                    split_result["task_type"],
-                    epochs=built["epochs"], batch_size=built["batch_size"],
-                    lr=built["learning_rate"], patience=built["patience"],
-                    device=built["device"],
+                _, final = _run_and_persist(
+                    sm, data_id, split_result, built, output_dim,
+                    pm=pm, active_project_id=active_project_id,
                     progress_callback=callback,
                 )
-                train_result["model"] = trained_model
-                train_result["history"] = history
+                train_result["final"] = final
                 q.put(("done", None))
             except Exception as e:
                 import traceback
@@ -208,57 +135,7 @@ def train_stream():
                 return
 
         t.join()
-
-        # Store results
-        sm.set_model(data_id, train_result["model"])
-        sm.set_model_config(data_id, built)
-        sm.set_history(data_id, train_result["history"])
-
-        history = train_result["history"]
-        avg_epoch_time = round(sum(history["epoch_times"]) / len(history["epoch_times"]), 2)
-
-        final = {
-            "history": {
-                "train_loss": [round(x, 6) for x in history["train_loss"]],
-                "val_loss": [round(x, 6) for x in history["val_loss"]],
-                "train_metric": [round(x, 6) for x in history["train_metric"]],
-                "val_metric": [round(x, 6) for x in history["val_metric"]],
-            },
-            "final_metrics": {
-                "train_loss": round(history["train_loss"][-1], 6),
-                "val_loss": round(history["val_loss"][-1], 6),
-                "epochs": len(history["train_loss"]),
-                "avg_epoch_time": avg_epoch_time,
-            },
-            "task_type": split_result["task_type"],
-            "input_dim": split_result["input_dim"],
-            "output_dim": output_dim,
-            "feature_names": split_result["feature_names"],
-            "target_name": split_result["target_name"],
-            "train_size": len(split_result["X_train"]),
-            "test_size": len(split_result["X_test"]),
-        }
-
-        # Persist split + model to active project
-        if active_project_id:
-            try:
-                pm.save_split(active_project_id, split_result)
-                model_id = pm.next_model_id(active_project_id)
-                state_dict = train_result["model"].state_dict()
-                meta = {
-                    "model_type": built["model_type"],
-                    "model_params": built["model_params"],
-                    "final_metrics": final["final_metrics"],
-                    "task_type": split_result["task_type"],
-                    "feature_names": split_result["feature_names"],
-                    "target_name": split_result["target_name"],
-                    "train_size": final["train_size"],
-                    "test_size": final["test_size"],
-                }
-                pm.save_model(active_project_id, model_id, state_dict, meta)
-            except Exception:
-                pass
-
+        final = train_result.get("final", {})
         yield f"event: complete\ndata: {json.dumps(final)}\n\n"
 
     return Response(generate(), mimetype="text/event-stream")
@@ -306,6 +183,77 @@ def history_download():
 
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
+
+
+def _run_and_persist(sm, data_id, split_result, built, output_dim,
+                     pm=None, active_project_id=None, progress_callback=None):
+    """Create model, train, store in SessionManager, persist to active project.
+
+    Returns (history, final_dict).  *pm* and *active_project_id* are both
+    required for project persistence; pass *progress_callback* for SSE.
+    """
+    model = create_model(
+        built["model_type"], split_result["input_dim"], output_dim,
+        **built["model_params"],
+    )
+    trained_model, history = train_model(
+        model,
+        split_result["X_train"], split_result["y_train"],
+        split_result["X_test"], split_result["y_test"],
+        split_result["task_type"],
+        epochs=built["epochs"], batch_size=built["batch_size"],
+        lr=built["learning_rate"], patience=built["patience"],
+        device=built["device"],
+        progress_callback=progress_callback,
+    )
+
+    sm.set_model(data_id, trained_model)
+    sm.set_model_config(data_id, built)
+    sm.set_history(data_id, history)
+
+    avg_epoch_time = round(sum(history["epoch_times"]) / len(history["epoch_times"]), 2)
+
+    final = {
+        "history": {
+            "train_loss": [round(x, 6) for x in history["train_loss"]],
+            "val_loss": [round(x, 6) for x in history["val_loss"]],
+            "train_metric": [round(x, 6) for x in history["train_metric"]],
+            "val_metric": [round(x, 6) for x in history["val_metric"]],
+        },
+        "final_metrics": {
+            "train_loss": round(history["train_loss"][-1], 6),
+            "val_loss": round(history["val_loss"][-1], 6),
+            "epochs": len(history["train_loss"]),
+            "avg_epoch_time": avg_epoch_time,
+        },
+        "task_type": split_result["task_type"],
+        "input_dim": split_result["input_dim"],
+        "output_dim": output_dim,
+        "feature_names": split_result["feature_names"],
+        "target_name": split_result["target_name"],
+        "train_size": len(split_result["X_train"]),
+        "test_size": len(split_result["X_test"]),
+    }
+
+    if pm and active_project_id:
+        try:
+            pm.save_split(active_project_id, split_result)
+            model_id = pm.next_model_id(active_project_id)
+            state_dict = trained_model.state_dict()
+            pm.save_model(active_project_id, model_id, state_dict, {
+                "model_type": built["model_type"],
+                "model_params": built["model_params"],
+                "final_metrics": final["final_metrics"],
+                "task_type": split_result["task_type"],
+                "feature_names": split_result["feature_names"],
+                "target_name": split_result["target_name"],
+                "train_size": final["train_size"],
+                "test_size": final["test_size"],
+            })
+        except Exception:
+            pass
+
+    return history, final
 
 
 def _setup_training(sm, data_id, df, params):
