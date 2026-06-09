@@ -23,12 +23,22 @@ def api_evaluate():
     split_result = sm.get_split(data_id)
     model_config = sm.get_model_config(data_id) or {}
     device = model_config.get("device", "cpu")
+
+    large_kw = {}
+    if "x_mark_test" in split_result:
+        large_kw = dict(
+            X_mark_test=split_result["x_mark_test"],
+            dec_inp_test=split_result["dec_inp_test"],
+            y_mark_test=split_result["y_mark_test"],
+        )
+
     result = evaluate(
         model,
         split_result["X_test"], split_result["y_test"],
         split_result["task_type"],
         target_encoder=split_result.get("target_encoder"),
         device=device,
+        **large_kw,
     )
     return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})
 
@@ -131,14 +141,26 @@ def _compute_predictions(sm, data_id, use_test):
     model_config = sm.get_model_config(data_id) or {}
     device = model_config.get("device", "cpu")
 
+    is_large = "x_mark_test" in split_result
+
     if use_test:
         X = split_result["X_test"]
         y_true = split_result["y_test"]
+        large_kw = dict(
+            X_mark=split_result["x_mark_test"],
+            dec_inp=split_result["dec_inp_test"],
+            y_mark=split_result["y_mark_test"],
+        ) if is_large else {}
     else:
         X = split_result["X_train"]
         y_true = split_result["y_train"]
+        large_kw = dict(
+            X_mark=split_result["x_mark_train"],
+            dec_inp=split_result["dec_inp_train"],
+            y_mark=split_result["y_mark_train"],
+        ) if is_large else {}
 
-    preds, probs = predict(model, X, split_result["task_type"], device=device)
+    preds, probs = predict(model, X, split_result["task_type"], device=device, **large_kw)
     target_encoder = split_result.get("target_encoder")
     y_scaler = split_result.get("y_scaler")
 
@@ -173,6 +195,22 @@ def api_validate():
         )
     )
 
+    is_large = "x_mark_train" in split_result
+
+    large_kw = {}
+    extra_model_kw = {}
+    if is_large:
+        large_kw = dict(
+            X_mark=split_result["x_mark_train"],
+            dec_inp=split_result["dec_inp_train"],
+            y_mark=split_result["y_mark_train"],
+        )
+        extra_model_kw = dict(
+            n_time_features=split_result.get("n_time_features", 4),
+            seq_len=split_result.get("seq_len", 48),
+            label_len=split_result.get("label_len", 24),
+        )
+
     result = cross_validate_model(
         model_type=model_config["model_type"],
         input_dim=split_result["input_dim"],
@@ -186,6 +224,8 @@ def api_validate():
         batch_size=model_config.get("batch_size", config.TRAINING["batch_size"]),
         lr=model_config.get("learning_rate", config.TRAINING["learning_rate"]),
         device=model_config.get("device", config.DEVICE),
+        **large_kw,
+        extra_model_kw=extra_model_kw,
     )
 
     return json_ok({"success": True, **result})

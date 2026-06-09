@@ -6,9 +6,9 @@ import threading
 import torch
 from flask import Blueprint, Response, current_app, jsonify, request, session
 from utils import config
-from utils.data_utils import normalize_data, normalize_target, split_data
+from utils.data_utils import normalize_data, normalize_data_apply, normalize_target, split_data
 from utils.model_utils import create_model, train_model
-from utils.models import get_model_params
+from utils.models import get_model_params, get_model_pipeline
 
 from utils.session import (
     RouteError, ensure_data, get_data_id, get_sm, handle_errors, json_ok,
@@ -190,10 +190,32 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
     Returns (history, final_dict).  *pm* and *active_project_id* are both
     required for project persistence; pass *progress_callback* for SSE.
     """
+    # Large-pipeline models need extra kwargs from split_result
+    extra_model_kw = {}
+    if "x_mark_train" in split_result:
+        extra_model_kw = dict(
+            n_time_features=split_result.get("n_time_features", 4),
+            seq_len=split_result.get("seq_len", 96),
+            label_len=split_result.get("label_len", split_result.get("seq_len", 96) // 2),
+        )
+
     model = create_model(
         built["model_type"], split_result["input_dim"], output_dim,
-        **built["model_params"],
+        **built["model_params"], **extra_model_kw,
     )
+
+    # Large-pipeline extra data (only present when pipeline == "large")
+    large_kw = {}
+    if "x_mark_train" in split_result:
+        large_kw = dict(
+            X_mark_train=split_result["x_mark_train"],
+            dec_inp_train=split_result["dec_inp_train"],
+            y_mark_train=split_result["y_mark_train"],
+            X_mark_val=split_result["x_mark_test"],
+            dec_inp_val=split_result["dec_inp_test"],
+            y_mark_val=split_result["y_mark_test"],
+        )
+
     trained_model, history = train_model(
         model,
         split_result["X_train"], split_result["y_train"],
@@ -203,6 +225,7 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
         lr=built["learning_rate"], patience=built["patience"],
         device=built["device"],
         progress_callback=progress_callback,
+        **large_kw,
     )
 
     sm.set_model(data_id, trained_model)
@@ -241,7 +264,7 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
             pm.save_split(active_project_id, split_result)
             model_id = pm.next_model_id(active_project_id)
             state_dict = trained_model.state_dict()
-            pm.save_model(active_project_id, model_id, state_dict, {
+            meta = {
                 "model_type": built["model_type"],
                 "model_params": built["model_params"],
                 "final_metrics": final["final_metrics"],
@@ -257,7 +280,10 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
                 "pred_len": split_result.get("pred_len"),
                 "time_col": split_result.get("time_col"),
                 "time_granularity": split_result.get("time_granularity"),
-            })
+                "pipeline": get_model_pipeline(built["model_type"]),
+                "n_time_features": split_result.get("n_time_features"),
+            }
+            pm.save_model(active_project_id, model_id, state_dict, meta)
         except Exception:
             pass
 
@@ -268,6 +294,8 @@ def _setup_training(sm, data_id, df, params):
     """Validate params, split data, apply normalization, and store split."""
     target_col = params["target_col"]
     test_size = float(params.get("test_size", config.TRAINING["test_size"]))
+    model_type = params.get("model_type", "mlp")
+    pipeline = get_model_pipeline(model_type)
 
     # Check for time series config
     task_config = sm.get_task_config(data_id) or {}
@@ -282,7 +310,7 @@ def _setup_training(sm, data_id, df, params):
             "time_granularity": task_config.get("time_granularity", "auto"),
         }
 
-    split_result = split_data(df, target_col, test_size=test_size, **ts_params)
+    split_result = split_data(df, target_col, test_size=test_size, pipeline=pipeline, **ts_params)
 
     norm_method = params.get("normalization", "none")
     if norm_method in ("minmax", "mean"):
@@ -293,15 +321,28 @@ def _setup_training(sm, data_id, df, params):
         split_result["X_test"] = X_test
         split_result["norm_params"] = norm_params
 
+        # Large pipeline: apply same normalization to dec_inp
+        if pipeline == "large" and "dec_inp_train" in split_result:
+            d_tr, d_te = split_result["dec_inp_train"], split_result["dec_inp_test"]
+            split_result["dec_inp_train"] = normalize_data_apply(d_tr, norm_params, norm_method)
+            split_result["dec_inp_test"] = normalize_data_apply(d_te, norm_params, norm_method)
+
     # Always normalize target for regression so loss/metric are scale-independent
     if split_result["task_type"] == "regression":
-        y_norm = norm_method if norm_method in ("minmax", "mean") else "mean"
-        y_train, y_test, y_scaler = normalize_target(
-            split_result["y_train"], split_result["y_test"], method=y_norm
-        )
-        split_result["y_train"] = y_train
-        split_result["y_test"] = y_test
-        split_result["y_scaler"] = y_scaler
+        if pipeline == "large":
+            # Target is embedded in X; y is extracted from X for loss.
+            # The target values in y are already normalized via normalize_data
+            # (target is the last feature column in X).
+            # Store identity scaler so downstream code doesn't break.
+            split_result["y_scaler"] = None
+        else:
+            y_norm = norm_method if norm_method in ("minmax", "mean") else "mean"
+            y_train, y_test, y_scaler = normalize_target(
+                split_result["y_train"], split_result["y_test"], method=y_norm
+            )
+            split_result["y_train"] = y_train
+            split_result["y_test"] = y_test
+            split_result["y_scaler"] = y_scaler
 
     sm.set_split(data_id, split_result)
 

@@ -23,7 +23,10 @@ def create_model(model_type, input_dim, output_dim, **params):
 
 def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 epochs=50, batch_size=32, lr=0.001, patience=10,
-                device="cpu", progress_callback=None):
+                device="cpu", progress_callback=None,
+                # Large-pipeline optional data (5-tuple DataLoader)
+                X_mark_train=None, dec_inp_train=None, y_mark_train=None,
+                X_mark_val=None, dec_inp_val=None, y_mark_val=None):
     """Train a PyTorch model with early stopping and learning rate scheduling.
 
     If *progress_callback* is provided, it is called after each epoch with a dict
@@ -31,6 +34,10 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
 
     *device* can be a string (``'cpu'``, ``'cuda:0'``) or a list of device
     strings for DataParallel multi-GPU (e.g. ``['cuda:0', 'cuda:1']``).
+
+    For large-pipeline models (``model.pipeline == "large"``), pass the extra
+    ``X_mark_*``, ``dec_inp_*``, ``y_mark_*`` arrays to build a 5-tuple
+    DataLoader.
     """
     if isinstance(device, list):
         device_ids = [torch.device(d) for d in device]
@@ -41,13 +48,25 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         _device = torch.device(device)
         model = model.to(_device)
 
-    X_train_t = torch.FloatTensor(X_train)
-    y_train_t = torch.FloatTensor(y_train) if task_type == "regression" else torch.LongTensor(y_train)
-    X_val_t = torch.FloatTensor(X_val)
-    y_val_t = torch.FloatTensor(y_val) if task_type == "regression" else torch.LongTensor(y_val)
+    is_large = getattr(model, 'pipeline', 'small') == 'large' and X_mark_train is not None
 
-    train_dataset = TensorDataset(X_train_t, y_train_t)
-    val_dataset = TensorDataset(X_val_t, y_val_t)
+    if is_large:
+        train_dataset = TensorDataset(
+            torch.FloatTensor(X_train), torch.FloatTensor(X_mark_train),
+            torch.FloatTensor(dec_inp_train), torch.FloatTensor(y_mark_train),
+            torch.FloatTensor(y_train))
+        val_dataset = TensorDataset(
+            torch.FloatTensor(X_val), torch.FloatTensor(X_mark_val),
+            torch.FloatTensor(dec_inp_val), torch.FloatTensor(y_mark_val),
+            torch.FloatTensor(y_val))
+    else:
+        X_train_t = torch.FloatTensor(X_train)
+        y_train_t = torch.FloatTensor(y_train) if task_type == "regression" else torch.LongTensor(y_train)
+        X_val_t = torch.FloatTensor(X_val)
+        y_val_t = torch.FloatTensor(y_val) if task_type == "regression" else torch.LongTensor(y_val)
+        train_dataset = TensorDataset(X_train_t, y_train_t)
+        val_dataset = TensorDataset(X_val_t, y_val_t)
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
@@ -71,27 +90,41 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         train_correct = 0
         train_total = 0
 
-        for batch_x, batch_y in train_loader:
-            batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
-            optimizer.zero_grad()
-            outputs = model(batch_x)
+        if is_large:
+            for batch_x, x_mark, dec_inp, y_mark, batch_y in train_loader:
+                batch_x = batch_x.to(_device); x_mark = x_mark.to(_device)
+                dec_inp = dec_inp.to(_device); y_mark = y_mark.to(_device)
+                batch_y = batch_y.to(_device)
+                optimizer.zero_grad()
+                outputs = model(batch_x, x_mark, dec_inp, y_mark)
+                # outputs: (batch, pred_len, 1)
+                loss = criterion(outputs.squeeze(-1), batch_y)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item() * batch_x.size(0)
+                train_mae += F.l1_loss(outputs.squeeze(-1), batch_y).item() * batch_x.size(0)
+        else:
+            for batch_x, batch_y in train_loader:
+                batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
+                optimizer.zero_grad()
+                outputs = model(batch_x)
 
-            if task_type == "regression":
-                pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
-                loss = criterion(pred, batch_y)
-                train_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
-            else:
-                loss = criterion(outputs, batch_y)
-                _, predicted = torch.max(outputs, 1)
-                train_total += batch_y.size(0)
-                train_correct += (predicted == batch_y).sum().item()
+                if task_type == "regression":
+                    pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
+                    loss = criterion(pred, batch_y)
+                    train_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
+                else:
+                    loss = criterion(outputs, batch_y)
+                    _, predicted = torch.max(outputs, 1)
+                    train_total += batch_y.size(0)
+                    train_correct += (predicted == batch_y).sum().item()
 
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item() * batch_x.size(0)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item() * batch_x.size(0)
 
         train_loss /= len(train_loader.dataset)
-        train_mae /= len(train_loader.dataset)
+        train_mae = (train_mae / len(train_loader.dataset)) if is_large else (train_mae / len(train_loader.dataset))
 
         model.eval()
         val_loss = 0.0
@@ -99,19 +132,29 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
         val_correct = 0
         val_total = 0
         with torch.no_grad():
-            for batch_x, batch_y in val_loader:
-                batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
-                outputs = model(batch_x)
-                if task_type == "regression":
-                    pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
-                    loss = criterion(pred, batch_y)
-                    val_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
-                else:
-                    loss = criterion(outputs, batch_y)
-                    _, predicted = torch.max(outputs, 1)
-                    val_total += batch_y.size(0)
-                    val_correct += (predicted == batch_y).sum().item()
-                val_loss += loss.item() * batch_x.size(0)
+            if is_large:
+                for batch_x, x_mark, dec_inp, y_mark, batch_y in val_loader:
+                    batch_x = batch_x.to(_device); x_mark = x_mark.to(_device)
+                    dec_inp = dec_inp.to(_device); y_mark = y_mark.to(_device)
+                    batch_y = batch_y.to(_device)
+                    outputs = model(batch_x, x_mark, dec_inp, y_mark)
+                    loss = criterion(outputs.squeeze(-1), batch_y)
+                    val_mae += F.l1_loss(outputs.squeeze(-1), batch_y).item() * batch_x.size(0)
+                    val_loss += loss.item() * batch_x.size(0)
+            else:
+                for batch_x, batch_y in val_loader:
+                    batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
+                    outputs = model(batch_x)
+                    if task_type == "regression":
+                        pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
+                        loss = criterion(pred, batch_y)
+                        val_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
+                    else:
+                        loss = criterion(outputs, batch_y)
+                        _, predicted = torch.max(outputs, 1)
+                        val_total += batch_y.size(0)
+                        val_correct += (predicted == batch_y).sum().item()
+                    val_loss += loss.item() * batch_x.size(0)
 
         val_loss /= len(val_loader.dataset)
         val_mae /= len(val_loader.dataset)
@@ -163,30 +206,50 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
     return model, history
 
 
-def predict(model, X, task_type, device="cpu"):
-    """Run inference and return predictions."""
+def predict(model, X, task_type, device="cpu",
+            X_mark=None, dec_inp=None, y_mark=None):
+    """Run inference and return predictions.
+
+    For large-pipeline models, pass the extra ``X_mark``, ``dec_inp``,
+    ``y_mark`` arrays.
+    """
     if isinstance(device, list):
         device = torch.device(device[0])
     else:
         device = torch.device(device)
     model = model.to(device)
     model.eval()
-    X_t = torch.FloatTensor(X).to(device)
+
+    is_large = getattr(model, 'pipeline', 'small') == 'large' and X_mark is not None
 
     with torch.no_grad():
-        outputs = model(X_t)
-        if task_type == "classification":
-            probabilities = torch.softmax(outputs, dim=1)
-            predictions = torch.argmax(outputs, dim=1)
-            return predictions.cpu().numpy(), probabilities.cpu().numpy()
+        if is_large:
+            X_t = torch.FloatTensor(X).to(device)
+            xm_t = torch.FloatTensor(X_mark).to(device)
+            di_t = torch.FloatTensor(dec_inp).to(device)
+            ym_t = torch.FloatTensor(y_mark).to(device)
+            outputs = model(X_t, xm_t, di_t, ym_t)   # (batch, pred_len, 1)
+            outputs = outputs.squeeze(-1)             # (batch, pred_len)
+            return outputs.cpu().numpy(), None
         else:
-            pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
-            return np.atleast_1d(pred.cpu().numpy()), None
+            X_t = torch.FloatTensor(X).to(device)
+            outputs = model(X_t)
+            if task_type == "classification":
+                probabilities = torch.softmax(outputs, dim=1)
+                predictions = torch.argmax(outputs, dim=1)
+                return predictions.cpu().numpy(), probabilities.cpu().numpy()
+            else:
+                pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
+                return np.atleast_1d(pred.cpu().numpy()), None
 
 
 def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
                          model_params=None, n_splits=5, epochs=20,
-                         batch_size=32, lr=0.001, device="cpu"):
+                         batch_size=32, lr=0.001, device="cpu",
+                         # Large-pipeline data (passed through if available)
+                         X_mark=None, dec_inp=None, y_mark=None,
+                         # Large-pipeline extra model creation kwargs
+                         extra_model_kw=None):
     """K-fold cross-validation using the same model architecture as training.
 
     For each fold: creates a fresh model, trains it, and scores on the
@@ -202,24 +265,46 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
     scores = []
     model_params = model_params or {}
+    is_large = X_mark is not None
 
     for train_idx, val_idx in kf.split(X):
         X_train_fold, X_val_fold = X[train_idx], X[val_idx]
         y_train_fold, y_val_fold = y[train_idx], y[val_idx]
 
+        if is_large:
+            xm_tr, xm_val = X_mark[train_idx], X_mark[val_idx]
+            di_tr, di_val = dec_inp[train_idx], dec_inp[val_idx]
+            ym_tr, ym_val = y_mark[train_idx], y_mark[val_idx]
+
         # Further split train data for validation (early stopping)
-        X_tr, X_v, y_tr, y_v = train_test_split(
-            X_train_fold, y_train_fold, test_size=0.2, random_state=42,
+        tr_sub, v_sub = train_test_split(
+            np.arange(len(X_train_fold)), test_size=0.2, random_state=42,
         )
 
-        model = create_model(model_type, input_dim, output_dim, **model_params)
+        model = create_model(model_type, input_dim, output_dim, **model_params, **(extra_model_kw or {}))
         trained_model, _ = train_model(
-            model, X_tr, y_tr, X_v, y_v, task_type,
+            model, X_train_fold[tr_sub], y_train_fold[tr_sub],
+            X_train_fold[v_sub], y_train_fold[v_sub], task_type,
             epochs=epochs, batch_size=batch_size, lr=lr,
             patience=max(epochs // 2, 1), device=device,
+            **(dict(
+                X_mark_train=xm_tr[tr_sub], dec_inp_train=di_tr[tr_sub],
+                y_mark_train=ym_tr[tr_sub],
+                X_mark_val=xm_tr[v_sub], dec_inp_val=di_tr[v_sub],
+                y_mark_val=ym_tr[v_sub],
+            ) if is_large else {}),
         )
 
-        preds, _ = predict(trained_model, X_val_fold, task_type, device=device)
+        preds, _ = predict(
+            trained_model, X_val_fold, task_type, device=device,
+            X_mark=xm_val if is_large else None,
+            dec_inp=di_val if is_large else None,
+            y_mark=ym_val if is_large else None,
+        )
+        if task_type == "classification":
+            scores.append(float(accuracy_score(y_val_fold, preds)))
+        else:
+            scores.append(float(r2_score(y_val_fold, preds)))
         if task_type == "classification":
             scores.append(float(accuracy_score(y_val_fold, preds)))
         else:
@@ -234,8 +319,13 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
 
 
 def evaluate(model, X_test, y_test, task_type, target_encoder=None,
-             device="cpu"):
-    """Evaluate a trained model and return metrics + visualization images."""
+             device="cpu",
+             X_mark_test=None, dec_inp_test=None, y_mark_test=None):
+    """Evaluate a trained model and return metrics + visualization images.
+
+    For large-pipeline models, pass the extra ``X_mark_test``, ``dec_inp_test``,
+    ``y_mark_test`` arrays.
+    """
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
                                  mean_absolute_error, r2_score)
@@ -248,10 +338,43 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
         device = torch.device(device)
     model = model.to(device)
     model.eval()
+
+    is_large = getattr(model, 'pipeline', 'small') == 'large' and X_mark_test is not None
+
     X_t = torch.FloatTensor(X_test).to(device)
     y_t = torch.FloatTensor(y_test) if task_type == "regression" else torch.LongTensor(y_test)
 
     with torch.no_grad():
+        if is_large:
+            xm_t = torch.FloatTensor(X_mark_test).to(device)
+            di_t = torch.FloatTensor(dec_inp_test).to(device)
+            ym_t = torch.FloatTensor(y_mark_test).to(device)
+            outputs = model(X_t, xm_t, di_t, ym_t)   # (batch, pred_len, 1)
+            outputs = outputs.squeeze(-1)             # (batch, pred_len)
+            preds = outputs.cpu().numpy()
+            y_true = y_t.cpu().numpy()
+
+            mse = mean_squared_error(y_true, preds)
+            rmse = float(np.sqrt(mse))
+            mae = mean_absolute_error(y_true, preds)
+            r2 = r2_score(y_true, preds)
+
+            from .plot_utils import plot_pred_vs_true, plot_residuals
+
+            images = {
+                "pred_vs_true": plot_pred_vs_true(y_true, preds),
+                "residuals": plot_residuals(y_true, preds),
+            }
+
+            return {
+                "mse": float(mse),
+                "rmse": rmse,
+                "mae": float(mae),
+                "r2": float(r2),
+                "task_type": "regression",
+                "images": images,
+            }
+
         outputs = model(X_t)
         if task_type == "classification":
             probs = torch.softmax(outputs, dim=1).cpu().numpy()

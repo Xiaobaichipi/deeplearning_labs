@@ -7,6 +7,7 @@ from .rnn import RNNModel
 from .lstm import LSTMModel
 from .gru import GRUModel
 from .transformer import TransformerTabularModel
+from .autoformer import AutoformerWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -29,6 +30,7 @@ MODEL_REGISTRY = {
     "mlp": {
         "class": MLPModel,
         "name": "MLP (Fully Connected)",
+        "pipeline": "small",
         "params": {
             "hidden_layers": {"type": "string", "default": "128,64,32", "label": "Hidden layers (comma-separated)"},
             "dropout": {"type": "float", "default": 0.2, "label": "Dropout"},
@@ -37,6 +39,7 @@ MODEL_REGISTRY = {
     "cnn": {
         "class": CNN1DModel,
         "name": "CNN (1D Convolutional)",
+        "pipeline": "small",
         "params": {
             "hidden_channels": {"type": "int", "default": 64, "label": "Hidden channels"},
             "kernel_size": {"type": "int", "default": 3, "label": "Kernel size"},
@@ -46,6 +49,7 @@ MODEL_REGISTRY = {
     "rnn": {
         "class": RNNModel,
         "name": "RNN (Vanilla RNN)",
+        "pipeline": "small",
         "params": {
             "hidden_size": {"type": "int", "default": 64, "label": "Hidden size"},
             "num_layers": {"type": "int", "default": 2, "label": "Number of layers"},
@@ -56,6 +60,7 @@ MODEL_REGISTRY = {
     "lstm": {
         "class": LSTMModel,
         "name": "LSTM (Long Short-Term Memory)",
+        "pipeline": "small",
         "params": {
             "hidden_size": {"type": "int", "default": 64, "label": "Hidden size"},
             "num_layers": {"type": "int", "default": 2, "label": "Number of layers"},
@@ -66,6 +71,7 @@ MODEL_REGISTRY = {
     "gru": {
         "class": GRUModel,
         "name": "GRU (Gated Recurrent Unit)",
+        "pipeline": "small",
         "params": {
             "hidden_size": {"type": "int", "default": 64, "label": "Hidden size"},
             "num_layers": {"type": "int", "default": 2, "label": "Number of layers"},
@@ -76,12 +82,29 @@ MODEL_REGISTRY = {
     "transformer": {
         "class": TransformerTabularModel,
         "name": "Transformer (Encoder)",
+        "pipeline": "small",
         "params": {
             "d_model": {"type": "int", "default": 64, "label": "Model dimension (d_model)"},
             "nhead": {"type": "int", "default": 4, "label": "Attention heads (nhead)"},
             "num_layers": {"type": "int", "default": 2, "label": "Encoder layers"},
             "dim_feedforward": {"type": "int", "default": 256, "label": "Feedforward dimension"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "autoformer": {
+        "class": AutoformerWrapper,
+        "name": "Autoformer (Long-term Forecast)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_layers": {"type": "int", "default": 3, "label": "Decoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension (d_ff)"},
+            "moving_avg": {"type": "int", "default": 25, "label": "Moving average kernel"},
+            "factor": {"type": "int", "default": 3, "label": "Attention factor (top-k)"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
         },
     },
 }
@@ -109,6 +132,18 @@ def get_model_params(model_type):
     return MODEL_REGISTRY[model_type]["params"]
 
 
+def get_model_pipeline(model_type):
+    """Return the pipeline type ('small' or 'large') for a given model type."""
+    if model_type not in MODEL_REGISTRY:
+        return "small"
+    return MODEL_REGISTRY[model_type].get("pipeline", "small")
+
+
+def get_large_model_types():
+    """Return list of model type strings whose pipeline is 'large'."""
+    return [k for k, v in MODEL_REGISTRY.items() if v.get("pipeline") == "large"]
+
+
 __all__ = [
     "BaseModel",
     "MLPModel",
@@ -117,8 +152,11 @@ __all__ = [
     "LSTMModel",
     "GRUModel",
     "TransformerTabularModel",
+    "AutoformerWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",
     "get_model_params",
+    "get_model_pipeline",
+    "get_large_model_types",
 ]

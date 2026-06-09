@@ -271,9 +271,62 @@ def _create_sliding_windows(X, y, seq_len, pred_len):
     return np.array(windows, dtype=np.float32), np.array(targets, dtype=np.float32)
 
 
+def _create_large_windows(X_val, X_mark, y, seq_len, pred_len, label_len):
+    """Create sliding windows for the large-model pipeline.
+
+    Parameters
+    ----------
+    X_val : np.ndarray (n_samples, n_value_features)
+        Value features (including the target column).
+    X_mark : np.ndarray (n_samples, n_time_features)
+        Time features (cyclical encodings).
+    y : np.ndarray (n_samples,)
+        Target column (for loss computation).
+    seq_len : int
+    pred_len : int
+    label_len : int
+
+    Returns
+    -------
+    (batch_x, batch_x_mark, batch_dec_inp, batch_y_mark, batch_y)
+        batch_x:      (n_windows, seq_len, n_value_features)
+        batch_x_mark: (n_windows, seq_len, n_time_features)
+        batch_dec_inp:(n_windows, label_len+pred_len, n_value_features)
+                      — last ``label_len`` values of the window + zeros
+        batch_y_mark: (n_windows, label_len+pred_len, n_time_features)
+        batch_y:      (n_windows, pred_len)
+    """
+    n = X_val.shape[0]
+    n_feat = X_val.shape[1]
+    n_time = X_mark.shape[1]
+    n_windows = n - seq_len - pred_len + 1
+    if n_windows <= 0:
+        raise ValueError(
+            f"Not enough samples ({n}) for seq_len={seq_len} + pred_len={pred_len}"
+        )
+
+    bx, xm = np.zeros((n_windows, seq_len, n_feat), dtype=np.float32), \
+             np.zeros((n_windows, seq_len, n_time), dtype=np.float32)
+    di, ym = np.zeros((n_windows, label_len + pred_len, n_feat), dtype=np.float32), \
+             np.zeros((n_windows, label_len + pred_len, n_time), dtype=np.float32)
+    by = np.zeros((n_windows, pred_len), dtype=np.float32)
+
+    for i in range(n_windows):
+        bx[i] = X_val[i:i + seq_len]
+        xm[i] = X_mark[i:i + seq_len]
+        # dec_inp: last label_len known values + zeros
+        di[i, :label_len] = X_val[i + seq_len - label_len:i + seq_len]
+        # y_mark: time features for the decoder window
+        ym[i] = X_mark[i + seq_len - label_len:i + seq_len + pred_len]
+        # target for loss
+        by[i] = y[i + seq_len:i + seq_len + pred_len]
+
+    return bx, xm, di, ym, by
+
+
 def split_data(df, target_col, test_size=0.2, random_state=42,
                time_series=False, time_col=None, seq_len=10, pred_len=1,
-               label_len=0, time_granularity="auto"):
+               label_len=0, time_granularity="auto", pipeline="small"):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import LabelEncoder
 
@@ -310,6 +363,83 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
         num_cols = X.select_dtypes(include=[np.number]).columns
         cat_cols = X.select_dtypes(include=["object", "category"]).columns
 
+        if pipeline == "large":
+            # ── Large-model pipeline: time features separate from values ──────
+            # Separate time encoding columns from value columns
+            time_feature_names = [c for c in num_cols if c in enc_names]
+            value_feature_names = [c for c in num_cols if c not in enc_names]
+
+            X_val = X[value_feature_names].values.astype(np.float32)
+            X_mark = X[time_feature_names].values.astype(np.float32)
+
+            # Encode categoricals and append to value features
+            cat_arrays = []
+            for col in cat_cols:
+                le = LabelEncoder()
+                encoded = le.fit_transform(X[col].astype(str))
+                encoders[col] = le
+                cat_arrays.append(encoded.reshape(-1, 1))
+            if cat_arrays:
+                X_val = np.hstack([X_val] + cat_arrays).astype(np.float32)
+                value_feature_names = list(value_feature_names) + list(cat_cols)
+
+            # Re-add target column as the LAST value feature (for Autoformer encoder)
+            X_val_with_target = np.column_stack([X_val, y.astype(np.float32)])
+            target_idx = X_val_with_target.shape[1] - 1
+
+            # Chronological split
+            split_idx = int(len(X_val_with_target) * (1 - test_size))
+            if split_idx < seq_len + pred_len:
+                raise ValueError(
+                    f"Training set too small ({split_idx} rows) for seq_len={seq_len} + pred_len={pred_len}"
+                )
+
+            X_val_tr = X_val_with_target[:split_idx]
+            X_mark_tr = X_mark[:split_idx]
+            y_tr_raw = y[:split_idx]
+            X_val_te = X_val_with_target[split_idx:]
+            X_mark_te = X_mark[split_idx:]
+            y_te_raw = y[split_idx:]
+
+            # Create large-model windows
+            X_train, xm_tr, di_tr, ym_tr, y_train = _create_large_windows(
+                X_val_tr, X_mark_tr, y_tr_raw, seq_len, pred_len, label_len)
+            X_test, xm_te, di_te, ym_te, y_test = _create_large_windows(
+                X_val_te, X_mark_te, y_te_raw, seq_len, pred_len, label_len)
+
+            n_features = X_val_with_target.shape[1]
+            input_dim = n_features
+
+            return {
+                "X_train": X_train,
+                "x_mark_train": xm_tr,
+                "dec_inp_train": di_tr,
+                "y_mark_train": ym_tr,
+                "y_train": y_train,
+                "X_test": X_test,
+                "x_mark_test": xm_te,
+                "dec_inp_test": di_te,
+                "y_mark_test": ym_te,
+                "y_test": y_test,
+                "feature_names": value_feature_names + [target_col],
+                "target_name": target_col,
+                "target_idx": target_idx,
+                "task_type": task_type,
+                "n_classes": n_classes,
+                "target_encoder": target_encoder,
+                "input_dim": input_dim,
+                "n_time_features": len(time_feature_names),
+                "is_time_series": True,
+                "seq_len": seq_len,
+                "pred_len": pred_len,
+                "label_len": label_len,
+                "time_col": time_col,
+                "time_encoding_features": enc_names,
+                "time_granularity": used_granularity,
+                "pipeline": "large",
+            }
+
+        # ── Small-model pipeline: time features baked into X ──────────────────
         X_num = X[num_cols].values.astype(np.float32)
         encoders = {}
         for col in cat_cols:
@@ -463,6 +593,34 @@ def normalize_data(X_train, X_test, method="minmax"):
         X_test_norm = X_test_norm.reshape(test_shape)
 
     return X_train_norm, X_test_norm, params
+
+
+def normalize_data_apply(X, norm_params, method):
+    """Apply pre-computed normalization params to new data.
+
+    Parameters
+    ----------
+    X : np.ndarray (any shape, last dim is features)
+    norm_params : dict
+    method : 'minmax' or 'mean'
+
+    Returns
+    -------
+    np.ndarray, same shape as X.
+    """
+    orig_shape = X.shape
+    flat = X.reshape(-1, orig_shape[-1]).astype(np.float32)
+    if method == "minmax":
+        denom = np.array(norm_params["max"]) - np.array(norm_params["min"])
+        denom[denom == 0] = 1.0
+        normed = (flat - np.array(norm_params["min"])) / denom
+    elif method == "mean":
+        std = np.array(norm_params["std"])
+        std[std == 0] = 1.0
+        normed = (flat - np.array(norm_params["mean"])) / std
+    else:
+        normed = flat
+    return normed.reshape(orig_shape).astype(np.float32)
 
 
 def normalize_target(y_train, y_test, method="mean"):

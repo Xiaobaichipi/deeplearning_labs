@@ -1,5 +1,68 @@
 # Issues Log
 
+## 2026-06-09: Autoformer 大模型流水线集成 (feat/large-model-pipeline 分支)
+
+### 概述
+
+将 Autoformer 作为首个 "large pipeline" 模型集成到 DeepLearning Labs。引入双流水线架构（small/large），解决 Autoformer 4 参数 forward 签名与现有 model(X) 模式的不兼容问题。
+
+### 双流水线架构
+
+| Pipeline | 模型 | forward 签名 | 数据处理 |
+|----------|------|-------------|---------|
+| small | MLP/CNN/RNN/LSTM/GRU/Transformer | `model(X)` → output | 标准 2D/3D 数据 |
+| large | Autoformer（样板） | `model(x_enc, x_mark_enc, x_dec, x_mark_dec)` → output | 5 元组 window（含时间特征） |
+
+### 新增文件
+
+| 文件 | 内容 |
+|------|------|
+| `utils/models/autoformer.py` | AutoformerWrapper + _RawAutoformer + 自定义 _DataEmbeddingWoPos |
+| `utils/models/autoformer_layers/__init__.py` | 包初始化 |
+| `utils/models/autoformer_layers/Embed.py` | 值嵌入 + 时间特征嵌入 |
+| `utils/models/autoformer_layers/AutoCorrelation.py` | Autoformer 核心注意力机制 |
+| `utils/models/autoformer_layers/Autoformer_EncDec.py` | Encoder/Decoder/Decomp |
+
+### 后端修改
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/base.py` | BaseModel 新增 `pipeline = "small"` 类属性 |
+| `utils/models/__init__.py` | MODEL_REGISTRY 新增 `pipeline` 字段；注册 AutoformerWrapper；新增 `get_model_pipeline()` / `get_large_model_types()` |
+| `utils/config.py` | MODEL 字典新增 autoformer 默认超参数 |
+| `utils/data_utils.py` | 新增 `_create_large_windows()` 5 元组窗口；`split_data()` 新增 large pipeline 分支；新增 `normalize_data_apply()` |
+| `utils/model_utils.py` | `train_model()`/`predict()`/`evaluate()`/`cross_validate_model()` 增加 large pipeline 分支 |
+| `routes/training.py` | `_run_and_persist()` 透传 `extra_model_kw`/`large_kw`；`_setup_training()` 支持 large pipeline 归一化；meta 持久化 pipeline/n_time_features |
+| `routes/evaluation.py` | evaluate/predict/validate 透传 `x_mark_test`/`dec_inp_test`/`y_mark_test`；validate 传递 `extra_model_kw` 给模型创建 |
+| `routes/projects.py` | `_reconstruct_model()` 补充 n_time_features；`activate_project()` 加载最新模型到主槽位 |
+
+### 前端修改
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | modelType 新增 autoformer 选项；新增 autoformerParams 配置区域（d_model, n_heads, e_layers 等） |
+| `static/js/app.js` | startTraining() 读取 autoformer 参数 |
+| `static/js/ui.js` | toggleModelParams() 显示/隐藏 autoformer 参数区 |
+
+### 关键修复
+
+1. **trend_proj** — trend_init 从 enc_in 维投影到 c_out=1，防止 Autoformer 输出 (batch, pred_len, enc_in) 而非 (batch, pred_len, 1)
+2. **n_time_features** — 自定义 `_DataEmbeddingWoPos` 替代硬编码 freq→dim 映射，适配每小时 5 维时间特征
+3. **CV 模型创建** — 交叉验证时传递 `extra_model_kw`（n_time_features, seq_len, label_len）到 `create_model()`
+4. **模型重建** — `_reconstruct_model()` 和 model meta 均保存/恢复 n_time_features
+
+### 测试验证
+
+| 功能 | 状态 |
+|------|------|
+| SSE 训练流（train_loss 16.43→2.82, avg_epoch_time 11.75s） | ✅ |
+| 评估（MSE/R2 + 可视化） | ✅ |
+| 预测（101 条 + 折线图） | ✅ |
+| 交叉验证（2-fold，原 n_time_features 维度 Bug 已修复） | ✅ |
+| 项目激活 + 模型重建（序列化/反序列化完整链路） | ✅ |
+
+---
+
 ## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
 
 ### 1. Bug — split_data 时间序列路径 time_col==target_col 崩溃

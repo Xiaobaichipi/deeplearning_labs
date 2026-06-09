@@ -261,6 +261,7 @@
                                 <option value="lstm">LSTM (Long Short-Term Memory)</option>
                                 <option value="gru">GRU (Gated Recurrent Unit)</option>
                                 <option value="transformer">Transformer (Encoder)</option>
+                                <option value="autoformer">Autoformer (Long-term Forecast)</option>
                             </select>
                         </div>
                     </div>
@@ -327,6 +328,52 @@
                             <div class="input-group">
                                 <label>Number of encoder layers</label>
                                 <input type="number" id="transNumLayers" value="{{ cfg.model.transformer.num_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="autoformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="autoDModel" value="{{ cfg.model.autoformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="autoNHeads" value="{{ cfg.model.autoformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers</label>
+                                <input type="number" id="autoELayers" value="{{ cfg.model.autoformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Decoder layers</label>
+                                <input type="number" id="autoDLayers" value="{{ cfg.model.autoformer.d_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Feedforward dim (d_ff)</label>
+                                <input type="number" id="autoDFF" value="{{ cfg.model.autoformer.d_ff }}" min="8" max="1024">
+                            </div>
+                            <div class="input-group">
+                                <label>Moving average kernel</label>
+                                <input type="number" id="autoMovingAvg" value="{{ cfg.model.autoformer.moving_avg }}" min="3" max="101" step="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Attention factor (top-k)</label>
+                                <input type="number" id="autoFactor" value="{{ cfg.model.autoformer.factor }}" min="1" max="10">
+                            </div>
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="autoActivation">
+                                    <option value="gelu" {{ 'selected' if cfg.model.autoformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.autoformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
                             </div>
                         </div>
                     </div>

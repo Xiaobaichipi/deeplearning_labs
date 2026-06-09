@@ -18,9 +18,14 @@ def _pm():
 
 def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
     """Reconstruct a model from saved metadata and state dict."""
+    model_kw = dict(meta.get("model_params", {}))
+    # Large-pipeline models need seq_len / label_len / n_time_features
+    if meta.get("pipeline") == "large":
+        model_kw["seq_len"] = meta.get("seq_len", 96)
+        model_kw["label_len"] = meta.get("label_len", meta.get("seq_len", 96) // 2)
+        model_kw["n_time_features"] = meta.get("n_time_features", 4)
     model = create_model(
-        meta["model_type"], input_dim, output_dim,
-        **meta.get("model_params", {}),
+        meta["model_type"], input_dim, output_dim, **model_kw,
     )
     model.load_state_dict(state_dict)
     if eval_mode:
@@ -137,6 +142,14 @@ def compare_models(project_id):
     input_dim = split_result.get("input_dim", 1)
     output_dim = split_result.get("pred_len", 1)
 
+    large_kw = {}
+    if "x_mark_test" in split_result:
+        large_kw = dict(
+            X_mark=split_result["x_mark_test"],
+            dec_inp=split_result["dec_inp_test"],
+            y_mark=split_result["y_mark_test"],
+        )
+
     from utils.data_utils import denormalize_target
     from utils.model_utils import predict
     from utils.plot_utils import plot_model_comparison
@@ -149,7 +162,7 @@ def compare_models(project_id):
             continue
         try:
             model = _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=False)
-            preds, _ = predict(model, X_test, task_type, device="cpu")
+            preds, _ = predict(model, X_test, task_type, device="cpu", **large_kw)
             preds = denormalize_target(preds, y_scaler)
             label = f"{meta.get('model_type', 'model')} ({mid})"
             predictions_dict[label] = preds

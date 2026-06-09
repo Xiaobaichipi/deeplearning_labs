@@ -285,6 +285,7 @@ function toggleModelParams() {
     const seqTypes = ["rnn", "lstm", "gru"];
     document.getElementById("seqParams").style.display = seqTypes.includes(type) ? "block" : "none";
     document.getElementById("transformerParams").style.display = type === "transformer" ? "block" : "none";
+    document.getElementById("autoformerParams").style.display = type === "autoformer" ? "block" : "none";
 }
 
 function esc(str) {
