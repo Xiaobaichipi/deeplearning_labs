@@ -27,6 +27,8 @@ class LSTMModel(BaseModel):
         )
 
     def forward(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(1)  # (batch, 1, input_dim)
         out, _ = self.lstm(x)
         out = out[:, -1, :]
         out = self.fc(out)
