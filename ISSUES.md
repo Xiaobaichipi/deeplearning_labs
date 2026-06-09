@@ -61,6 +61,12 @@
 | 交叉验证（2-fold，原 n_time_features 维度 Bug 已修复） | ✅ |
 | 项目激活 + 模型重建（序列化/反序列化完整链路） | ✅ |
 
+### 后续修复
+
+| 日期 | 问题 | 修复 |
+|------|------|------|
+| 2026-06-09 | 时间序列模式下 Autoformer 从模型类型下拉菜单消失 | `static/js/app.js:updateModelOptions()` 中 `tsModels` 数组和 `allOptions` 对象均添加 `"autoformer"` |
+
 ---
 
 ## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
