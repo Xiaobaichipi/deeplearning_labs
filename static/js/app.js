@@ -175,9 +175,10 @@ function updateModelOptions(taskType) {
         "lstm": "LSTM (Long Short-Term Memory)",
         "gru": "GRU (Gated Recurrent Unit)",
         "transformer": "Transformer (Encoder)",
+        "autoformer": "Autoformer (Long-term Forecast)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
