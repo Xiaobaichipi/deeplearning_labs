@@ -370,6 +370,42 @@ class TestCrossValidation:
         resp = client.post("/api/validate", json={})
         assert resp.status_code == 400
 
+    def test_validate_time_series_multi_step(self, client):
+        """Cross-validation must work for time series with pred_len > 1."""
+        import pandas as pd
+        import numpy as np
+
+        dates = pd.date_range("2024-01-01", periods=200, freq="h")
+        df = pd.DataFrame({
+            "date": dates.astype(str),
+            "target": np.random.randn(200).cumsum(),
+            "feat1": np.random.randn(200),
+        })
+        ts_csv = os.path.join(app.config["UPLOAD_DIR"], "ts_cv_test.csv")
+        df.to_csv(ts_csv, index=False)
+
+        with open(ts_csv, "rb") as f:
+            client.post("/api/upload", data={"file": f}, content_type="multipart/form-data")
+
+        client.post("/api/data/task-config", json={
+            "task_type": "time_series",
+            "time_col": "date",
+            "seq_len": 10,
+            "pred_len": 4,
+            "label_len": 0,
+        })
+        client.post("/api/train", json={
+            "target_col": "target",
+            "model_type": "gru",
+            "epochs": 3,
+            "batch_size": 16,
+        })
+        resp = client.post("/api/validate", json={"n_splits": 2})
+        assert resp.status_code == 200, resp.get_json()
+        data = resp.get_json()
+        assert data["success"] is True
+        assert len(data["cv_scores"]) == 2
+
 
 # =============================================================================
 # Reset

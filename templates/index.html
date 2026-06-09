@@ -124,6 +124,17 @@
                                 <label>Label Length</label>
                                 <input type="number" id="labelLenInput" value="{{ cfg.time_series.label_len }}" min="0" max="200" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);width:80px;">
                             </div>
+                            <div class="input-group" style="min-width:100px;">
+                                <label>Granularity</label>
+                                <select id="granularitySelect" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);min-width:100px;">
+                                    <option value="auto">Auto</option>
+                                    <option value="year">Year</option>
+                                    <option value="month">Month</option>
+                                    <option value="day">Day</option>
+                                    <option value="hour">Hour</option>
+                                    <option value="minute">Minute</option>
+                                </select>
+                            </div>
                             <button class="btn btn-primary btn-sm" onclick="applyTaskConfig()" id="applyTaskConfigBtn" style="white-space:nowrap;">Apply &amp; Refresh</button>
                             <span id="taskConfigBadge" style="display:none;padding:4px 12px;border-radius:9999px;font-size:13px;font-weight:500;background:#dbeafe;color:#2563eb;white-space:nowrap;margin-left:4px;">Saved</span>
                         </div>

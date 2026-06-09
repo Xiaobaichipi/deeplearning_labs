@@ -163,35 +163,82 @@ def fill_missing(df, strategy="auto", columns=None, fill_value=None):
     return result, report
 
 
-def time_encoding(df, time_col):
-    """Generate month/day/weekday/hour features from a datetime column.
+def _infer_granularity(dt_series):
+    """Infer time granularity from the median gap between sorted timestamps."""
+    if len(dt_series) < 2:
+        return "hour"
+    sorted_dt = dt_series.sort_values()
+    gaps = sorted_dt.diff().dropna()
+    if gaps.empty:
+        return "hour"
+    median_gap = gaps.median()
+    if median_gap >= pd.Timedelta(days=28):
+        return "month"
+    elif median_gap >= pd.Timedelta(days=1):
+        return "day"
+    elif median_gap >= pd.Timedelta(hours=1):
+        return "hour"
+    else:
+        return "minute"
 
-    Returns (df_with_encoding, encoded_names) where encoded_names is a list
-    of the new column names added.
+
+def time_encoding(df, time_col, granularity="auto"):
+    """Generate temporal features from a datetime column.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+    time_col : str
+    granularity : str
+        One of "auto", "year", "month", "day", "hour", "minute".
+        "auto" infers from the median timestamp gap.
+
+    Returns
+    -------
+    (df_with_encoding, encoded_names, used_granularity)
     """
     if time_col not in df.columns:
-        return df, []
+        return df, [], "auto"
     try:
         dt = pd.to_datetime(df[time_col])
     except Exception:
-        return df, []
+        return df, [], "auto"
+
+    if granularity == "auto":
+        granularity = _infer_granularity(dt)
 
     result = df.copy()
     encoded_names = []
-    if "month" not in result.columns:
+
+    feature_map = {
+        "year": ["year"],
+        "month": ["year", "month"],
+        "day": ["year", "month", "day", "weekday"],
+        "hour": ["year", "month", "day", "weekday", "hour"],
+        "minute": ["year", "month", "day", "weekday", "hour", "minute"],
+    }
+    selected = feature_map.get(granularity, feature_map["hour"])
+
+    if "year" in selected and "year" not in result.columns:
+        result["year"] = ((dt.dt.year - 2000) / 100.0).astype(np.float32)
+        encoded_names.append("year")
+    if "month" in selected and "month" not in result.columns:
         result["month"] = dt.dt.month.astype(np.float32) / 12.0
         encoded_names.append("month")
-    if "day" not in result.columns:
+    if "day" in selected and "day" not in result.columns:
         result["day"] = dt.dt.day.astype(np.float32) / 31.0
         encoded_names.append("day")
-    if "weekday" not in result.columns:
+    if "weekday" in selected and "weekday" not in result.columns:
         result["weekday"] = dt.dt.weekday.astype(np.float32) / 7.0
         encoded_names.append("weekday")
-    if "hour" not in result.columns:
+    if "hour" in selected and "hour" not in result.columns:
         result["hour"] = dt.dt.hour.astype(np.float32) / 23.0
         encoded_names.append("hour")
+    if "minute" in selected and "minute" not in result.columns:
+        result["minute"] = dt.dt.minute.astype(np.float32) / 59.0
+        encoded_names.append("minute")
 
-    return result, encoded_names
+    return result, encoded_names, granularity
 
 
 def _create_sliding_windows(X, y, seq_len, pred_len):
@@ -226,7 +273,7 @@ def _create_sliding_windows(X, y, seq_len, pred_len):
 
 def split_data(df, target_col, test_size=0.2, random_state=42,
                time_series=False, time_col=None, seq_len=10, pred_len=1,
-               label_len=0):
+               label_len=0, time_granularity="auto"):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import LabelEncoder
 
@@ -238,14 +285,26 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
         df_sorted = df.iloc[sorted_idx].reset_index(drop=True)
 
         # Generate time encoding features
-        df_enc, enc_names = time_encoding(df_sorted, time_col)
+        df_enc, enc_names, used_granularity = time_encoding(df_sorted, time_col, granularity=time_granularity)
 
-        # Drop the raw time column (we have the encoded features)
+        # Extract target BEFORE dropping columns (y is independent of time_col handling)
+        y_raw = df_enc[target_col].values
+        if y_raw.dtype == object or str(y_raw.dtype) == "category":
+            target_encoder = LabelEncoder()
+            y = target_encoder.fit_transform(y_raw.astype(str)).astype(np.float32)
+            task_type = "classification"
+            n_classes = len(np.unique(y))
+        else:
+            target_encoder = None
+            y = y_raw.astype(np.float32)
+            task_type = "regression"
+            n_classes = 1
+
+        # Build feature matrix: drop target col and raw time col
+        cols_to_drop = [target_col]
         if time_col in df_enc.columns and time_col != target_col:
-            df_enc = df_enc.drop(columns=[time_col])
-
-        y = df_enc[target_col].values.astype(np.float32)
-        X = df_enc.drop(columns=[target_col])
+            cols_to_drop.append(time_col)
+        X = df_enc.drop(columns=cols_to_drop)
 
         # Encode categorical features
         num_cols = X.select_dtypes(include=[np.number]).columns
@@ -277,9 +336,6 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
         X_train, y_train = _create_sliding_windows(X_train_raw, y_train_raw, seq_len, pred_len)
         X_test, y_test = _create_sliding_windows(X_test_raw, y_test_raw, seq_len, pred_len)
 
-        task_type = "regression"
-        target_encoder = None
-        n_classes = 1
         n_features = X_num.shape[1]
         input_dim = n_features
 
@@ -300,6 +356,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
             "label_len": label_len,
             "time_col": time_col,
             "time_encoding_features": enc_names,
+            "time_granularity": used_granularity,
         }
 
     # --- General (non-time-series) path: existing behavior ---

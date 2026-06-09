@@ -6,6 +6,7 @@ from flask import Blueprint, current_app, jsonify, request, session, send_file
 from utils import config
 from utils.data_utils import load_data, get_data_info
 from utils.model_utils import create_model
+from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
 
 projects_bp = Blueprint("projects", __name__)
@@ -134,7 +135,7 @@ def compare_models(project_id):
     y_true = split_result["y_test"]
     y_scaler = split_result.get("y_scaler")
     input_dim = split_result.get("input_dim", 1)
-    output_dim = 1
+    output_dim = split_result.get("pred_len", 1)
 
     from utils.data_utils import denormalize_target
     from utils.model_utils import predict
@@ -195,8 +196,15 @@ def load_model_into_session(project_id, model_id):
                 "time_col": split_result.get("time_col", ""),
                 "seq_len": split_result.get("seq_len", 10),
                 "pred_len": split_result.get("pred_len", 1),
+                "time_granularity": split_result.get("time_granularity", "auto"),
             })
-        input_dim = split_result.get("input_dim", len(meta.get("feature_names", [])))
+        input_dim = (
+            split_result.get("input_dim")
+            or meta.get("input_dim")
+            or len(meta.get("feature_names", []))
+        )
+        if not input_dim:
+            return jsonify({"error": "Cannot determine model input dimension"}), 400
         if split_result.get("is_time_series"):
             output_dim = split_result.get("pred_len", meta.get("output_dim", 1))
         else:
@@ -206,8 +214,11 @@ def load_model_into_session(project_id, model_id):
                 else 1
             )
     else:
-        input_dim = len(meta.get("feature_names", []))
+        input_dim = meta.get("input_dim") or len(meta.get("feature_names", []))
         output_dim = meta.get("output_dim", 1)
+
+    if not input_dim:
+        return jsonify({"error": "Cannot determine model input dimension"}), 400
 
     try:
         model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
@@ -267,12 +278,13 @@ def activate_project(project_id):
                 "time_col": split_result.get("time_col", ""),
                 "seq_len": split_result.get("seq_len", 10),
                 "pred_len": split_result.get("pred_len", 1),
+                "time_granularity": split_result.get("time_granularity", "auto"),
             })
 
     # Reconstruct trained models
     models = pm.list_models(project_id)
     if split_result:
-        input_dim = split_result.get("input_dim", 1)
+        input_dim = split_result.get("input_dim") or 1
         if split_result.get("is_time_series"):
             output_dim = split_result.get("pred_len", 1)
         else:
@@ -311,6 +323,10 @@ def activate_project(project_id):
                 pass
 
     info = get_data_info(df)
+    dist_images = plot_data_distribution(df)
+    corr_img = plot_correlation_heatmap(df)
+    info["distribution_images"] = dist_images
+    info["correlation_image"] = corr_img
     info["project"] = project
     info["models"] = [
         {"id": m["id"], "model_type": m.get("model_type"),

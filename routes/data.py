@@ -136,6 +136,7 @@ def set_task_config():
         "seq_len": int(params.get("seq_len", config.TIME_SERIES["seq_len"])),
         "pred_len": int(params.get("pred_len", config.TIME_SERIES["pred_len"])),
         "label_len": int(params.get("label_len", config.TIME_SERIES["label_len"])),
+        "time_granularity": params.get("time_granularity", "auto"),
     }
 
     # Clear downstream state if config changed
@@ -146,6 +147,7 @@ def set_task_config():
         or old_config.get("seq_len") != new_config.get("seq_len")
         or old_config.get("pred_len") != new_config.get("pred_len")
         or old_config.get("label_len") != new_config.get("label_len")
+        or old_config.get("time_granularity") != new_config.get("time_granularity")
     )
     if changed:
         # Clear downstream state — remove keys rather than setting None

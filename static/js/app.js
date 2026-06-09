@@ -123,6 +123,7 @@ async function loadTaskConfig() {
                 if (config.seq_len) document.getElementById("seqLenInput").value = config.seq_len;
                 if (config.pred_len) document.getElementById("predLenInput").value = config.pred_len;
                 if (config.label_len !== undefined) document.getElementById("labelLenInput").value = config.label_len;
+                if (config.time_granularity) document.getElementById("granularitySelect").value = config.time_granularity;
             }
         }
         updateModelOptions(config.task_type || "general");
@@ -140,6 +141,7 @@ async function applyTaskConfig() {
         seq_len: parseInt(document.getElementById("seqLenInput").value) || 10,
         pred_len: parseInt(document.getElementById("predLenInput").value) || 1,
         label_len: parseInt(document.getElementById("labelLenInput").value) || 0,
+        time_granularity: document.getElementById("granularitySelect").value || "auto",
     };
 
     try {

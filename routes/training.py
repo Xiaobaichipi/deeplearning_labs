@@ -250,11 +250,13 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
                 "target_name": split_result["target_name"],
                 "train_size": final["train_size"],
                 "test_size": final["test_size"],
+                "input_dim": split_result["input_dim"],
                 "output_dim": output_dim,
                 "is_time_series": split_result.get("is_time_series", False),
                 "seq_len": split_result.get("seq_len"),
                 "pred_len": split_result.get("pred_len"),
                 "time_col": split_result.get("time_col"),
+                "time_granularity": split_result.get("time_granularity"),
             })
         except Exception:
             pass
@@ -277,6 +279,7 @@ def _setup_training(sm, data_id, df, params):
             "seq_len": int(task_config.get("seq_len", config.TIME_SERIES["seq_len"])),
             "pred_len": int(task_config.get("pred_len", config.TIME_SERIES["pred_len"])),
             "label_len": int(task_config.get("label_len", config.TIME_SERIES["label_len"])),
+            "time_granularity": task_config.get("time_granularity", "auto"),
         }
 
     split_result = split_data(df, target_col, test_size=test_size, **ts_params)

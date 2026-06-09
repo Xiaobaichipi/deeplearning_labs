@@ -33,13 +33,16 @@ def _detect_gpus_via_nvidia_smi():
 
 def get_available_devices():
     """Return a list of available device strings for the frontend dropdown."""
+    cudnn_note = ""
+    if not torch.backends.cudnn.enabled:
+        cudnn_note = " (cuDNN disabled)"
     devices = ["cpu"]
     if torch.cuda.is_available():
         for i in range(torch.cuda.device_count()):
             name = torch.cuda.get_device_name(i)
-            devices.append(f"cuda:{i}  ({name})")
+            devices.append(f"cuda:{i}  ({name}{cudnn_note})")
         if torch.cuda.device_count() > 1:
-            devices.append("all  (DataParallel multi-GPU)")
+            devices.append(f"all  (DataParallel multi-GPU{cudnn_note})")
     else:
         gpus = _detect_gpus_via_nvidia_smi()
         if gpus:
@@ -103,3 +106,33 @@ CV = {
 }
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# ── cuDNN compatibility check ─────────────────────────────────────────────
+
+# Some environments have a mismatched cuDNN library (e.g. cuDNN 9.x installed
+# alongside PyTorch compiled for cuDNN 8.x), which causes cryptic
+# CUDNN_STATUS_NOT_INITIALIZED errors during training with RNN / LSTM / GRU /
+# CNN models.  We detect this at startup and disable cuDNN globally so that
+# PyTorch falls back to its native implementations.
+if torch.cuda.is_available():
+    try:
+        if not getattr(torch.backends, "cudnn", None) or not torch.backends.cudnn.is_available():
+            pass
+    except Exception:
+        torch.backends.cudnn.enabled = False
+    else:
+        # Runtime probe: RNNs trigger cuDNN flatten_parameters() which is
+        # the first operation that breaks under a version mismatch.
+        try:
+            _gru_probe = torch.nn.GRU(1, 1, 1, batch_first=True).cuda()
+            _gru_probe(torch.randn(1, 2, 1).cuda())
+            del _gru_probe
+        except Exception:
+            import sys
+            print(
+                "WARNING: cuDNN is incompatible with this PyTorch build "
+                "(version mismatch). Disabling cuDNN. Models will use native "
+                "PyTorch implementations and still work correctly.",
+                file=sys.stderr,
+            )
+            torch.backends.cudnn.enabled = False

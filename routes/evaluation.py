@@ -164,9 +164,13 @@ def api_validate():
     params = request.get_json() or {}
     n_splits = int(params.get("n_splits", config.CV["default_folds"]))
     output_dim = (
-        split_result["n_classes"]
-        if split_result["task_type"] == "classification"
-        else 1
+        split_result["pred_len"]
+        if split_result.get("is_time_series")
+        else (
+            split_result["n_classes"]
+            if split_result["task_type"] == "classification"
+            else 1
+        )
     )
 
     result = cross_validate_model(

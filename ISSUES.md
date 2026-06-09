@@ -1,6 +1,69 @@
 # Issues Log
 
-## 2026-06-09: Sliding Window 3D 重构 — 修复 Review 发现的 7 个问题 (v2-project-system 分支)
+## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
+
+### 1. Bug — split_data 时间序列路径 time_col==target_col 崩溃
+
+**症状**: 训练时显示 `could not convert string to float: '2024-01-01 00:00:00'`
+
+**根因**: `split_data()` 时间序列路径中，当 `time_col == target_col` 时，条件 `if time_col != target_col` 阻止了时间列的删除，随后 `y = df_enc[target_col].values.astype(np.float32)` 试图将日期字符串转成 float 导致崩溃。
+
+**修复** (`utils/data_utils.py`):
+- 将 y 的提取提前到列删除之前，使其独立于 time_col 处理
+- 自动检测目标列数据类型——非数值（如日期字符串）时使用 LabelEncoder 转为分类任务
+
+### 2. Feature — 时间粒度选择
+
+**变更**: Step 2 时间序列配置新增 Granularity 下拉菜单（Auto/Year/Month/Day/Hour/Minute）。
+
+| 粒度 | 生成的时间特征 |
+|------|----------------|
+| Auto | 根据数据采样频率自动推断 |
+| Year | year (归一化) |
+| Month | year, month |
+| Day | year, month, day, weekday |
+| Hour | year, month, day, weekday, hour |
+| Minute | year, month, day, weekday, hour, minute |
+
+Auto 模式计算中位数时间间隔：≥28d → month、≥1d → day、≥1h → hour、否则 minute。
+
+**涉及文件**:
+- `utils/data_utils.py` — `_infer_granularity()`, `time_encoding()` granularity 参数, `split_data()` time_granularity 参数
+- `routes/training.py` — 传递 time_granularity
+- `routes/projects.py` — 恢复 time_granularity
+- `routes/data.py` — task-config 接受 time_granularity
+- `templates/index.html` — Granularity 下拉框
+- `static/js/app.js` — save/load granularity
+
+### 3. Bug — cuDNN CUDNN_STATUS_NOT_INITIALIZED
+
+**症状**: 训练 RNN/LSTM/GRU/CNN 时显示 `RuntimeError: cuDNN error: CUDNN_STATUS_NOT_INITIALIZED`。
+
+**根因**: Ollama 安装的 cuDNN 9.21 覆盖了 PyTorch 自带的 nvidia-cudnn-cu12 9.1.0。PyTorch 2.5.1+cu121 与 cuDNN 9.21 的 RNN/conv API 不兼容，`nn.Linear` (BLAS) 和 Transformer 不受影响。
+
+**修复** (`utils/config.py`):
+- 启动时运行运行时探测：创建微型 GRU，移至 CUDA，前向传播验证
+- 失败时全局禁用 cuDNN：`torch.backends.cudnn.enabled = False`
+- PyTorch 退化到原生 CUDA 实现（速度略慢但数值结果一致）
+- 设备下拉框自动追加 `(cuDNN disabled)` 标签
+
+### 4. Bug — Cross Validation 时序多步输出维度不匹配
+
+**症状**: 训练时序模型后点击 Cross Validation，显示 `The size of tensor a (32) must match the size of tensor b (12) at non-singleton dimension 1`。
+
+**根因**: `routes/evaluation.py:api_validate()` 硬编码 `output_dim = 1`（第166行），但时序多步预测（如 pred_len=12）的 y 是 `(batch, pred_len)` 即 `(32, 12)`。MSE Loss 广播时 shape 不匹配。
+
+**修复**:
+- `routes/evaluation.py` — 时序任务时 `output_dim = split_result["pred_len"]`
+- `routes/projects.py` — `compare_models()` 同理修复
+
+**回归测试**: `tests/test_routes.py` — 新增 `test_validate_time_series_multi_step`
+
+### 测试
+
+160/160 测试通过，0 failed。
+
+---
 
 ### 背景
 
