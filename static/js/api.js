@@ -33,6 +33,26 @@ async function _fillData(params) {
     return data;
 }
 
+// ── Task Config ─────────────────────────────────────────────────────
+
+async function _getTaskConfig() {
+    const res = await fetch("/api/data/task-config");
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.task_config || {};
+}
+
+async function _setTaskConfig(config) {
+    const res = await fetch("/api/data/task-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.task_config;
+}
+
 // ── Training ────────────────────────────────────────────────────────
 
 async function _setupTraining(params) {

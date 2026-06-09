@@ -167,6 +167,36 @@ function goToStep(n) {
     document.getElementById("step" + n).classList.add("active");
 }
 
+/* =============== Task Config (Time Series) =============== */
+
+function onTaskTypeChange() {
+    const type = document.getElementById("taskTypeSelect").value;
+    const fields = document.getElementById("tsConfigFields");
+    fields.style.display = type === "time_series" ? "flex" : "none";
+    // When switching back to general, clear the badge
+    if (type !== "time_series") {
+        document.getElementById("taskConfigBadge").style.display = "none";
+    }
+}
+
+function populateTimeColSelect(columns) {
+    const sel = document.getElementById("timeColSelect");
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select --</option>';
+    columns.forEach((col) => {
+        sel.innerHTML += `<option value="${esc(col)}">${esc(col)}</option>`;
+    });
+}
+
+function showTaskConfigSaved() {
+    const badge = document.getElementById("taskConfigBadge");
+    if (badge) {
+        badge.style.display = "inline-block";
+        badge.textContent = "Saved";
+        setTimeout(() => { badge.style.display = "none"; }, 3000);
+    }
+}
+
 /* =============== Step 2: Data Exploration =============== */
 
 function populateStep2(info) {

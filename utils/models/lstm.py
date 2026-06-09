@@ -16,7 +16,7 @@ class LSTMModel(BaseModel):
 
         self.num_directions = 2 if bidirectional else 1
         self.lstm = nn.LSTM(
-            input_size=1, hidden_size=hidden_size,
+            input_size=input_dim, hidden_size=hidden_size,
             num_layers=num_layers, batch_first=True,
             bidirectional=bidirectional,
             dropout=dropout if num_layers > 1 else 0,
@@ -27,7 +27,6 @@ class LSTMModel(BaseModel):
         )
 
     def forward(self, x):
-        x = x.view(x.size(0), -1, 1)
         out, _ = self.lstm(x)
         out = out[:, -1, :]
         out = self.fc(out)

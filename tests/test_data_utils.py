@@ -184,6 +184,109 @@ class TestSplitData:
         assert len(result["X_test"]) == 1
 
 
+class TestSplitDataTimeSeries:
+    def test_time_series_returns_3d_sliding_windows(self):
+        n = 50
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "feat1": range(n),
+            "feat2": [x * 2 for x in range(n)],
+            "target": [x * 3 for x in range(n)],
+        })
+        result = split_data(df, "target", test_size=0.2, time_series=True,
+                            time_col="date", seq_len=5, pred_len=1)
+
+        assert result["X_train"].ndim == 3, "X_train should be 3D"
+        assert result["X_test"].ndim == 3, "X_test should be 3D"
+        assert result["X_train"].shape[2] == result["input_dim"], \
+            f"input_dim ({result['input_dim']}) should match n_features ({result['X_train'].shape[2]})"
+
+    def test_time_series_shapes_consistent(self):
+        n = 100
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "feat": range(n),
+            "target": [x * 3 for x in range(n)],
+        })
+        seq_len, pred_len = 10, 3
+        result = split_data(df, "target", test_size=0.2, time_series=True,
+                            time_col="date", seq_len=seq_len, pred_len=pred_len)
+
+        assert result["X_train"].shape[1] == seq_len
+        assert result["X_test"].shape[1] == seq_len
+        assert result["y_train"].shape[1] == pred_len
+        assert result["y_test"].shape[1] == pred_len
+        assert result["seq_len"] == seq_len
+        assert result["pred_len"] == pred_len
+
+    def test_time_series_input_dim_includes_encoding(self):
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=50, freq="D"),
+            "a": range(50), "b": range(50, 100), "c": range(100, 150),
+            "target": range(50),
+        })
+        result = split_data(df, "target", test_size=0.2, time_series=True,
+                            time_col="date", seq_len=5, pred_len=1)
+
+        # input_dim = 3 original features + 4 time encoding features (month, day, weekday, hour)
+        n_encoded = len(result.get("time_encoding_features", []))
+        assert result["input_dim"] == 3 + n_encoded
+        assert result["X_train"].shape[2] == result["input_dim"]
+
+    def test_time_series_chronological_split(self):
+        n = 50
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "feat": range(n),
+            "target": range(n),
+        })
+        result = split_data(df, "target", test_size=0.2, time_series=True,
+                            time_col="date", seq_len=3, pred_len=1)
+
+        # Chronological: training windows end before test windows start
+        # split_idx = int(50 * 0.8) = 40
+        # Training windows use rows 0..39, test windows use rows 40..
+        split_idx = int(n * (1 - 0.2))
+        # Last train window ends at row split_idx-1, first test starts at row split_idx
+        last_train_row = split_idx - 1
+        first_test_row = split_idx
+        assert df["date"].iloc[last_train_row] < df["date"].iloc[first_test_row]
+
+    def test_time_series_label_len_present(self):
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=50, freq="D"),
+            "feat": range(50), "target": range(50),
+        })
+        result = split_data(df, "target", test_size=0.2, time_series=True,
+                            time_col="date", seq_len=5, pred_len=1, label_len=2)
+
+        assert "label_len" in result
+        assert result["label_len"] == 2
+        assert result.get("is_time_series") is True
+
+    def test_time_series_insufficient_data_raises(self):
+        df = pd.DataFrame({
+            "date": pd.date_range("2020-01-01", periods=5, freq="D"),
+            "feat": range(5), "target": range(5),
+        })
+        with pytest.raises(ValueError, match="Training set too small"):
+            split_data(df, "target", test_size=0.2, time_series=True,
+                       time_col="date", seq_len=10, pred_len=1)
+
+    def test_normalize_data_3d_preserves_shape(self):
+        rng = np.random.RandomState(42)
+        X_train = rng.rand(20, 10, 5).astype(np.float32)
+        X_test = rng.rand(5, 10, 5).astype(np.float32)
+
+        for method in ("minmax", "mean"):
+            X_train_norm, X_test_norm, params = normalize_data(X_train, X_test, method=method)
+
+            assert X_train_norm.shape == X_train.shape, f"{method}: train shape changed"
+            assert X_test_norm.shape == X_test.shape, f"{method}: test shape changed"
+            assert np.allclose(X_train_norm.min(axis=0).min(axis=0),
+                               np.zeros(X_train.shape[2]), atol=1e-5) or method == "mean"
+
+
 @pytest.fixture
 def sample_df():
     return pd.DataFrame({

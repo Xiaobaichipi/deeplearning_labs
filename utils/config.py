@@ -90,6 +90,12 @@ MODEL = {
     "transformer": {"d_model": 64, "nhead": 4, "dim_feedforward": 256, "num_layers": 2},
 }
 
+TIME_SERIES = {
+    "seq_len": 10,
+    "pred_len": 1,
+    "label_len": 0,
+}
+
 CV = {
     "default_folds": 5,
     "max_epochs_per_fold": 20,

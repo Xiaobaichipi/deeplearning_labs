@@ -95,6 +95,41 @@
                 <h2 style="margin-bottom:8px;">Data Exploration</h2>
                 <p style="margin-bottom:24px;color:var(--charcoal);">Overview, statistics, and visualizations of your dataset.</p>
 
+                <!-- Task Config Card (General / Time Series) -->
+                <div id="taskConfigCard" class="card" style="margin-bottom:20px;padding:16px 20px;">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div class="input-group" style="min-width:160px;">
+                            <label>Task Type</label>
+                            <select id="taskTypeSelect" onchange="onTaskTypeChange()" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);">
+                                <option value="general">General</option>
+                                <option value="time_series">Time Series</option>
+                            </select>
+                        </div>
+                        <div id="tsConfigFields" style="display:none;flex:1;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                            <div class="input-group" style="min-width:160px;">
+                                <label>Time Column</label>
+                                <select id="timeColSelect" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);min-width:140px;">
+                                    <option value="">-- Select --</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="min-width:80px;">
+                                <label>Seq Length</label>
+                                <input type="number" id="seqLenInput" value="{{ cfg.time_series.seq_len }}" min="2" max="200" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);width:80px;">
+                            </div>
+                            <div class="input-group" style="min-width:80px;">
+                                <label>Pred Length</label>
+                                <input type="number" id="predLenInput" value="{{ cfg.time_series.pred_len }}" min="1" max="50" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);width:80px;">
+                            </div>
+                            <div class="input-group" style="min-width:80px;">
+                                <label>Label Length</label>
+                                <input type="number" id="labelLenInput" value="{{ cfg.time_series.label_len }}" min="0" max="200" style="padding:8px 12px;border:1px solid var(--hairline);border-radius:8px;font-size:14px;background:var(--surface-soft);width:80px;">
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="applyTaskConfig()" id="applyTaskConfigBtn" style="white-space:nowrap;">Apply &amp; Refresh</button>
+                            <span id="taskConfigBadge" style="display:none;padding:4px 12px;border-radius:9999px;font-size:13px;font-weight:500;background:#dbeafe;color:#2563eb;white-space:nowrap;margin-left:4px;">Saved</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="dataStats" class="stats-grid"></div>
 
                 <div class="tabs" id="dataTabs">

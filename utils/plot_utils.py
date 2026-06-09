@@ -179,10 +179,13 @@ def plot_roc_curve(y_true, y_score):
 
 def plot_pred_vs_true(y_true, y_pred):
     """Plot predictions vs true values (scatter), return base64 PNG."""
+    # Flatten multi-output arrays (pred_len > 1) for scatter
+    _yt = y_true.ravel() if y_true.ndim > 1 else y_true
+    _yp = y_pred.ravel() if y_pred.ndim > 1 else y_pred
     fig, ax = plt.subplots(figsize=(5, 4))
-    ax.scatter(y_true, y_pred, alpha=0.5, s=15)
-    lo = min(y_true.min(), y_pred.min())
-    hi = max(y_true.max(), y_pred.max())
+    ax.scatter(_yt, _yp, alpha=0.5, s=15)
+    lo = min(_yt.min(), _yp.min())
+    hi = max(_yt.max(), _yp.max())
     ax.plot([lo, hi], [lo, hi], "r--", linewidth=1)
     ax.set(xlabel="True Values", ylabel="Predictions", title="Predictions vs True Values")
     fig.tight_layout()
@@ -191,10 +194,13 @@ def plot_pred_vs_true(y_true, y_pred):
 
 def plot_pred_vs_true_line(y_true, y_pred):
     """Plot true vs predicted as two lines by sample index, return base64 PNG."""
+    # For multi-output (pred_len > 1), show only the first output dimension
+    _yt = y_true[:, 0] if y_true.ndim > 1 else y_true
+    _yp = y_pred[:, 0] if y_pred.ndim > 1 else y_pred
     fig, ax = plt.subplots(figsize=(5, 4))
-    indices = np.arange(len(y_true))
-    ax.plot(indices, y_true, label="True Values", color="#2563eb", linewidth=1.5)
-    ax.plot(indices, y_pred, label="Predictions", color="#ea580c", linewidth=1.5, alpha=0.8)
+    indices = np.arange(len(_yt))
+    ax.plot(indices, _yt, label="True Values", color="#2563eb", linewidth=1.5)
+    ax.plot(indices, _yp, label="Predictions", color="#ea580c", linewidth=1.5, alpha=0.8)
     ax.set(xlabel="Sample Index", ylabel="Value", title="Predictions vs True Values (Line)")
     ax.legend()
     fig.tight_layout()
@@ -232,8 +238,11 @@ def plot_model_comparison(y_true, predictions_dict):
 
 def plot_residuals(y_true, y_pred):
     """Plot residual histogram, return base64 PNG."""
+    # Flatten multi-output residuals
+    _yt = y_true.ravel() if y_true.ndim > 1 else y_true
+    _yp = y_pred.ravel() if y_pred.ndim > 1 else y_pred
     fig, ax = plt.subplots(figsize=(5, 4))
-    residuals = y_true - y_pred
+    residuals = _yt - _yp
     ax.hist(residuals, bins=30, edgecolor="black", alpha=0.7)
     ax.set(xlabel="Residual", ylabel="Frequency", title="Residual Distribution")
     fig.tight_layout()

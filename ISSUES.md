@@ -1,5 +1,42 @@
 # Issues Log
 
+## 2026-06-09: Sliding Window 3D 重构 — 修复 Review 发现的 7 个问题 (v2-project-system 分支)
+
+### 背景
+
+Code Review 发现 `v2-project-system` 分支存在模型输入 shape 不匹配的问题：滑动窗口生成的数据被拍平为 2D，而 RNN/LSTM/GRU/Transformer 需要原生 3D `(batch, seq_len, n_features)` 输入。
+
+### 修复列表
+
+#### 1. 滑动窗口返回 3D (核心修复)
+- **`utils/data_utils.py:_create_sliding_windows()`** — 返回 `(n_windows, seq_len, n_features)` 而非拍平的 2D
+- **`utils/data_utils.py:split_data()`** — `input_dim = n_features`（而非 `n_windows * seq_len`）
+- **`utils/data_utils.py:normalize_data()`** — 增加 3D→2D→归一化→3D 回程逻辑
+
+#### 2. 模型适配 3D 输入
+- **RNN/LSTM/GRU** (`rnn.py`, `lstm.py`, `gru.py`) — `input_size=1` → `input_size=input_dim`，移除 `view()` 拍平
+- **Transformer** (`transformer.py`) — 移除 `unsqueeze(1)`/`squeeze(1)`，改用 `mean(dim=1)` 池化
+- **MLP** (`mlp.py`) — 3D 输入时 per-timestep 推理 + mean 池化
+- **CNN** (`cnn.py`) — 已正确处理 3D（`view(x.size(0), 1, -1)`），无需修改
+
+#### 3. label_len 字段
+- **`utils/config.py`** — `TIME_SERIES` 新增 `label_len: 0`
+- **`routes/data.py`** — task-config 端点读写 label_len
+- **`templates/index.html`** — 时间序列配置区新增 Label Length 输入框
+- **`static/js/app.js`** — config 读写 label_len
+
+#### 4. Evaluate/Predict Device 硬编码
+- **`routes/evaluation.py`** — `device="cpu"` 改为从 `model_config` 读取训练时使用的 device
+
+#### 5. 测试
+- **`tests/test_data_utils.py`** — 新增 7 个时间序列测试（3D 形状、chronological 顺序、label_len、normalize 3D 保形、不足数据异常）
+
+### 测试结果
+
+159/159 测试通过，0 failed。
+
+---
+
 ## 2026-06-08: 新增 Device 选择功能 (v2-project-system 分支)
 
 Hyperparameters 中增加 Device 下拉框，列出 CPU 和所有可用 GPU，支持多显卡并行训练。

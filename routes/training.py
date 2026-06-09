@@ -29,11 +29,14 @@ def train():
     _setup_training(sm, data_id, df, params)
     built = _build_config(params, df)
     split_result = sm.get_split(data_id)
-    output_dim = (
-        split_result["n_classes"]
-        if split_result["task_type"] == "classification"
-        else 1
-    )
+    if split_result.get("is_time_series"):
+        output_dim = split_result["pred_len"]
+    else:
+        output_dim = (
+            split_result["n_classes"]
+            if split_result["task_type"] == "classification"
+            else 1
+        )
 
     history, final = _run_and_persist(
         sm, data_id, split_result, built, output_dim,
@@ -82,11 +85,14 @@ def train_stream():
     try:
         built = _build_config(params, df)
         split_result = sm.get_split(data_id)
-        output_dim = (
-            split_result["n_classes"]
-            if split_result["task_type"] == "classification"
-            else 1
-        )
+        if split_result.get("is_time_series"):
+            output_dim = split_result["pred_len"]
+        else:
+            output_dim = (
+                split_result["n_classes"]
+                if split_result["task_type"] == "classification"
+                else 1
+            )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -225,6 +231,9 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
         "target_name": split_result["target_name"],
         "train_size": len(split_result["X_train"]),
         "test_size": len(split_result["X_test"]),
+        "is_time_series": split_result.get("is_time_series", False),
+        "seq_len": split_result.get("seq_len"),
+        "pred_len": split_result.get("pred_len"),
     }
 
     if pm and active_project_id:
@@ -241,6 +250,11 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
                 "target_name": split_result["target_name"],
                 "train_size": final["train_size"],
                 "test_size": final["test_size"],
+                "output_dim": output_dim,
+                "is_time_series": split_result.get("is_time_series", False),
+                "seq_len": split_result.get("seq_len"),
+                "pred_len": split_result.get("pred_len"),
+                "time_col": split_result.get("time_col"),
             })
         except Exception:
             pass
@@ -252,7 +266,20 @@ def _setup_training(sm, data_id, df, params):
     """Validate params, split data, apply normalization, and store split."""
     target_col = params["target_col"]
     test_size = float(params.get("test_size", config.TRAINING["test_size"]))
-    split_result = split_data(df, target_col, test_size=test_size)
+
+    # Check for time series config
+    task_config = sm.get_task_config(data_id) or {}
+    ts_params = {}
+    if task_config.get("task_type") == "time_series":
+        ts_params = {
+            "time_series": True,
+            "time_col": task_config.get("time_col"),
+            "seq_len": int(task_config.get("seq_len", config.TIME_SERIES["seq_len"])),
+            "pred_len": int(task_config.get("pred_len", config.TIME_SERIES["pred_len"])),
+            "label_len": int(task_config.get("label_len", config.TIME_SERIES["label_len"])),
+        }
+
+    split_result = split_data(df, target_col, test_size=test_size, **ts_params)
 
     norm_method = params.get("normalization", "none")
     if norm_method in ("minmax", "mean"):

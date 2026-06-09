@@ -4,6 +4,7 @@ import uuid
 from flask import Blueprint, current_app, jsonify, request
 from werkzeug.utils import secure_filename
 
+from utils import config
 from utils.data_utils import clean_data, fill_missing, get_data_info, load_data
 from utils.plot_utils import plot_correlation_heatmap, plot_data_distribution
 from utils.session import (
@@ -105,6 +106,57 @@ def data_fill():
     info["distribution_images"] = dist_images
     info["correlation_image"] = corr_img
     return json_ok({"success": True, "data": info, "report": report})
+
+
+@data_bp.route("/api/data/task-config", methods=["GET"])
+@handle_errors
+def get_task_config():
+    sm = get_sm()
+    data_id = get_data_id()
+    ensure_data(sm, data_id)
+    config = sm.get_task_config(data_id) or {}
+    return json_ok({"success": True, "task_config": config})
+
+
+@data_bp.route("/api/data/task-config", methods=["POST"])
+@handle_errors
+def set_task_config():
+    sm = get_sm()
+    data_id = get_data_id()
+    df = ensure_data(sm, data_id)
+    params = request.get_json() or {}
+
+    task_type = params.get("task_type", "general")
+    if task_type not in ("general", "time_series"):
+        return jsonify({"error": "task_type must be 'general' or 'time_series'"}), 400
+
+    new_config = {
+        "task_type": task_type,
+        "time_col": params.get("time_col", ""),
+        "seq_len": int(params.get("seq_len", config.TIME_SERIES["seq_len"])),
+        "pred_len": int(params.get("pred_len", config.TIME_SERIES["pred_len"])),
+        "label_len": int(params.get("label_len", config.TIME_SERIES["label_len"])),
+    }
+
+    # Clear downstream state if config changed
+    old_config = sm.get_task_config(data_id) or {}
+    changed = (
+        old_config.get("task_type") != task_type
+        or old_config.get("time_col") != new_config.get("time_col")
+        or old_config.get("seq_len") != new_config.get("seq_len")
+        or old_config.get("pred_len") != new_config.get("pred_len")
+        or old_config.get("label_len") != new_config.get("label_len")
+    )
+    if changed:
+        # Clear downstream state — remove keys rather than setting None
+        # so has_model() returns False for the caller
+        sm._splits.pop(data_id, None)
+        sm._models.pop(data_id, None)
+        sm._histories.pop(data_id, None)
+        sm._model_configs.pop(data_id, None)
+
+    sm.set_task_config(data_id, new_config)
+    return json_ok({"success": True, "task_config": new_config})
 
 
 @data_bp.route("/api/data/sample", methods=["GET"])

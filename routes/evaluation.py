@@ -1,3 +1,4 @@
+import numpy as np
 from flask import Blueprint, Response, jsonify, request
 
 from utils import config
@@ -20,12 +21,14 @@ def api_evaluate():
         raise RouteError("Model not trained yet")
     model = sm.get_model(data_id)
     split_result = sm.get_split(data_id)
+    model_config = sm.get_model_config(data_id) or {}
+    device = model_config.get("device", "cpu")
     result = evaluate(
         model,
         split_result["X_test"], split_result["y_test"],
         split_result["task_type"],
         target_encoder=split_result.get("target_encoder"),
-        device="cpu",
+        device=device,
     )
     return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})
 
@@ -52,14 +55,15 @@ def api_predict():
 
     results = []
     for i in range(min(len(preds), 100)):
+        is_multi_output = task_type == "regression" and isinstance(preds[i], np.ndarray)
         row = {
             "index": int(i),
-            "prediction": int(preds[i]) if task_type == "classification" else float(preds[i]),
+            "prediction": preds[i].tolist() if is_multi_output else (int(preds[i]) if task_type == "classification" else float(preds[i])),
         }
         if target_encoder:
             row["prediction_label"] = str(target_encoder.inverse_transform([int(preds[i])])[0])
             row["true_label"] = str(target_encoder.inverse_transform([int(y_true[i])])[0])
-        row["true_value"] = float(y_true[i]) if task_type == "regression" else int(y_true[i])
+        row["true_value"] = y_true[i].tolist() if (is_multi_output and isinstance(y_true[i], np.ndarray)) else (float(y_true[i]) if task_type == "regression" else int(y_true[i]))
         if probs is not None:
             row["probabilities"] = [float(p) for p in probs[i]]
         results.append(row)
@@ -124,6 +128,8 @@ def _compute_predictions(sm, data_id, use_test):
     from utils.model_utils import predict
     split_result = sm.get_split(data_id)
     model = sm.get_model(data_id)
+    model_config = sm.get_model_config(data_id) or {}
+    device = model_config.get("device", "cpu")
 
     if use_test:
         X = split_result["X_test"]
@@ -132,7 +138,7 @@ def _compute_predictions(sm, data_id, use_test):
         X = split_result["X_train"]
         y_true = split_result["y_train"]
 
-    preds, probs = predict(model, X, split_result["task_type"], device="cpu")
+    preds, probs = predict(model, X, split_result["task_type"], device=device)
     target_encoder = split_result.get("target_encoder")
     y_scaler = split_result.get("y_scaler")
 

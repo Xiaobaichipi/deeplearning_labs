@@ -163,8 +163,146 @@ def fill_missing(df, strategy="auto", columns=None, fill_value=None):
     return result, report
 
 
-def split_data(df, target_col, test_size=0.2, random_state=42):
+def time_encoding(df, time_col):
+    """Generate month/day/weekday/hour features from a datetime column.
+
+    Returns (df_with_encoding, encoded_names) where encoded_names is a list
+    of the new column names added.
+    """
+    if time_col not in df.columns:
+        return df, []
+    try:
+        dt = pd.to_datetime(df[time_col])
+    except Exception:
+        return df, []
+
+    result = df.copy()
+    encoded_names = []
+    if "month" not in result.columns:
+        result["month"] = dt.dt.month.astype(np.float32) / 12.0
+        encoded_names.append("month")
+    if "day" not in result.columns:
+        result["day"] = dt.dt.day.astype(np.float32) / 31.0
+        encoded_names.append("day")
+    if "weekday" not in result.columns:
+        result["weekday"] = dt.dt.weekday.astype(np.float32) / 7.0
+        encoded_names.append("weekday")
+    if "hour" not in result.columns:
+        result["hour"] = dt.dt.hour.astype(np.float32) / 23.0
+        encoded_names.append("hour")
+
+    return result, encoded_names
+
+
+def _create_sliding_windows(X, y, seq_len, pred_len):
+    """Create sliding windows from 2D arrays.
+
+    X: (n_samples, n_features)
+    y: (n_samples,) or (n_samples,)
+
+    Returns:
+        X_windows: (n_windows, seq_len, n_features) — 3D
+        y_windows: (n_windows, pred_len)
+    """
+    n = X.shape[0]
+    n_features = X.shape[1]
+    windows = []
+    targets = []
+
+    for i in range(n - seq_len - pred_len + 1):
+        x_win = X[i:i + seq_len]               # (seq_len, n_features)
+        y_win = y[i + seq_len:i + seq_len + pred_len]
+        windows.append(x_win)
+        targets.append(y_win)
+
+    if not windows:
+        raise ValueError(
+            f"Not enough samples ({n}) for seq_len={seq_len} + pred_len={pred_len}. "
+            f"Need at least {seq_len + pred_len} rows."
+        )
+
+    return np.array(windows, dtype=np.float32), np.array(targets, dtype=np.float32)
+
+
+def split_data(df, target_col, test_size=0.2, random_state=42,
+               time_series=False, time_col=None, seq_len=10, pred_len=1,
+               label_len=0):
     from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import LabelEncoder
+
+    if time_series and time_col and time_col in df.columns:
+        # --- Time series path: chronological split + sliding window ---
+        # Parse time column
+        dt = pd.to_datetime(df[time_col])
+        sorted_idx = np.argsort(dt.values)
+        df_sorted = df.iloc[sorted_idx].reset_index(drop=True)
+
+        # Generate time encoding features
+        df_enc, enc_names = time_encoding(df_sorted, time_col)
+
+        # Drop the raw time column (we have the encoded features)
+        if time_col in df_enc.columns and time_col != target_col:
+            df_enc = df_enc.drop(columns=[time_col])
+
+        y = df_enc[target_col].values.astype(np.float32)
+        X = df_enc.drop(columns=[target_col])
+
+        # Encode categorical features
+        num_cols = X.select_dtypes(include=[np.number]).columns
+        cat_cols = X.select_dtypes(include=["object", "category"]).columns
+
+        X_num = X[num_cols].values.astype(np.float32)
+        encoders = {}
+        for col in cat_cols:
+            le = LabelEncoder()
+            encoded = le.fit_transform(X[col].astype(str))
+            encoders[col] = le
+            X_num = np.hstack([X_num, encoded.reshape(-1, 1)])
+
+        feature_names = list(num_cols) + list(cat_cols)
+
+        # Chronological split (no shuffle)
+        split_idx = int(len(X_num) * (1 - test_size))
+        if split_idx < seq_len + pred_len:
+            raise ValueError(
+                f"Training set too small ({split_idx} rows) for seq_len={seq_len} + pred_len={pred_len}"
+            )
+
+        X_train_raw = X_num[:split_idx]
+        y_train_raw = y[:split_idx]
+        X_test_raw = X_num[split_idx:]
+        y_test_raw = y[split_idx:]
+
+        # Sliding window
+        X_train, y_train = _create_sliding_windows(X_train_raw, y_train_raw, seq_len, pred_len)
+        X_test, y_test = _create_sliding_windows(X_test_raw, y_test_raw, seq_len, pred_len)
+
+        task_type = "regression"
+        target_encoder = None
+        n_classes = 1
+        n_features = X_num.shape[1]
+        input_dim = n_features
+
+        return {
+            "X_train": X_train,
+            "X_test": X_test,
+            "y_train": y_train,
+            "y_test": y_test,
+            "feature_names": feature_names,
+            "target_name": target_col,
+            "task_type": task_type,
+            "n_classes": n_classes,
+            "target_encoder": target_encoder,
+            "input_dim": input_dim,
+            "is_time_series": True,
+            "seq_len": seq_len,
+            "pred_len": pred_len,
+            "label_len": label_len,
+            "time_col": time_col,
+            "time_encoding_features": enc_names,
+        }
+
+    # --- General (non-time-series) path: existing behavior ---
     y = df[target_col]
     X = df.drop(columns=[target_col])
 
@@ -172,9 +310,8 @@ def split_data(df, target_col, test_size=0.2, random_state=42):
     cat_cols = X.select_dtypes(include=["object", "category"]).columns
 
     X_num = X[num_cols].values.astype(np.float32)
-    from sklearn.preprocessing import LabelEncoder
-    X_cat_encoded = []
     encoders = {}
+    X_cat_encoded = []
     for col in cat_cols:
         le = LabelEncoder()
         encoded = le.fit_transform(X[col].astype(str))
@@ -212,6 +349,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42):
         "n_classes": n_classes,
         "target_encoder": target_encoder,
         "input_dim": X_processed.shape[1],
+        "is_time_series": False,
     }
 
 
@@ -221,6 +359,7 @@ def normalize_data(X_train, X_test, method="minmax"):
     Parameters
     ----------
     X_train, X_test : np.ndarray
+        Can be 2D (n_samples, n_features) or 3D (n_windows, seq_len, n_features).
     method : 'minmax' or 'mean'
 
     Returns
@@ -229,6 +368,14 @@ def normalize_data(X_train, X_test, method="minmax"):
         params = {"method": ..., "min": ..., "max": ..., "mean": ..., "std": ...}
     """
     params = {"method": method}
+
+    # Reshape 3D → 2D for per-feature statistics
+    was_3d = X_train.ndim == 3
+    orig_shape = X_train.shape
+    test_shape = X_test.shape
+    if was_3d:
+        X_train = X_train.reshape(-1, X_train.shape[-1])
+        X_test = X_test.reshape(-1, X_test.shape[-1])
 
     if method == "minmax":
         col_min = X_train.min(axis=0)
@@ -252,6 +399,11 @@ def normalize_data(X_train, X_test, method="minmax"):
 
     else:
         raise ValueError(f"Unknown normalization method: {method}")
+
+    # Reshape back to 3D if input was 3D
+    if was_3d:
+        X_train_norm = X_train_norm.reshape(orig_shape)
+        X_test_norm = X_test_norm.reshape(test_shape)
 
     return X_train_norm, X_test_norm, params
 

@@ -77,7 +77,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
             outputs = model(batch_x)
 
             if task_type == "regression":
-                pred = outputs.squeeze(-1)
+                pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
                 loss = criterion(pred, batch_y)
                 train_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
             else:
@@ -103,7 +103,7 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 batch_x, batch_y = batch_x.to(_device), batch_y.to(_device)
                 outputs = model(batch_x)
                 if task_type == "regression":
-                    pred = outputs.squeeze(-1)
+                    pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
                     loss = criterion(pred, batch_y)
                     val_mae += F.l1_loss(pred, batch_y).item() * batch_x.size(0)
                 else:
@@ -180,7 +180,8 @@ def predict(model, X, task_type, device="cpu"):
             predictions = torch.argmax(outputs, dim=1)
             return predictions.cpu().numpy(), probabilities.cpu().numpy()
         else:
-            return np.atleast_1d(outputs.squeeze().cpu().numpy()), None
+            pred = outputs if outputs.size(-1) > 1 else outputs.squeeze(-1)
+            return np.atleast_1d(pred.cpu().numpy()), None
 
 
 def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
@@ -287,7 +288,7 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
                 "images": images,
             }
         else:
-            preds = np.atleast_1d(outputs.squeeze().cpu().numpy())
+            preds = np.atleast_1d(outputs.cpu().numpy())
             y_true = np.atleast_1d(y_t.cpu().numpy())
 
             mse = mean_squared_error(y_true, preds)

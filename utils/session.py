@@ -102,6 +102,7 @@ class SessionManager:
         self._histories: dict = {}
         self._pending_params: dict = {}
         self._model_configs: dict = {}
+        self._task_configs: dict = {}
 
     # -- data ----------------------------------------------------------------
 
@@ -155,6 +156,14 @@ class SessionManager:
     def get_pending_params(self, data_id: str):
         return self._pending_params.pop(data_id, None)
 
+    # -- task config (time series settings) ----------------------------------
+
+    def get_task_config(self, data_id: str):
+        return self._task_configs.get(data_id)
+
+    def set_task_config(self, data_id: str, config: dict):
+        self._task_configs[data_id] = config
+
     # -- combined checks -----------------------------------------------------
 
     def has_model(self, data_id: str) -> bool:
@@ -168,6 +177,8 @@ class SessionManager:
         self._splits.pop(data_id, None)
         self._histories.pop(data_id, None)
         self._pending_params.pop(data_id, None)
+        self._task_configs.pop(data_id, None)
+        self._model_configs.pop(data_id, None)
 
     # -- internal ------------------------------------------------------------
 

@@ -101,10 +101,94 @@ async function handleUpload(file) {
         populateStep2(data);
         populateStep3Columns(data.columns);
         populateTargetCol(data.columns);
+        populateTimeColSelect(data.columns);
+        await loadTaskConfig();
         goToStep(2);
     } catch (err) {
         showUploadError(err.message);
     }
+}
+
+// ── Task Config ─────────────────────────────────────────────────────
+
+async function loadTaskConfig() {
+    try {
+        const config = await _getTaskConfig();
+        const typeSelect = document.getElementById("taskTypeSelect");
+        if (config.task_type) {
+            typeSelect.value = config.task_type;
+            onTaskTypeChange();
+            if (config.task_type === "time_series") {
+                if (config.time_col) document.getElementById("timeColSelect").value = config.time_col;
+                if (config.seq_len) document.getElementById("seqLenInput").value = config.seq_len;
+                if (config.pred_len) document.getElementById("predLenInput").value = config.pred_len;
+                if (config.label_len !== undefined) document.getElementById("labelLenInput").value = config.label_len;
+            }
+        }
+        updateModelOptions(config.task_type || "general");
+    } catch (_) {}
+}
+
+async function applyTaskConfig() {
+    const btn = document.getElementById("applyTaskConfigBtn");
+    btn.disabled = true;
+    btn.textContent = "Applying...";
+
+    const config = {
+        task_type: document.getElementById("taskTypeSelect").value,
+        time_col: document.getElementById("timeColSelect").value,
+        seq_len: parseInt(document.getElementById("seqLenInput").value) || 10,
+        pred_len: parseInt(document.getElementById("predLenInput").value) || 1,
+        label_len: parseInt(document.getElementById("labelLenInput").value) || 0,
+    };
+
+    try {
+        await _setTaskConfig(config);
+        showTaskConfigSaved();
+        updateModelOptions(config.task_type);
+        // Clear downstream UI state (split/model/history removed on server)
+        document.getElementById("trainingSummary").style.display = "none";
+        document.getElementById("trainingProgress").style.display = "none";
+        document.getElementById("cvResults").style.display = "none";
+        document.getElementById("predResults").style.display = "none";
+        document.getElementById("evalMetrics").style.display = "none";
+        destroyCharts();
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Apply & Refresh";
+    }
+}
+
+function updateModelOptions(taskType) {
+    const sel = document.getElementById("modelType");
+    const isTimeSeries = taskType === "time_series";
+
+    // In time series mode, only show RNN/LSTM/GRU/Transformer
+    const allOptions = {
+        "mlp": "MLP (Fully Connected)",
+        "cnn": "CNN (1D Convolutional)",
+        "rnn": "RNN (Vanilla RNN)",
+        "lstm": "LSTM (Long Short-Term Memory)",
+        "gru": "GRU (Gated Recurrent Unit)",
+        "transformer": "Transformer (Encoder)",
+    };
+
+    const tsModels = ["rnn", "lstm", "gru", "transformer"];
+
+    sel.innerHTML = "";
+    Object.entries(allOptions).forEach(([val, label]) => {
+        if (!isTimeSeries || tsModels.includes(val)) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = label;
+            sel.appendChild(opt);
+        }
+    });
+
+    // If current model type is hidden, switch to first available
+    toggleModelParams();
 }
 
 async function runClean() {
@@ -320,6 +404,8 @@ async function activateProject(projectId) {
         populateStep2(data);
         populateStep3Columns(data.columns);
         populateTargetCol(data.columns);
+        populateTimeColSelect(data.columns);
+        await loadTaskConfig();
 
         const models = data.models || [];
         if (models.length) {

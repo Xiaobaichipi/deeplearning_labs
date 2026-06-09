@@ -188,15 +188,26 @@ def load_model_into_session(project_id, model_id):
     split_result = pm.load_split(project_id)
     if split_result:
         sm.set_split(data_id, split_result)
+        # Restore time series config if applicable
+        if split_result.get("is_time_series"):
+            sm.set_task_config(data_id, {
+                "task_type": "time_series",
+                "time_col": split_result.get("time_col", ""),
+                "seq_len": split_result.get("seq_len", 10),
+                "pred_len": split_result.get("pred_len", 1),
+            })
         input_dim = split_result.get("input_dim", len(meta.get("feature_names", [])))
-        output_dim = (
-            split_result["n_classes"]
-            if split_result.get("task_type") == "classification"
-            else 1
-        )
+        if split_result.get("is_time_series"):
+            output_dim = split_result.get("pred_len", meta.get("output_dim", 1))
+        else:
+            output_dim = (
+                split_result["n_classes"]
+                if split_result.get("task_type") == "classification"
+                else 1
+            )
     else:
         input_dim = len(meta.get("feature_names", []))
-        output_dim = 1
+        output_dim = meta.get("output_dim", 1)
 
     try:
         model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
@@ -249,16 +260,27 @@ def activate_project(project_id):
     split_result = pm.load_split(project_id)
     if split_result:
         sm.set_split(data_id, split_result)
+        # Restore time series config if applicable
+        if split_result.get("is_time_series"):
+            sm.set_task_config(data_id, {
+                "task_type": "time_series",
+                "time_col": split_result.get("time_col", ""),
+                "seq_len": split_result.get("seq_len", 10),
+                "pred_len": split_result.get("pred_len", 1),
+            })
 
     # Reconstruct trained models
     models = pm.list_models(project_id)
     if split_result:
         input_dim = split_result.get("input_dim", 1)
-        output_dim = (
-            split_result["n_classes"]
-            if split_result.get("task_type") == "classification"
-            else 1
-        )
+        if split_result.get("is_time_series"):
+            output_dim = split_result.get("pred_len", 1)
+        else:
+            output_dim = (
+                split_result["n_classes"]
+                if split_result.get("task_type") == "classification"
+                else 1
+            )
         for m in models:
             mid = m["id"]
             state_dict, meta = pm.load_model(project_id, mid)
