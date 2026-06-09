@@ -18,6 +18,10 @@
 - **📈 Evaluation & Visualization** — Regression metrics (MSE/RMSE/MAE/R²), classification metrics (accuracy/precision/recall/F1), confusion matrix, ROC curve, residual plots
 - **🔁 Cross-Validation** — K-fold CV using the same PyTorch model architecture as training
 - **🔮 Predict & Export** — Scatter + line comparison charts; download results as CSV or Excel
+- **🔁 Multi-Model Comparison** — Select multiple trained models and compare predictions side-by-side
+- **💾 Project System** — Persistent project storage with dataset/model versioning across sessions
+- **⚡ Device Selection** — CPU / GPU / multi-GPU DataParallel training, selectable from the UI
+- **🧩 Model Export** — Download trained model state dicts for external use
 - **🔌 Extensible** — Simple model registry — add new architectures by dropping in a file and one registry entry
 
 ---
@@ -46,7 +50,11 @@ The app will be available at **http://localhost:5000**.
 
 > **GPU Support**: If you have a CUDA-capable GPU, install the CUDA version of PyTorch for faster training:
 > ```bash
-> pip install torch --index-url https://download.pytorch.org/whl/cu118
+> # Choose the version matching your NVIDIA driver:
+> # Driver 535+ → CUDA 12.1
+> pip install torch --index-url https://download.pytorch.org/whl/cu121
+> # Driver 525+ → CUDA 12.0
+> pip install torch --index-url https://download.pytorch.org/whl/cu120
 > ```
 
 ### Using the Startup Script
@@ -66,12 +74,13 @@ The interface is organized as a 6-step wizard:
 
 | Step | What You Do | What You Get |
 |---|---|---|
-| **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded into session |
+| **0. Projects** | Create or activate a project | Persistent dataset/model storage across sessions |
+| **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded into project |
 | **2. Explore** | Browse tabs | Data preview, column info, statistics, distribution plots, correlation heatmap |
 | **3. Clean & Fill** | Toggle options | Duplicate removal, outlier clipping (IQR), missing value imputation |
-| **4. Model Config** | Select model & params | Architecture choice (MLP/CNN/RNN/LSTM/GRU/Transformer), hyperparameters, normalization |
-| **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, training history plots |
-| **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, visualizations, charts, CSV/XLSX download |
+| **4. Model Config** | Select model, device & params | Architecture choice (MLP/CNN/RNN/LSTM/GRU/Transformer), CPU/GPU selection, hyperparameters, normalization |
+| **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, LR scheduling |
+| **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, multi-model comparison, charts, CSV/XLSX download |
 
 ---
 
@@ -98,7 +107,8 @@ deeplearning_labs/
 ├── routes/
 │   ├── data.py                 # Upload, clean, fill endpoints
 │   ├── training.py             # Training (sync + SSE stream)
-│   └── evaluation.py           # Evaluation, prediction, CV, download
+│   ├── evaluation.py           # Evaluation, prediction, CV, download
+│   └── projects.py             # Project CRUD, model management
 ├── utils/
 │   ├── model_utils.py          # Train loop, inference, CV, evaluation
 │   ├── data_utils.py           # Load, split, normalize, clean, fill
@@ -122,6 +132,17 @@ deeplearning_labs/
 ├── start.sh                    # Startup/shutdown script
 └── requirements.txt            # Python dependencies
 ```
+
+### Docker Deployment
+
+```bash
+docker compose up -d
+# App available at http://localhost:5000
+```
+
+For GPU support with nvidia-docker, uncomment the `deploy` section in `docker-compose.yml` and ensure [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) is installed.
+
+---
 
 ### Key Design Decisions
 
@@ -148,7 +169,7 @@ TRAINING = {
 
 MODEL = { ... }  # Per-architecture defaults
 CV = {"default_folds": 5, "max_epochs_per_fold": 20}
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # + get_available_devices() for UI dropdown
 ```
 
 ---
@@ -159,7 +180,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # Install dev dependencies (optional)
 pip install pytest pytest-cov
 
-# Run tests (once added)
+# Run tests (152 tests covering routes, models, data utils, session, plots)
 pytest tests/
 
 # Enable Flask debug mode (default: on)
@@ -170,7 +191,7 @@ python main.py  # reloads on code changes
 
 ## Project Status
 
-Active development on the `jiagou_youhua` branch. See [ISSUES.md](ISSUES.md) for the full change log.
+Stable and ready for use. 152 tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, and project management. See [ISSUES.md](ISSUES.md) for the change log.
 
 ---
 

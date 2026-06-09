@@ -1,0 +1,19 @@
+services:
+  deeplearning-labs:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./projects:/app/projects
+    restart: unless-stopped
+
+    # GPU support (uncomment if nvidia-container-toolkit is installed):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]

@@ -207,7 +207,7 @@ class ProjectManager:
             return None, None
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
-        state_dict = torch.load(state_path, map_location="cpu")
+        state_dict = torch.load(state_path, map_location="cpu", weights_only=True)
         return state_dict, meta
 
     def list_models(self, project_id: str) -> list[dict]:
