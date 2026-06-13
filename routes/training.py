@@ -301,12 +301,26 @@ def _setup_training(sm, data_id, df, params):
     task_config = sm.get_task_config(data_id) or {}
     ts_params = {}
     if task_config.get("task_type") == "time_series":
+        seq_len = int(task_config.get("seq_len", config.TIME_SERIES["seq_len"]))
+        pred_len = int(task_config.get("pred_len", config.TIME_SERIES["pred_len"]))
+        label_len = int(task_config.get("label_len", config.TIME_SERIES["label_len"]))
+
+        # Validate time-series parameters
+        if seq_len < 2:
+            raise RouteError(f"seq_len must be at least 2, got {seq_len}")
+        if pred_len < 1:
+            raise RouteError(f"pred_len must be at least 1, got {pred_len}")
+        if label_len < 0:
+            raise RouteError(f"label_len must be non-negative, got {label_len}")
+        if seq_len <= pred_len:
+            raise RouteError(f"seq_len ({seq_len}) must be greater than pred_len ({pred_len})")
+
         ts_params = {
             "time_series": True,
             "time_col": task_config.get("time_col"),
-            "seq_len": int(task_config.get("seq_len", config.TIME_SERIES["seq_len"])),
-            "pred_len": int(task_config.get("pred_len", config.TIME_SERIES["pred_len"])),
-            "label_len": int(task_config.get("label_len", config.TIME_SERIES["label_len"])),
+            "seq_len": seq_len,
+            "pred_len": pred_len,
+            "label_len": label_len,
             "time_granularity": task_config.get("time_granularity", "auto"),
         }
 

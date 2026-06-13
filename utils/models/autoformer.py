@@ -134,9 +134,15 @@ class _RawAutoformer(nn.Module):
                             device=x_enc.device)
         seasonal_init, trend_init = self.decomp(x_enc)
         # decoder input
-        trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)
+        # NOTE: -self.label_len with label_len=0 evaluates to -0 which is 0 and
+        # selects ALL timesteps instead of none. Guard with an explicit check.
+        if self.label_len > 0:
+            trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)
+            seasonal_init = torch.cat([seasonal_init[:, -self.label_len:, :], zeros], dim=1)
+        else:
+            trend_init = mean
+            seasonal_init = zeros
         trend_init = self.trend_proj(trend_init)   # (batch, L+pl, enc_in) → (batch, L+pl, c_out)
-        seasonal_init = torch.cat([seasonal_init[:, -self.label_len:, :], zeros], dim=1)
         # enc
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, _ = self.encoder(enc_out, attn_mask=None)

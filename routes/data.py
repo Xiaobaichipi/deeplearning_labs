@@ -130,12 +130,27 @@ def set_task_config():
     if task_type not in ("general", "time_series"):
         return jsonify({"error": "task_type must be 'general' or 'time_series'"}), 400
 
+    seq_len = int(params.get("seq_len", config.TIME_SERIES["seq_len"]))
+    pred_len = int(params.get("pred_len", config.TIME_SERIES["pred_len"]))
+    label_len = int(params.get("label_len", config.TIME_SERIES["label_len"]))
+
+    # Validate time-series parameters
+    if task_type == "time_series":
+        if seq_len < 2:
+            raise RouteError(f"seq_len must be at least 2, got {seq_len}")
+        if pred_len < 1:
+            raise RouteError(f"pred_len must be at least 1, got {pred_len}")
+        if label_len < 0:
+            raise RouteError(f"label_len must be non-negative, got {label_len}")
+        if seq_len <= pred_len:
+            raise RouteError(f"seq_len ({seq_len}) must be greater than pred_len ({pred_len})")
+
     new_config = {
         "task_type": task_type,
         "time_col": params.get("time_col", ""),
-        "seq_len": int(params.get("seq_len", config.TIME_SERIES["seq_len"])),
-        "pred_len": int(params.get("pred_len", config.TIME_SERIES["pred_len"])),
-        "label_len": int(params.get("label_len", config.TIME_SERIES["label_len"])),
+        "seq_len": seq_len,
+        "pred_len": pred_len,
+        "label_len": label_len,
         "time_granularity": params.get("time_granularity", "auto"),
     }
 

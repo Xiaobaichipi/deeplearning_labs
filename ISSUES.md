@@ -69,6 +69,34 @@
 
 ---
 
+## 2026-06-13: Autoformer label_len=0 修复 + 前后端参数验证 (feat/large-model-pipeline 分支)
+
+### Bug: label_len=0 导致 tensor size mismatch
+
+**症状**: 训练 Autoformer（pred_len=12, label_len=0）后，Evaluation → Run Evaluation 报错 `The size of tensor a (36) must match the size of tensor b (18) at non-singleton dimension 1`
+
+**根因**: Python 的 `-0 == 0`，`trend_init[:, -self.label_len:, :]` 选择所有 36 个 timesteps 而非 0 个，cat 后 decoder 输入变为 54 维，但 `x_mark_dec` 只有 18 个 timesteps（label_len + pred_len = 0 + 18）。
+
+**修复** (`utils/models/autoformer.py`):
+```python
+if self.label_len > 0:
+    trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)
+    seasonal_init = torch.cat([seasonal_init[:, -self.label_len:, :], zeros], dim=1)
+else:
+    trend_init = mean
+    seasonal_init = zeros
+```
+
+### 参数验证（防止越界）
+
+| 位置 | 文件 | 验证项 |
+|------|------|--------|
+| 后端（训练前） | `routes/training.py:_setup_training()` | seq_len≥2, pred_len≥1, label_len≥0, seq_len>pred_len |
+| 后端（配置时） | `routes/data.py:set_task_config()` | 同上 |
+| 前端（输入约束） | `templates/index.html` | seqLenInput min=2, predLenInput min=1, labelLenInput min=0 |
+
+---
+
 ## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
 
 ### 1. Bug — split_data 时间序列路径 time_col==target_col 崩溃
