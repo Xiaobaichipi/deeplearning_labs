@@ -305,10 +305,6 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
             scores.append(float(accuracy_score(y_val_fold, preds)))
         else:
             scores.append(float(r2_score(y_val_fold, preds)))
-        if task_type == "classification":
-            scores.append(float(accuracy_score(y_val_fold, preds)))
-        else:
-            scores.append(float(r2_score(y_val_fold, preds)))
 
     return {
         "cv_scores": [round(s, 4) for s in scores],
