@@ -4,6 +4,7 @@ from flask import Blueprint, Response, jsonify, request
 from utils import config
 from utils.data_utils import denormalize_target
 from utils.model_utils import cross_validate_model, evaluate, predict
+from utils.pipeline_strategy import PipelineData, PipelineStrategy
 from utils.plot_utils import plot_pred_vs_true, plot_pred_vs_true_line
 from utils.session import (
     RouteError, get_data_id, get_sm, handle_errors, json_ok,
@@ -24,13 +25,13 @@ def api_evaluate():
     model_config = sm.get_model_config(data_id) or {}
     device = model_config.get("device", "cpu")
 
-    large_kw = {}
-    if "x_mark_test" in split_result:
-        large_kw = dict(
-            X_mark_test=split_result["x_mark_test"],
-            dec_inp_test=split_result["dec_inp_test"],
-            y_mark_test=split_result["y_mark_test"],
-        )
+    pd = PipelineData(
+        X_mark=split_result["x_mark_test"],
+        dec_inp=split_result["dec_inp_test"],
+        y_mark=split_result["y_mark_test"],
+    ) if "x_mark_test" in split_result else None
+
+    strategy = PipelineStrategy.for_model_type(model_config.get("model_type", "mlp"))
 
     result = evaluate(
         model,
@@ -39,7 +40,7 @@ def api_evaluate():
         target_encoder=split_result.get("target_encoder"),
         device=device,
         y_scaler=split_result.get("y_scaler"),
-        **large_kw,
+        pipeline_strategy=strategy, pipeline_data=pd,
     )
     return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})
 
@@ -143,25 +144,27 @@ def _compute_predictions(sm, data_id, use_test):
     device = model_config.get("device", "cpu")
 
     is_large = "x_mark_test" in split_result
+    strategy = PipelineStrategy.for_model_type(model_config.get("model_type", "mlp"))
 
     if use_test:
         X = split_result["X_test"]
         y_true = split_result["y_test"]
-        large_kw = dict(
+        pd = PipelineData(
             X_mark=split_result["x_mark_test"],
             dec_inp=split_result["dec_inp_test"],
             y_mark=split_result["y_mark_test"],
-        ) if is_large else {}
+        ) if is_large else None
     else:
         X = split_result["X_train"]
         y_true = split_result["y_train"]
-        large_kw = dict(
+        pd = PipelineData(
             X_mark=split_result["x_mark_train"],
             dec_inp=split_result["dec_inp_train"],
             y_mark=split_result["y_mark_train"],
-        ) if is_large else {}
+        ) if is_large else None
 
-    preds, probs = predict(model, X, split_result["task_type"], device=device, **large_kw)
+    preds, probs = predict(model, X, split_result["task_type"], device=device,
+                           pipeline_strategy=strategy, pipeline_data=pd)
     target_encoder = split_result.get("target_encoder")
     y_scaler = split_result.get("y_scaler")
 
@@ -196,21 +199,16 @@ def api_validate():
         )
     )
 
-    is_large = "x_mark_train" in split_result
+    strategy = PipelineStrategy.for_model_type(model_config["model_type"])
 
-    large_kw = {}
-    extra_model_kw = {}
-    if is_large:
-        large_kw = dict(
-            X_mark=split_result["x_mark_train"],
-            dec_inp=split_result["dec_inp_train"],
-            y_mark=split_result["y_mark_train"],
-        )
-        extra_model_kw = dict(
-            n_time_features=split_result.get("n_time_features", 4),
-            seq_len=split_result.get("seq_len", 48),
-            label_len=split_result.get("label_len", 24),
-        )
+    pd = PipelineData(
+        X_mark=split_result["x_mark_train"],
+        dec_inp=split_result["dec_inp_train"],
+        y_mark=split_result["y_mark_train"],
+        n_time_features=split_result.get("n_time_features", 4),
+        seq_len=split_result.get("seq_len", 48),
+        label_len=split_result.get("label_len", 24),
+    ) if "x_mark_train" in split_result else None
 
     result = cross_validate_model(
         model_type=model_config["model_type"],
@@ -225,8 +223,7 @@ def api_validate():
         batch_size=model_config.get("batch_size", config.TRAINING["batch_size"]),
         lr=model_config.get("learning_rate", config.TRAINING["learning_rate"]),
         device=model_config.get("device", config.DEVICE),
-        **large_kw,
-        extra_model_kw=extra_model_kw,
+        pipeline_strategy=strategy, pipeline_data=pd,
     )
 
     return json_ok({"success": True, **result})

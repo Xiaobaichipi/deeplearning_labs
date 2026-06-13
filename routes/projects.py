@@ -6,6 +6,7 @@ from flask import Blueprint, current_app, jsonify, request, session, send_file
 from utils import config
 from utils.data_utils import load_data, get_data_info
 from utils.model_utils import create_model
+from utils.pipeline_strategy import PipelineData, PipelineStrategy
 from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
 
@@ -28,7 +29,6 @@ def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
     model_kw = dict(meta.get("model_params", {}))
     # Large-pipeline models need seq_len / label_len / n_time_features
     if meta.get("pipeline") == "large":
-        model_kw["seq_len"] = meta.get("seq_len", 96)
         label_len = meta.get("label_len")
         if label_len is None:
             label_len = meta.get("seq_len", 96) // 2
@@ -39,8 +39,13 @@ def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
                 f"This may cause shape mismatch if the original training "
                 f"used a different label_len."
             )
-        model_kw["label_len"] = label_len
-        model_kw["n_time_features"] = meta.get("n_time_features", 4)
+        pd = PipelineData(
+            seq_len=meta.get("seq_len", 96),
+            label_len=label_len,
+            n_time_features=meta.get("n_time_features", 4),
+        )
+        strategy = PipelineStrategy.for_model_type(meta["model_type"])
+        model_kw.update(strategy.extra_model_kwargs(pd))
     model = create_model(
         meta["model_type"], input_dim, output_dim, **model_kw,
     )

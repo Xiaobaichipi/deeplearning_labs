@@ -10,6 +10,7 @@ from utils import config
 from utils.data_utils import normalize_data, normalize_data_apply, normalize_target, split_data
 from utils.model_utils import create_model, train_model
 from utils.models import get_model_params, get_model_pipeline
+from utils.pipeline_strategy import PipelineData, PipelineStrategy
 
 from utils.session import (
     RouteError, ensure_data, get_data_id, get_sm, handle_errors, json_ok,
@@ -191,31 +192,30 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
     Returns (history, final_dict).  *pm* and *active_project_id* are both
     required for project persistence; pass *progress_callback* for SSE.
     """
-    # Large-pipeline models need extra kwargs from split_result
-    extra_model_kw = {}
+    strategy = PipelineStrategy.for_model_type(built["model_type"])
+
+    pd_train = None
+    pd_val = None
     if "x_mark_train" in split_result:
-        extra_model_kw = dict(
+        pd_train = PipelineData(
+            X_mark=split_result["x_mark_train"],
+            dec_inp=split_result["dec_inp_train"],
+            y_mark=split_result["y_mark_train"],
             n_time_features=split_result.get("n_time_features", 4),
             seq_len=split_result.get("seq_len", 96),
             label_len=split_result.get("label_len", split_result.get("seq_len", 96) // 2),
         )
+        pd_val = PipelineData(
+            X_mark=split_result["x_mark_test"],
+            dec_inp=split_result["dec_inp_test"],
+            y_mark=split_result["y_mark_test"],
+        )
 
     model = create_model(
         built["model_type"], split_result["input_dim"], output_dim,
-        **built["model_params"], **extra_model_kw,
+        **built["model_params"],
+        **strategy.extra_model_kwargs(pd_train),
     )
-
-    # Large-pipeline extra data (only present when pipeline == "large")
-    large_kw = {}
-    if "x_mark_train" in split_result:
-        large_kw = dict(
-            X_mark_train=split_result["x_mark_train"],
-            dec_inp_train=split_result["dec_inp_train"],
-            y_mark_train=split_result["y_mark_train"],
-            X_mark_val=split_result["x_mark_test"],
-            dec_inp_val=split_result["dec_inp_test"],
-            y_mark_val=split_result["y_mark_test"],
-        )
 
     trained_model, history = train_model(
         model,
@@ -226,7 +226,8 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
         lr=built["learning_rate"], patience=built["patience"],
         device=built["device"],
         progress_callback=progress_callback,
-        **large_kw,
+        pipeline_strategy=strategy,
+        pipeline_data=pd_train, pipeline_data_val=pd_val,
     )
 
     sm.set_model(data_id, trained_model)
