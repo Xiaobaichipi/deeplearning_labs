@@ -282,6 +282,7 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
                 "time_granularity": split_result.get("time_granularity"),
                 "pipeline": get_model_pipeline(built["model_type"]),
                 "n_time_features": split_result.get("n_time_features"),
+                "label_len": split_result.get("label_len"),
             }
             pm.save_model(active_project_id, model_id, state_dict, meta)
         except Exception:

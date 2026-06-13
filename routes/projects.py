@@ -17,12 +17,29 @@ def _pm():
 
 
 def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
-    """Reconstruct a model from saved metadata and state dict."""
+    """Reconstruct a model from saved metadata and state dict.
+
+    ``label_len`` resolution priority (for large-pipeline models):
+
+    1. ``meta["label_len"]`` — model's own metadata (newly saved models)
+    2. ``meta.get("seq_len", 96) // 2`` — fallback heuristic (legacy models)
+       with a warning logged.
+    """
     model_kw = dict(meta.get("model_params", {}))
     # Large-pipeline models need seq_len / label_len / n_time_features
     if meta.get("pipeline") == "large":
         model_kw["seq_len"] = meta.get("seq_len", 96)
-        model_kw["label_len"] = meta.get("label_len", meta.get("seq_len", 96) // 2)
+        label_len = meta.get("label_len")
+        if label_len is None:
+            label_len = meta.get("seq_len", 96) // 2
+            import warnings
+            warnings.warn(
+                f"label_len not found in model meta, falling back to "
+                f"seq_len//2 = {label_len}. "
+                f"This may cause shape mismatch if the original training "
+                f"used a different label_len."
+            )
+        model_kw["label_len"] = label_len
         model_kw["n_time_features"] = meta.get("n_time_features", 4)
     model = create_model(
         meta["model_type"], input_dim, output_dim, **model_kw,
@@ -209,6 +226,7 @@ def load_model_into_session(project_id, model_id):
                 "time_col": split_result.get("time_col", ""),
                 "seq_len": split_result.get("seq_len", 10),
                 "pred_len": split_result.get("pred_len", 1),
+                "label_len": split_result.get("label_len", 0),
                 "time_granularity": split_result.get("time_granularity", "auto"),
             })
         input_dim = (
@@ -291,6 +309,7 @@ def activate_project(project_id):
                 "time_col": split_result.get("time_col", ""),
                 "seq_len": split_result.get("seq_len", 10),
                 "pred_len": split_result.get("pred_len", 1),
+                "label_len": split_result.get("label_len", 0),
                 "time_granularity": split_result.get("time_granularity", "auto"),
             })
 

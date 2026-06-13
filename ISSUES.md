@@ -95,6 +95,24 @@ else:
 | 后端（配置时） | `routes/data.py:set_task_config()` | 同上 |
 | 前端（输入约束） | `templates/index.html` | seqLenInput min=2, predLenInput min=1, labelLenInput min=0 |
 
+### Bug: label_len 未持久化到模型 meta（项目激活/加载模型时崩溃）
+
+**症状**: 训练 Autoformer（seq_len=36, pred_len=12, label_len=1）后，通过项目激活或加载模型再 Evaluation 报错 `The size of tensor a (30) must match the size of tensor b (13) at non-singleton dimension 1`
+
+**根因**: `_run_and_persist()` 存储模型 meta 时漏掉了 `label_len`。`_reconstruct_model()` 取不到 `label_len` 时回退到 `seq_len // 2 = 18`，与原始训练的 `label_len=1` 不匹配：
+- 模型重建后 `self.label_len = 18` → slice 取末尾 18 个 timesteps + pred_len=12 个 zeros → **30** 个 timesteps
+- 但原始数据中 `dec_inp` 只有 `label_len + pred_len = 1 + 12 = **13**` 个 timesteps
+- `dec_embedding(seasonal_init, x_mark_dec)` 时 value_embedding 输出 30 维，temporal_embedding 输出 13 维，崩溃
+
+**修复**:
+1. **`routes/training.py`** — meta 新增 `"label_len": split_result.get("label_len")`
+2. **`routes/projects.py:_reconstruct_model()`** — 新增三优先级兜底：
+   - ① `meta["label_len"]`（新模型）
+   - ② `seq_len // 2`（旧模型）并输出 `warnings.warn()`
+3. **`routes/projects.py:load_model_into_session/activate_project`** — 恢复 task_config 时补充 `label_len`
+
+**验证结果**: 训练→项目激活→加载模型→Evaluation 全链路通过，MSE 一致。
+
 ---
 
 ## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
