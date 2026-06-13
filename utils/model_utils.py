@@ -320,11 +320,15 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
 
 def evaluate(model, X_test, y_test, task_type, target_encoder=None,
              device="cpu",
-             X_mark_test=None, dec_inp_test=None, y_mark_test=None):
+             X_mark_test=None, dec_inp_test=None, y_mark_test=None,
+             y_scaler=None):
     """Evaluate a trained model and return metrics + visualization images.
 
     For large-pipeline models, pass the extra ``X_mark_test``, ``dec_inp_test``,
     ``y_mark_test`` arrays.
+    If *y_scaler* is provided (large pipeline with normalization), predictions
+    and targets are denormalized before computing metrics so they reflect the
+    original data scale.
     """
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
@@ -353,6 +357,12 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
             outputs = outputs.squeeze(-1)             # (batch, pred_len)
             preds = outputs.cpu().numpy()
             y_true = y_t.cpu().numpy()
+
+            # Denormalize before computing metrics so they reflect original scale
+            if y_scaler is not None:
+                from .data_utils import denormalize_target
+                preds = denormalize_target(preds, y_scaler)
+                y_true = denormalize_target(y_true, y_scaler)
 
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))

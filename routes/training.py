@@ -3,6 +3,7 @@ import json
 import queue
 import threading
 
+import numpy as np
 import torch
 from flask import Blueprint, Response, current_app, jsonify, request, session
 from utils import config
@@ -345,11 +346,31 @@ def _setup_training(sm, data_id, df, params):
     # Always normalize target for regression so loss/metric are scale-independent
     if split_result["task_type"] == "regression":
         if pipeline == "large":
-            # Target is embedded in X; y is extracted from X for loss.
-            # The target values in y are already normalized via normalize_data
-            # (target is the last feature column in X).
-            # Store identity scaler so downstream code doesn't break.
-            split_result["y_scaler"] = None
+            if norm_method in ("minmax", "mean"):
+                # y_train/y_test are NOT normalized by normalize_data() above
+                # (they are separate arrays from X_train).  Extract the target
+                # column's statistics from norm_params and apply them here.
+                target_idx = split_result.get("target_idx", -1)
+                y_train = split_result["y_train"].astype(np.float32)
+                y_test = split_result["y_test"].astype(np.float32)
+                if norm_method == "minmax":
+                    t_min = np.array(norm_params["min"])[target_idx]
+                    t_max = np.array(norm_params["max"])[target_idx]
+                    denom = float(t_max - t_min) or 1.0
+                    split_result["y_train"] = (y_train - float(t_min)) / denom
+                    split_result["y_test"] = (y_test - float(t_min)) / denom
+                    split_result["y_scaler"] = {
+                        "method": "minmax", "min": float(t_min), "max": float(t_max)}
+                else:  # mean
+                    t_mean = np.array(norm_params["mean"])[target_idx]
+                    t_std = np.array(norm_params["std"])[target_idx]
+                    t_std = float(t_std) or 1.0
+                    split_result["y_train"] = (y_train - float(t_mean)) / t_std
+                    split_result["y_test"] = (y_test - float(t_mean)) / t_std
+                    split_result["y_scaler"] = {
+                        "method": "mean", "mean": float(t_mean), "std": t_std}
+            else:
+                split_result["y_scaler"] = None
         else:
             y_norm = norm_method if norm_method in ("minmax", "mean") else "mean"
             y_train, y_test, y_scaler = normalize_target(

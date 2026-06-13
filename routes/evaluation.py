@@ -38,6 +38,7 @@ def api_evaluate():
         split_result["task_type"],
         target_encoder=split_result.get("target_encoder"),
         device=device,
+        y_scaler=split_result.get("y_scaler"),
         **large_kw,
     )
     return json_ok({"success": True, "evaluation": result, "task_type": split_result["task_type"]})

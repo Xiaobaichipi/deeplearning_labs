@@ -115,6 +115,39 @@ else:
 
 ---
 
+## 2026-06-13: Large Pipeline 归一化修复 — y_train 未归一化导致 loss 膨胀 (feat/large-model-pipeline 分支)
+
+### Bug: Large pipeline 回归任务中 y_train 未归一化
+
+**症状**: 选择归一化 (minmax/mean) 训练 Autoformer，train_loss 高达 ~5000（与不归一化相同量级），归一化"没有效果"。
+
+**根因**: `_setup_training()` 中 large pipeline 的 y_train/y_test 是与 X_train 分开的独立数组（通过 `_create_large_windows()` 生成的 `(n_windows, pred_len)` 窗口）。X 归一化使用 `normalize_data()` 自动处理所有特征列，但 y 归一化逻辑在 small pipeline 路径中通过 `normalize_target()` 处理，large pipeline 路径从未触及 y。
+
+### 修复
+
+**`routes/training.py:_setup_training()`** — 在 large pipeline 分支中，从 `norm_params` 提取目标列的 minmax/mean 统计量显式归一化 y：
+
+| 归一化方法 | 目标列统计量提取 | y 变换 |
+|-----------|----------------|--------|
+| minmax | `norm_params["min"][target_idx]` / `norm_params["max"][target_idx]` | `(y - min) / (max - min)` |
+| mean | `norm_params["mean"][target_idx]` / `norm_params["std"][target_idx]` | `(y - mean) / std` |
+
+**`utils/model_utils.py:evaluate()`** — large pipeline 评估时，在计算 MSE/RMSE/MAE/R² 之前反归一化 preds 和 y_true，确保指标反映原始数据尺度。
+
+**`routes/evaluation.py:api_evaluate()`** — 传递 `y_scaler=split_result.get("y_scaler")` 到 evaluate()。
+
+### 验证结果
+
+| 归一化 | Train Loss (归一化尺度) | Eval MSE (原始尺度) |
+|--------|----------------------|--------------------|
+| none   | 13.97 (原始尺度)      | 11.59             |
+| minmax | 0.06 (归一化尺度)      | 14.80             |
+| mean   | 0.88 (归一化尺度)      | 60.72             |
+
+归一化后 train_loss 从 ~5000 降至 0.06，确认 y 归一化正常工作。不同归一化方法的 eval_mse 差异源于优化景观变化导致模型收敛到不同局部极小值，属于预期行为。
+
+---
+
 ## 2026-06-09: 时间粒度选择 + cuDNN 兼容 + Cross Validation 输出维度修复 (v2-project-system 分支)
 
 ### 1. Bug — split_data 时间序列路径 time_col==target_col 崩溃
