@@ -20,12 +20,23 @@ def _pm():
 def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
     """Reconstruct a model from saved metadata and state dict.
 
+    ``input_dim`` / ``output_dim`` resolution priority:
+
+    1. ``meta["input_dim"]`` / ``meta["output_dim"]`` — model's own metadata
+       (authoritative — split_result may have been overwritten by a later
+       training session with different dimensions).
+    2. ``input_dim`` / ``output_dim`` parameters — caller-supplied fallback.
+
     ``label_len`` resolution priority (for large-pipeline models):
 
     1. ``meta["label_len"]`` — model's own metadata (newly saved models)
     2. ``meta.get("seq_len", 96) // 2`` — fallback heuristic (legacy models)
        with a warning logged.
     """
+    # Prefer per-model metadata over the shared split_result, which may
+    # belong to a different training session (input_dim / output_dim mismatch).
+    input_dim = meta.get("input_dim") or input_dim
+    output_dim = meta.get("output_dim") or output_dim
     model_kw = dict(meta.get("model_params", {}))
     # Large-pipeline models need seq_len / label_len / n_time_features
     if meta.get("pipeline") == "large":

@@ -1037,6 +1037,26 @@ Flask 路由函数中存在大量重复的 try/except 模板、`current_app.conf
 
 ---
 
+## 2026-06-15: Bug 修复 — 项目激活时模型重建 shape 不匹配 (feat/informer-integration 分支)
+
+### Bug: 点击项目报 "size mismatch for rnn.weight_ih_l0"
+
+**症状**: 点击项目（激活）时弹出错误：
+```
+Error: Failed to reconstruct model: Error(s) in loading state_dict for RNNModel:
+size mismatch for rnn.weight_ih_l0: copying a param with shape torch.Size([32,5]) from checkpoint, the shape in current model is torch.Size([32,1])
+```
+
+**根因**: 同一项目中先后训练了不同维度的模型（如先 TS RNN input_dim=5，后 General MLP input_dim=1）。每次训练时 `_run_and_persist` 都调用 `pm.save_split()` 覆盖项目的 split 数据。项目激活时，`activate_project()` 从 split 读取 `input_dim` 重建所有模型，导致后续模型使用错误的维度重建 → `load_state_dict` shape 不匹配。
+
+**修复**: `_reconstruct_model()` 优先使用 `meta["input_dim"]` / `meta["output_dim"]`（每模型独立保存），降级到调用方传入的参数。split_result 中的维度只作为后备。
+
+### 涉及文件
+
+- `routes/projects.py` — `_reconstruct_model()` 优先使用 meta 维度
+
+---
+
 ## 2026-06-15: 功能增强 — 模型下拉框按任务类型过滤 (feat/informer-integration 分支)
 
 ### 功能：Active Model 下拉框按任务类型过滤
