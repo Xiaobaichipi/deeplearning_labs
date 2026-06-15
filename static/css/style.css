@@ -588,4 +588,248 @@ tr:hover td { background: var(--surface-soft); }
     .inline-group { flex-direction: column; }
     .inline-group .input-group { min-width: 100%; }
     .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    #trainingCharts { grid-template-columns: 1fr; }
+    .chart-box { min-height: 200px; height: 200px; }
+}
+
+/* =============== Live Training Progress =============== */
+.progress-bar-track {
+    width: 100%;
+    height: 8px;
+    background: var(--hairline);
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: #000000;
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Chart.js canvas containers */
+.chart-box {
+    position: relative;
+    min-height: 260px;
+    height: 260px;
+}
+
+/* ── Project System ───────────────────────────────────── */
+
+/* Project list header */
+.project-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+.project-list-header h2 {
+    margin-bottom: 0 !important;
+}
+.project-list-header p {
+    width: 100%;
+    margin-bottom: 0 !important;
+}
+
+/* Project grid */
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* Project card */
+.project-card {
+    background: var(--surface-card);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.project-card:hover {
+    border-color: var(--ink);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+}
+.project-card:active {
+    transform: translateY(0);
+}
+.project-card-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+.project-card-meta {
+    font-size: 13px;
+    color: var(--body);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.project-card-meta svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+.project-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+}
+.project-card-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--surface-soft);
+    color: var(--charcoal);
+}
+.project-card-delete {
+    margin-left: auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: var(--mute);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    opacity: 0;
+}
+.project-card:hover .project-card-delete {
+    opacity: 1;
+}
+.project-card-delete:hover {
+    background: #fef2f2;
+    color: var(--danger);
+}
+
+/* Empty state */
+.empty-state {
+    display: none;
+    text-align: center;
+    padding: 80px 24px;
+    color: var(--mute);
+}
+.empty-state p {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+.empty-state.show {
+    display: block;
+}
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+}
+.modal-overlay.show {
+    display: flex;
+}
+.modal-content {
+    background: var(--canvas);
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+    animation: modalIn 0.2s ease;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Selected file name in project upload zone */
+#projectUploadText {
+    font-size: 14px;
+    color: var(--charcoal);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.modal-content .upload-zone {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* ── Model Comparison ───────────────────────────────── */
+
+.model-compare-cb {
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+    cursor: pointer;
+}
+.model-compare-cb input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--ink);
+}
+
+/* ── Model Export Cards ─────────────────────────────── */
+
+.model-export-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    transition: border-color 0.15s;
+}
+.model-export-card:hover {
+    border-color: var(--hairline-strong);
+}
+.model-export-info {
+    flex: 1;
+    min-width: 0;
+}
+.model-export-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+}
+.model-export-meta {
+    font-size: 13px;
+    color: var(--body);
+    margin-bottom: 8px;
+}
+.model-export-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }

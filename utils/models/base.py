@@ -10,10 +10,17 @@ class BaseModel(nn.Module):
         __init__(self, input_dim, output_dim, **kwargs)
         forward(self, x)
 
+    Class attributes:
+        pipeline : str
+            "small" — simple forward(x) → (batch, pred_len), time features baked into X.
+            "large" — forward takes (x, x_mark, dec_inp, y_mark), time features separate.
+
     The registry in models/__init__.py maps string keys to model classes.
     Each model extracts its own parameters from the kwargs dict, falling back
     to sensible defaults for any missing keys.
     """
+
+    pipeline = "small"
 
     def __init__(self, input_dim, output_dim, **kwargs):
         super().__init__()

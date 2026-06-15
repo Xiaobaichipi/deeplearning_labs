@@ -33,10 +33,12 @@ class TransformerTabularModel(BaseModel):
         )
 
     def forward(self, x):
-        x = self.input_proj(x)
-        x = x.unsqueeze(1)          # (batch, seq_len=1, d_model)
+        # x shape: (batch, seq_len, n_features) or (batch, n_features)
+        if x.dim() == 2:
+            x = x.unsqueeze(1)  # (batch, seq_len=1, n_features)
+        x = self.input_proj(x)  # (batch, seq_len, d_model)
         x = self.transformer_encoder(x)
-        x = x.squeeze(1)            # (batch, d_model)
+        x = x.mean(dim=1)       # pool over seq_len → (batch, d_model)
         x = self.norm(x)
         x = self.fc(x)
         return x

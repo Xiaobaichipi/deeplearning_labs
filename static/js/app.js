@@ -1,11 +1,11 @@
-/* DeepLearning Labs - Frontend Application */
+/* DeepLearning Labs — App Initialization & Orchestration */
+
+const DEFAULTS = JSON.parse(document.getElementById("config-data").textContent);
 
 let currentDataInfo = null;
+let _activeProjectId = null;
 
 /* =============== Header Dropdown =============== */
-function toggleHeaderMenu() {
-    document.getElementById("headerMenu").classList.toggle("open");
-}
 document.addEventListener("click", function (e) {
     const menu = document.getElementById("headerMenu");
     const btn = document.getElementById("headerMenuBtn");
@@ -22,15 +22,14 @@ document.querySelectorAll(".step-item").forEach((item) => {
         item.classList.add("active");
         document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
         document.getElementById("step" + step).classList.add("active");
+
+        if (step === "6") {
+            const sel = document.getElementById("modelSelector");
+            const select = document.getElementById("modelSelect");
+            if (sel && select && select.options.length > 1) sel.style.display = "block";
+        }
     });
 });
-
-function goToStep(n) {
-    document.querySelectorAll(".step-item").forEach((s) => s.classList.remove("active"));
-    document.querySelector(`.step-item[data-step="${n}"]`).classList.add("active");
-    document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
-    document.getElementById("step" + n).classList.add("active");
-}
 
 /* =============== Tabs =============== */
 document.addEventListener("click", (e) => {
@@ -45,6 +44,15 @@ document.addEventListener("click", (e) => {
     contentParent.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
     const target = contentParent.querySelector("#tab" + tabId.charAt(0).toUpperCase() + tabId.slice(1));
     if (target) target.classList.add("active");
+
+    if (tabId === "models" && _activeProjectId) {
+        loadProjectModels();
+    }
+});
+
+/* =============== Project Init =============== */
+document.addEventListener("DOMContentLoaded", function () {
+    loadProjects();
 });
 
 /* =============== Upload =============== */
@@ -70,115 +78,121 @@ fileInput.addEventListener("change", () => {
     if (fileInput.files.length) handleUpload(fileInput.files[0]);
 });
 
-async function handleUpload(file) {
-    const status = document.getElementById("uploadStatus");
-    status.style.display = "block";
-    status.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Uploading and processing...</div>';
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (data.error) {
-            status.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
-            return;
-        }
-        status.innerHTML = `<div class="alert alert-success">Upload successful! File: ${data.data.filename} (${data.data.shape[0]} rows x ${data.data.shape[1]} columns)</div>`;
-        currentDataInfo = data.data;
-        populateStep2(data.data);
-        populateStep3Columns(data.data.columns);
-        populateTargetCol(data.data.columns);
-        goToStep(2);
-    } catch (err) {
-        status.innerHTML = `<div class="alert alert-error">Upload failed: ${err.message}</div>`;
-    }
-}
-
-/* =============== Step 2: Explore =============== */
-function populateStep2(info) {
-    // Stats
-    document.getElementById("dataStats").innerHTML = `
-        <div class="stat-card"><div class="stat-value">${info.shape[1]}</div><div class="stat-label">Columns</div></div>
-        <div class="stat-card"><div class="stat-value">${info.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
-        <div class="stat-card"><div class="stat-value">${Object.keys(info.null_counts).filter((c) => info.null_counts[c] > 0).length}</div><div class="stat-label">Columns with Nulls</div></div>
-        <div class="stat-card"><div class="stat-value">${info.columns.length}</div><div class="stat-label">Features</div></div>
-    `;
-
-    // Preview table
-    const cols = info.columns;
-    let html = "<table><thead><tr>";
-    cols.forEach((c) => { html += `<th>${esc(c)}</th>`; });
-    html += "</tr></thead><tbody>";
-    info.sample.forEach((row) => {
-        html += "<tr>";
-        cols.forEach((c) => { html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`; });
-        html += "</tr>";
-    });
-    html += "</tbody></table>";
-    document.getElementById("previewTable").innerHTML = html;
-
-    // Info text
-    let infoText = `Dataset Info\n`;
-    infoText += `Shape: ${info.shape[0]} rows x ${info.shape[1]} columns\n\n`;
-    infoText += `Column dtypes:\n`;
-    Object.entries(info.dtypes).forEach(([col, dt]) => {
-        const nulls = info.null_counts[col];
-        const nullPct = info.null_pcts[col];
-        infoText += `  ${col.padEnd(25)} ${dt.padEnd(20)} ${nulls} null (${nullPct}%)\n`;
-    });
-    document.getElementById("dataInfoText").textContent = infoText;
-
-    // Describe table
-    let descHtml = '<div class="table-wrap"><table><thead><tr><th>Metric</th>';
-    Object.keys(info.describe).forEach((col) => { descHtml += `<th>${esc(col)}</th>`; });
-    descHtml += "</tr></thead><tbody>";
-    const metrics = ["count", "mean", "std", "min", "25%", "50%", "75%", "max", "unique", "top", "freq"];
-    metrics.forEach((m) => {
-        descHtml += `<tr><td style="font-weight:500;color:var(--charcoal);">${m}</td>`;
-        Object.keys(info.describe).forEach((col) => {
-            const val = info.describe[col][m];
-            descHtml += `<td>${val !== undefined && val !== null ? (typeof val === "number" ? (Number.isInteger(val) ? val.toLocaleString() : val.toFixed(4)) : esc(String(val))) : "-"}</td>`;
-        });
-        descHtml += "</tr>";
-    });
-    descHtml += "</tbody></table></div>";
-    document.getElementById("describeTable").innerHTML = descHtml;
-
-    // Viz images
-    const vizDiv = document.getElementById("vizImages");
-    vizDiv.innerHTML = "";
-    if (info.distribution_images) {
-        Object.entries(info.distribution_images).forEach(([key, img]) => {
-            vizDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">Data Distribution</div></div>`;
-        });
-    }
-    if (info.correlation_image) {
-        document.getElementById("corrImage").innerHTML = `<div class="image-card"><img src="data:image/png;base64,${info.correlation_image}" alt="Correlation"><div class="caption">Correlation Heatmap</div></div>`;
-    }
-}
-
-/* =============== Step 3: Clean & Fill =============== */
-function populateStep3Columns(columns) {
-    const div = document.getElementById("columnCheckboxes");
-    div.innerHTML = `<div style="margin-bottom:12px;"><label style="font-weight:500;font-size:14px;color:var(--ink);">Columns to drop (optional):</label></div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">`;
-    columns.forEach((col) => {
-        div.innerHTML += `<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:4px 10px;border-radius:9999px;background:var(--surface-soft);">
-            <input type="checkbox" class="drop-cb" value="${esc(col)}"> ${esc(col)}
-        </label>`;
-    });
-    div.innerHTML += "</div>";
-}
-
+/* =============== Step 3: Toggle Controls =============== */
 document.getElementById("toggleOutliers").addEventListener("click", function () {
     document.getElementById("outlierOptions").style.display = this.classList.contains("active") ? "block" : "none";
 });
-
 document.getElementById("fillStrategy").addEventListener("change", function () {
     document.getElementById("fillConstantGroup").style.display = this.value === "constant" ? "block" : "none";
 });
+
+/* ================================================================
+   Orchestration — chain API calls → UI rendering
+   ================================================================ */
+
+// ── Data ────────────────────────────────────────────────────────────
+
+async function handleUpload(file) {
+    showUploadLoading();
+    try {
+        const data = await _uploadFile(file);
+        currentDataInfo = data;
+        showUploadResult(data);
+        populateStep2(data);
+        populateStep3Columns(data.columns);
+        populateTargetCol(data.columns);
+        populateTimeColSelect(data.columns);
+        await loadTaskConfig();
+        goToStep(2);
+    } catch (err) {
+        showUploadError(err.message);
+    }
+}
+
+// ── Task Config ─────────────────────────────────────────────────────
+
+async function loadTaskConfig() {
+    try {
+        const config = await _getTaskConfig();
+        const typeSelect = document.getElementById("taskTypeSelect");
+        if (config.task_type) {
+            typeSelect.value = config.task_type;
+            onTaskTypeChange();
+            if (config.task_type === "time_series") {
+                if (config.time_col) document.getElementById("timeColSelect").value = config.time_col;
+                if (config.seq_len) document.getElementById("seqLenInput").value = config.seq_len;
+                if (config.pred_len) document.getElementById("predLenInput").value = config.pred_len;
+                if (config.label_len !== undefined) document.getElementById("labelLenInput").value = config.label_len;
+                if (config.time_granularity) document.getElementById("granularitySelect").value = config.time_granularity;
+            }
+        }
+        updateModelOptions(config.task_type || "general");
+    } catch (_) {}
+}
+
+async function applyTaskConfig() {
+    const btn = document.getElementById("applyTaskConfigBtn");
+    btn.disabled = true;
+    btn.textContent = "Applying...";
+
+    const config = {
+        task_type: document.getElementById("taskTypeSelect").value,
+        time_col: document.getElementById("timeColSelect").value,
+        seq_len: parseInt(document.getElementById("seqLenInput").value) || 10,
+        pred_len: parseInt(document.getElementById("predLenInput").value) || 1,
+        label_len: parseInt(document.getElementById("labelLenInput").value) || 0,
+        time_granularity: document.getElementById("granularitySelect").value || "auto",
+    };
+
+    try {
+        await _setTaskConfig(config);
+        showTaskConfigSaved();
+        updateModelOptions(config.task_type);
+        // Clear downstream UI state (split/model/history removed on server)
+        document.getElementById("trainingSummary").style.display = "none";
+        document.getElementById("trainingProgress").style.display = "none";
+        document.getElementById("cvResults").style.display = "none";
+        document.getElementById("predResults").style.display = "none";
+        document.getElementById("evalMetrics").style.display = "none";
+        destroyCharts();
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Apply & Refresh";
+    }
+}
+
+function updateModelOptions(taskType) {
+    const sel = document.getElementById("modelType");
+    const isTimeSeries = taskType === "time_series";
+
+    // In time series mode, only show RNN/LSTM/GRU/Transformer
+    const allOptions = {
+        "mlp": "MLP (Fully Connected)",
+        "cnn": "CNN (1D Convolutional)",
+        "rnn": "RNN (Vanilla RNN)",
+        "lstm": "LSTM (Long Short-Term Memory)",
+        "gru": "GRU (Gated Recurrent Unit)",
+        "transformer": "Transformer (Encoder)",
+        "autoformer": "Autoformer (Long-term Forecast)",
+    };
+
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer"];
+
+    sel.innerHTML = "";
+    Object.entries(allOptions).forEach(([val, label]) => {
+        if (!isTimeSeries || tsModels.includes(val)) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = label;
+            sel.appendChild(opt);
+        }
+    });
+
+    // If current model type is hidden, switch to first available
+    toggleModelParams();
+}
 
 async function runClean() {
     const dropCols = Array.from(document.querySelectorAll(".drop-cb:checked")).map((cb) => cb.value);
@@ -190,38 +204,9 @@ async function runClean() {
     };
 
     try {
-        const res = await fetch("/api/data/clean", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
+        const data = await _cleanData(params);
         currentDataInfo = data.data;
-        const reportDiv = document.getElementById("cleanReport");
-        reportDiv.style.display = "block";
-        reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Cleaning Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
-
-        document.getElementById("cleanStats").style.display = "grid";
-        document.getElementById("cleanStats").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
-            <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
-        `;
-
-        // Show cleaned data preview
-        const cols = data.data.columns;
-        let html = '<div class="table-wrap"><table><thead><tr>';
-        cols.forEach((c) => { html += `<th>${esc(c)}</th>`; });
-        html += "</tr></thead><tbody>";
-        data.data.sample.slice(0, 20).forEach((row) => {
-            html += "<tr>";
-            cols.forEach((c) => { html += `<td>${row[c] !== null && row[c] !== undefined ? esc(String(row[c])) : '<span style="color:var(--danger)">NaN</span>'}</td>`; });
-            html += "</tr>";
-        });
-        html += "</tbody></table></div>";
-        document.getElementById("cleanTable").style.display = "block";
-        document.getElementById("cleanTable").innerHTML = html;
+        showCleanResult(data);
     } catch (err) {
         alert("Error: " + err.message);
     }
@@ -235,49 +220,16 @@ async function runFill() {
     }
 
     try {
-        const res = await fetch("/api/data/fill", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
+        const data = await _fillData(params);
         currentDataInfo = data.data;
-        const reportDiv = document.getElementById("cleanReport");
-        reportDiv.style.display = "block";
-        reportDiv.innerHTML = `<div class="card"><h3 class="card-title">Fill Report</h3><ul class="report-list">${data.report.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
-
-        document.getElementById("cleanStats").style.display = "grid";
-        document.getElementById("cleanStats").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.data.shape[1]}</div><div class="stat-label">Columns</div></div>
-            <div class="stat-card"><div class="stat-value">${data.data.shape[0].toLocaleString()}</div><div class="stat-label">Rows</div></div>
-            <div class="stat-card"><div class="stat-value">${Object.values(data.data.null_counts).filter((n) => n > 0).length}</div><div class="stat-label">Columns with Nulls Remaining</div></div>
-        `;
+        showFillResult(data);
     } catch (err) {
         alert("Error: " + err.message);
     }
 }
 
-/* =============== Step 4: Model Config =============== */
-function populateTargetCol(columns) {
-    const sel = document.getElementById("targetCol");
-    sel.innerHTML = '<option value="">-- Select target column --</option>';
-    columns.forEach((col) => {
-        sel.innerHTML += `<option value="${esc(col)}">${esc(col)}</option>`;
-    });
-}
+// ── Training ────────────────────────────────────────────────────────
 
-function toggleModelParams() {
-    const type = document.getElementById("modelType").value;
-    document.getElementById("mlpParams").style.display = type === "mlp" ? "block" : "none";
-    document.getElementById("cnnParams").style.display = type === "cnn" ? "block" : "none";
-    const seqTypes = ["rnn", "lstm", "gru"];
-    document.getElementById("seqParams").style.display = seqTypes.includes(type) ? "block" : "none";
-    document.getElementById("transformerParams").style.display = type === "transformer" ? "block" : "none";
-}
-
-/* =============== Step 5: Training =============== */
 async function startTraining() {
     const targetCol = document.getElementById("targetCol").value;
     if (!targetCol) { alert("Please select a target column"); return; }
@@ -288,117 +240,88 @@ async function startTraining() {
 
     const params = {
         target_col: targetCol,
-        test_size: parseFloat(document.getElementById("testSize").value) || 0.2,
+        test_size: parseFloat(document.getElementById("testSize").value) || DEFAULTS.training.test_size,
         model_type: document.getElementById("modelType").value,
         hidden_layers: document.getElementById("hiddenLayers").value,
-        hidden_channels: parseInt(document.getElementById("hiddenChannels").value) || 64,
-        kernel_size: parseInt(document.getElementById("kernelSize").value) || 3,
-        hidden_size: parseInt(document.getElementById("rnnHiddenSize").value) || 64,
-        num_layers: parseInt(document.getElementById("rnnNumLayers").value) || 2,
+        hidden_channels: parseInt(document.getElementById("hiddenChannels").value) || DEFAULTS.model.cnn.hidden_channels,
+        kernel_size: parseInt(document.getElementById("kernelSize").value) || DEFAULTS.model.cnn.kernel_size,
+        hidden_size: parseInt(document.getElementById("rnnHiddenSize").value) || DEFAULTS.model.rnn.hidden_size,
+        num_layers: document.getElementById("modelType").value === "transformer"
+            ? parseInt(document.getElementById("transNumLayers").value) || DEFAULTS.model.transformer.num_layers
+            : parseInt(document.getElementById("rnnNumLayers").value) || DEFAULTS.model.rnn.num_layers,
         bidirectional: document.getElementById("toggleBidirectional").classList.contains("active"),
-        d_model: parseInt(document.getElementById("transDModel").value) || 64,
-        nhead: parseInt(document.getElementById("transNhead").value) || 4,
-        dim_feedforward: parseInt(document.getElementById("transDimFeedforward").value) || 256,
-        learning_rate: parseFloat(document.getElementById("learningRate").value) || 0.001,
-        batch_size: parseInt(document.getElementById("batchSize").value) || 32,
-        epochs: parseInt(document.getElementById("epochs").value) || 50,
-        dropout: parseFloat(document.getElementById("dropout").value) || 0.2,
-        patience: parseInt(document.getElementById("patience").value) || 10,
+        d_model: parseInt(document.getElementById("transDModel").value) || DEFAULTS.model.transformer.d_model,
+        nhead: parseInt(document.getElementById("transNhead").value) || DEFAULTS.model.transformer.nhead,
+        dim_feedforward: parseInt(document.getElementById("transDimFeedforward").value) || DEFAULTS.model.transformer.dim_feedforward,
+        d_model: parseInt(document.getElementById("autoDModel").value) || DEFAULTS.model.autoformer.d_model,
+        n_heads: parseInt(document.getElementById("autoNHeads").value) || DEFAULTS.model.autoformer.n_heads,
+        e_layers: parseInt(document.getElementById("autoELayers").value) || DEFAULTS.model.autoformer.e_layers,
+        d_layers: parseInt(document.getElementById("autoDLayers").value) || DEFAULTS.model.autoformer.d_layers,
+        d_ff: parseInt(document.getElementById("autoDFF").value) || DEFAULTS.model.autoformer.d_ff,
+        moving_avg: parseInt(document.getElementById("autoMovingAvg").value) || DEFAULTS.model.autoformer.moving_avg,
+        factor: parseInt(document.getElementById("autoFactor").value) || DEFAULTS.model.autoformer.factor,
+        activation: document.getElementById("autoActivation").value,
+        learning_rate: parseFloat(document.getElementById("learningRate").value) || DEFAULTS.training.learning_rate,
+        batch_size: parseInt(document.getElementById("batchSize").value) || DEFAULTS.training.batch_size,
+        epochs: parseInt(document.getElementById("epochs").value) || DEFAULTS.training.epochs,
+        dropout: parseFloat(document.getElementById("dropout").value) || DEFAULTS.training.dropout,
+        patience: parseInt(document.getElementById("patience").value) || DEFAULTS.training.patience,
         normalization: document.getElementById("normalization").value,
+        device: document.getElementById("deviceSelect").value,
     };
 
+    document.getElementById("trainError").style.display = "none";
+    document.getElementById("trainingSummary").style.display = "none";
+
     try {
-        const res = await fetch("/api/train", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(params),
+        const setupData = await _setupTraining(params);
+
+        const totalEpochs = parseInt(document.getElementById("epochs").value) || DEFAULTS.training.epochs;
+        initTrainingProgress(totalEpochs);
+        btn.innerHTML = '<span class="spinner"></span> Training...';
+
+        const evtSource = new EventSource("/api/train/stream");
+
+        evtSource.addEventListener("progress", function (e) {
+            const m = JSON.parse(e.data);
+            updateTrainingProgress(m);
         });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
 
-        // Show training info
-        document.getElementById("trainingInfo").innerHTML = `
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.epochs}</div><div class="stat-label">Epochs Completed</div></div>
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="stat-label">Final Training Loss</div></div>
-            <div class="stat-card"><div class="stat-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="stat-label">Final Validation Loss</div></div>
-            <div class="stat-card"><div class="stat-value">${data.train_size}</div><div class="stat-label">Training Samples</div></div>
-            <div class="stat-card"><div class="stat-value">${data.test_size}</div><div class="stat-label">Test Samples</div></div>
-            <div class="stat-card"><div class="stat-value">${data.task_type}</div><div class="stat-label">Task Type</div></div>
-        `;
+        evtSource.addEventListener("complete", function (e) {
+            evtSource.close();
+            const data = JSON.parse(e.data);
+            showTrainingComplete(data);
+            goToStep(6);
+            refreshModelDropdown();
+            btn.disabled = false;
+            btn.textContent = "Start Training";
+        });
 
-        // Show training curves
-        const imgDiv = document.getElementById("trainingImages");
-        imgDiv.innerHTML = "";
-        if (data.images) {
-            Object.entries(data.images).forEach(([key, img]) => {
-                const label = key === "training_history" ? "Training History (Loss & Metric)" : key;
-                imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label}</div></div>`;
-            });
-        }
-
-        // Summary
-        document.getElementById("trainingSummary").style.display = "block";
-        document.getElementById("summaryMetrics").innerHTML = `
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.train_loss.toFixed(4)}</div><div class="metric-label">Train Loss</div></div>
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.val_loss.toFixed(4)}</div><div class="metric-label">Val Loss</div></div>
-            <div class="metric-card"><div class="metric-value">${data.final_metrics.epochs}</div><div class="metric-label">Epochs</div></div>
-            <div class="metric-card"><div class="metric-value">${data.task_type}</div><div class="metric-label">Task</div></div>
-        `;
-
-        goToStep(6);
+        evtSource.addEventListener("error", function (e) {
+            evtSource.close();
+            let msg = "Training connection lost";
+            try { msg = JSON.parse(e.data).error || msg; } catch (_) {}
+            showTrainError(msg);
+            btn.disabled = false;
+            btn.textContent = "Start Training";
+        });
     } catch (err) {
-        alert("Error: " + err.message);
-    } finally {
+        showTrainError(err.message);
         btn.disabled = false;
         btn.textContent = "Start Training";
     }
 }
 
-/* =============== Step 6: Evaluation & Prediction =============== */
+// ── Evaluation ──────────────────────────────────────────────────────
+
 async function runEvaluation() {
     const btn = document.getElementById("evalBtn");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Evaluating...';
 
     try {
-        const res = await fetch("/api/evaluate", { method: "POST" });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        const evalData = data.evaluation;
-        const metricsDiv = document.getElementById("evalMetrics");
-        metricsDiv.style.display = "grid";
-        metricsDiv.innerHTML = "";
-
-        if (evalData.task_type === "classification") {
-            metricsDiv.innerHTML = `
-                <div class="metric-card"><div class="metric-value">${(evalData.accuracy * 100).toFixed(2)}%</div><div class="metric-label">Accuracy</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.precision.toFixed(4)}</div><div class="metric-label">Precision</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.recall.toFixed(4)}</div><div class="metric-label">Recall</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.f1_score.toFixed(4)}</div><div class="metric-label">F1 Score</div></div>
-            `;
-        } else {
-            metricsDiv.innerHTML = `
-                <div class="metric-card"><div class="metric-value">${evalData.mse.toFixed(4)}</div><div class="metric-label">MSE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.rmse.toFixed(4)}</div><div class="metric-label">RMSE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.mae.toFixed(4)}</div><div class="metric-label">MAE</div></div>
-                <div class="metric-card"><div class="metric-value">${evalData.r2.toFixed(4)}</div><div class="metric-label">R² Score</div></div>
-            `;
-        }
-
-        const imgDiv = document.getElementById("evalImages");
-        imgDiv.innerHTML = "";
-        if (evalData.images) {
-            Object.entries(evalData.images).forEach(([key, img]) => {
-                const label_map = {
-                    confusion_matrix: "Confusion Matrix",
-                    roc_curve: "ROC Curve",
-                    pred_vs_true: "Predictions vs True Values",
-                    residuals: "Residual Distribution",
-                };
-                imgDiv.innerHTML += `<div class="image-card"><img src="data:image/png;base64,${img}" alt="${key}"><div class="caption">${label_map[key] || key}</div></div>`;
-            });
-        }
+        const data = await _evaluateModel();
+        showEvalResult(data);
     } catch (err) {
         alert("Error: " + err.message);
     } finally {
@@ -413,32 +336,9 @@ async function runValidation() {
     btn.innerHTML = '<span class="spinner"></span> Running...';
 
     try {
-        const nSplits = parseInt(document.getElementById("cvFolds").value) || 5;
-        const res = await fetch("/api/validate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ n_splits: nSplits }),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        const div = document.getElementById("cvResults");
-        div.style.display = "block";
-        div.innerHTML = `
-            <div class="card">
-                <h3 class="card-title">Cross-Validation Results (${data.n_splits}-fold)</h3>
-                <div class="metrics-grid">
-                    <div class="metric-card"><div class="metric-value">${(data.mean_score * 100).toFixed(2)}%</div><div class="metric-label">Mean Score</div></div>
-                    <div class="metric-card"><div class="metric-value">${(data.std_score * 100).toFixed(2)}%</div><div class="metric-label">Std Dev</div></div>
-                </div>
-                <div style="margin-top:12px;font-size:14px;">
-                    <strong style="color:var(--ink);">Per-fold scores:</strong>
-                    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                        ${data.cv_scores.map((s, i) => `<span class="chip">Fold ${i + 1}: ${(s * 100).toFixed(2)}%</span>`).join("")}
-                    </div>
-                </div>
-            </div>
-        `;
+        const nSplits = parseInt(document.getElementById("cvFolds").value) || DEFAULTS.cv.default_folds;
+        const data = await _validateModel({ n_splits: nSplits });
+        showCVResult(data);
     } catch (err) {
         alert("Error: " + err.message);
     } finally {
@@ -453,43 +353,8 @@ async function runPredict() {
     btn.innerHTML = '<span class="spinner"></span> Predicting...';
 
     try {
-        const useTest = document.getElementById("predictSource").value === "test";
-        const res = await fetch("/api/predict", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ use_test: useTest }),
-        });
-        const data = await res.json();
-        if (data.error) { alert("Error: " + data.error); return; }
-
-        document.getElementById("predResults").style.display = "block";
-
-        const predictions = data.predictions;
-        let html = "<table><thead><tr><th>#</th><th>True Value</th><th>Prediction</th>";
-        if (predictions[0] && predictions[0].prediction_label !== undefined) {
-            html += "<th>Predicted Label</th><th>True Label</th>";
-        }
-        if (predictions[0] && predictions[0].probabilities) {
-            html += "<th>Confidence</th>";
-        }
-        html += "</tr></thead><tbody>";
-
-        predictions.forEach((p) => {
-            html += `<tr>
-                <td>${p.index}</td>
-                <td>${data.task_type === "classification" ? (p.true_label !== undefined ? esc(p.true_label) : p.true_value) : p.true_value.toFixed(4)}</td>
-                <td><strong>${data.task_type === "classification" ? (p.prediction_label !== undefined ? esc(p.prediction_label) : p.prediction) : p.prediction.toFixed(4)}</strong></td>`;
-            if (p.prediction_label !== undefined) {
-                html += `<td>${esc(p.prediction_label)}</td><td>${esc(p.true_label)}</td>`;
-            }
-            if (p.probabilities) {
-                const maxProb = Math.max(...p.probabilities);
-                html += `<td>${(maxProb * 100).toFixed(1)}%</td>`;
-            }
-            html += "</tr>";
-        });
-        html += "</tbody></table>";
-        document.getElementById("predTable").innerHTML = html;
+        const data = await _predictModel();
+        showPredResult(data);
     } catch (err) {
         alert("Error: " + err.message);
     } finally {
@@ -498,34 +363,169 @@ async function runPredict() {
     }
 }
 
-/* =============== Reset =============== */
-async function resetAll() {
-    if (!confirm("Reset all data and start over?")) return;
+// ── Projects ────────────────────────────────────────────────────────
+
+async function loadProjects() {
     try {
-        await fetch("/api/reset", { method: "POST" });
-        currentDataInfo = null;
-        document.querySelectorAll(".step-item").forEach((s) => s.classList.remove("active"));
-        document.querySelector('.step-item[data-step="1"]').classList.add("active");
-        document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
-        document.getElementById("step1").classList.add("active");
-        document.getElementById("uploadStatus").style.display = "none";
-        document.getElementById("cleanReport").style.display = "none";
-        document.getElementById("trainingSummary").style.display = "none";
-        document.getElementById("evalMetrics").style.display = "none";
-        document.getElementById("predResults").style.display = "none";
-        document.getElementById("cvResults").style.display = "none";
-        document.getElementById("dataStats").innerHTML = "";
-        document.getElementById("previewTable").innerHTML = "";
-        document.getElementById("trainingImages").innerHTML = "";
-        document.getElementById("evalImages").innerHTML = "";
+        const projects = await _loadProjects();
+        populateProjectGrid(projects);
+    } catch (err) {
+        console.error("loadProjects:", err.message);
+    }
+}
+
+async function createProject() {
+    const name = document.getElementById("projectName").value.trim();
+    if (!name) { alert("Please enter a project name"); return; }
+
+    const btn = document.getElementById("createProjectBtn");
+    btn.disabled = true;
+    btn.textContent = "Creating...";
+
+    const fileInput = document.getElementById("projectFileInput");
+    const formData = new FormData();
+    formData.append("name", name);
+    if (fileInput.files.length) {
+        formData.append("file", fileInput.files[0]);
+    }
+
+    try {
+        await _createProject(formData);
+        hideNewProjectModal();
+        document.getElementById("projectName").value = "";
+        document.getElementById("projectFileInput").value = "";
+        document.getElementById("projectUploadText").textContent = "Click to select file";
+        loadProjects();
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Create";
+    }
+}
+
+async function activateProject(projectId) {
+    try {
+        const data = await _activateProject(projectId);
+        _activeProjectId = projectId;
+        currentDataInfo = data;
+
+        hideProjectList();
+
+        populateStep2(data);
+        populateStep3Columns(data.columns);
+        populateTargetCol(data.columns);
+        populateTimeColSelect(data.columns);
+        await loadTaskConfig();
+
+        const models = data.models || [];
+        if (models.length) {
+            populateModelDropdown(models);
+            document.getElementById("modelSelect").value = models[0].id;
+            await _loadModelToSession(projectId, models[0].id);
+            showLoadedModelBadge(true, models[0].model_type);
+        } else {
+            document.getElementById("modelSelector").style.display = "none";
+        }
+
+        goToStep(2);
     } catch (err) {
         alert("Error: " + err.message);
     }
 }
 
-/* =============== Utils =============== */
-function esc(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+async function deleteProject(projectId) {
+    if (!confirm("Delete this project permanently?")) return;
+    try {
+        await _deleteProject(projectId);
+        loadProjects();
+    } catch (err) {
+        alert("Error: " + err.message);
+    }
+}
+
+async function loadProjectModels() {
+    if (!_activeProjectId) return;
+    try {
+        const models = await _loadProjectModels(_activeProjectId);
+        populateModelList(models);
+    } catch (err) {
+        console.error("loadProjectModels:", err.message);
+    }
+}
+
+async function refreshModelDropdown() {
+    if (!_activeProjectId) return;
+    try {
+        const models = await _loadProjectModels(_activeProjectId);
+        if (models.length) {
+            populateModelDropdown(models);
+            const latest = models[0];
+            document.getElementById("modelSelect").value = latest.id;
+            await _loadModelToSession(_activeProjectId, latest.id);
+            showLoadedModelBadge(true, latest.model_type);
+        }
+    } catch (err) {
+        console.error("refreshModelDropdown:", err.message);
+    }
+}
+
+async function onModelSelect(modelId) {
+    if (!modelId) {
+        showLoadedModelBadge(false);
+        return;
+    }
+    try {
+        const model = await _loadModelToSession(_activeProjectId, modelId);
+        showLoadedModelBadge(true, model.model_type);
+    } catch (err) {
+        showLoadedModelBadge(false);
+    }
+}
+
+async function compareModels() {
+    const cbs = document.querySelectorAll(".model-cb:checked");
+    const modelIds = Array.from(cbs).map((cb) => cb.value);
+    if (!modelIds.length) { alert("Select at least one model to compare."); return; }
+
+    const btn = document.querySelector("#modelCompareAction .btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Comparing...';
+
+    try {
+        const data = await _compareModels(_activeProjectId, modelIds);
+        const resultDiv = document.getElementById("modelCompareResult");
+        const chartDiv = document.getElementById("modelCompareChart");
+        chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Model Comparison"><div class="caption">Model Predictions Comparison (${data.loaded_count} models)</div></div>`;
+        resultDiv.style.display = "block";
+    } catch (err) {
+        alert("Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Compare Selected";
+    }
+}
+
+async function exportModel(modelId) {
+    const defaultName = `${modelId}.pt`;
+    const name = prompt("Export model filename:", defaultName);
+    if (!name) return;
+    const safe = name.trim() || defaultName;
+    window.location.href = `/api/projects/${_activeProjectId}/models/${modelId}/export?name=${encodeURIComponent(safe)}`;
+}
+
+async function resetAll() {
+    if (!confirm("Reset all data and start over?")) return;
+    try {
+        await fetch("/api/reset", { method: "POST" });
+    } catch (_) {}
+    currentDataInfo = null;
+    _activeProjectId = null;
+    resetAllUI();
+}
+
+function backToProjects() {
+    _activeProjectId = null;
+    showProjectList();
+    loadProjects();
 }

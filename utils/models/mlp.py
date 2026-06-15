@@ -24,4 +24,12 @@ class MLPModel(BaseModel):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.net(x)
+        if x.dim() == 3:
+            batch, seq_len, nf = x.shape
+            x = x.view(batch * seq_len, nf)   # (B*S, nf)
+            x = self.net(x)                    # (B*S, output_dim)
+            x = x.view(batch, seq_len, -1)     # (B, S, output_dim)
+            x = x.mean(dim=1)                  # (B, output_dim)
+        else:
+            x = self.net(x)
+        return x

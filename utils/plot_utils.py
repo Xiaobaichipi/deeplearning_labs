@@ -6,7 +6,7 @@ import base64
 import io
 import json
 
-from .fonts import get_chinese_font, setup_chinese_font
+from .fonts import setup_chinese_font
 
 # Auto-detect and set Chinese font
 _cn_font = setup_chinese_font()
@@ -46,7 +46,7 @@ def plot_training_history(history):
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     images["training_history"] = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -65,7 +65,7 @@ def plot_feature_importance(feature_names, importance_values, title="Feature Imp
     ax.set_title(title)
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     result = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -99,7 +99,7 @@ def plot_data_distribution(df, columns=None):
 
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     images["data_distribution"] = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -124,8 +124,126 @@ def plot_correlation_heatmap(df):
                     fontsize=7, color="black" if abs(corr.values[i, j]) < 0.5 else "white")
     fig.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
     buf.seek(0)
     result = base64.b64encode(buf.read()).decode()
     plt.close(fig)
     return result
+
+
+def fig_to_base64(fig, dpi=300):
+    """Convert a matplotlib figure to a base64-encoded PNG string."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
+    buf.seek(0)
+    data = base64.b64encode(buf.read()).decode()
+    plt.close(fig)
+    return data
+
+
+def plot_confusion_matrix(cm, class_names):
+    """Plot confusion matrix, return base64 PNG."""
+    if not cm or not class_names:
+        return None
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+    tick_marks = np.arange(len(class_names))
+    ax.set(xticks=tick_marks, yticks=tick_marks,
+           xticklabels=class_names, yticklabels=class_names,
+           xlabel="Predicted", ylabel="True")
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    thresh = max(max(row) for row in cm) if cm else 0
+    for i in range(len(cm)):
+        for j in range(len(cm[i])):
+            ax.text(j, i, cm[i][j], ha="center", va="center",
+                    color="white" if cm[i][j] > thresh / 2. else "black")
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def plot_roc_curve(y_true, y_score):
+    """Plot ROC curve, return (base64 PNG, auc_score)."""
+    from sklearn.metrics import roc_curve, roc_auc_score
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    auc = roc_auc_score(y_true, y_score)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(fpr, tpr, label=f"ROC (AUC = {auc:.4f})")
+    ax.plot([0, 1], [0, 1], "k--")
+    ax.set(xlabel="False Positive Rate", ylabel="True Positive Rate",
+           title="ROC Curve", xlim=[0, 1], ylim=[0, 1.05])
+    ax.legend()
+    fig.tight_layout()
+    return fig_to_base64(fig), auc
+
+
+def plot_pred_vs_true(y_true, y_pred):
+    """Plot predictions vs true values (scatter), return base64 PNG."""
+    # Flatten multi-output arrays (pred_len > 1) for scatter
+    _yt = y_true.ravel() if y_true.ndim > 1 else y_true
+    _yp = y_pred.ravel() if y_pred.ndim > 1 else y_pred
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.scatter(_yt, _yp, alpha=0.5, s=15)
+    lo = min(_yt.min(), _yp.min())
+    hi = max(_yt.max(), _yp.max())
+    ax.plot([lo, hi], [lo, hi], "r--", linewidth=1)
+    ax.set(xlabel="True Values", ylabel="Predictions", title="Predictions vs True Values")
+    fig.tight_layout()
+    return fig_to_base64(fig, dpi=300)
+
+
+def plot_pred_vs_true_line(y_true, y_pred):
+    """Plot true vs predicted as two lines by sample index, return base64 PNG."""
+    # For multi-output (pred_len > 1), show only the first output dimension
+    _yt = y_true[:, 0] if y_true.ndim > 1 else y_true
+    _yp = y_pred[:, 0] if y_pred.ndim > 1 else y_pred
+    fig, ax = plt.subplots(figsize=(5, 4))
+    indices = np.arange(len(_yt))
+    ax.plot(indices, _yt, label="True Values", color="#2563eb", linewidth=1.5)
+    ax.plot(indices, _yp, label="Predictions", color="#ea580c", linewidth=1.5, alpha=0.8)
+    ax.set(xlabel="Sample Index", ylabel="Value", title="Predictions vs True Values (Line)")
+    ax.legend()
+    fig.tight_layout()
+    return fig_to_base64(fig, dpi=300)
+
+
+def plot_model_comparison(y_true, predictions_dict):
+    """Line chart comparing true values against multiple model predictions.
+
+    Args:
+        y_true: 1-D array of true values.
+        predictions_dict: dict mapping model_label -> 1-D prediction array.
+    Returns:
+        base64 PNG string.
+    """
+    fig, ax = plt.subplots(figsize=(7, 4))
+    indices = np.arange(len(y_true))
+
+    ax.plot(indices, y_true, label="True Values", color="#000000",
+            linewidth=2, linestyle="--", alpha=0.7)
+
+    colors = ["#3b82f6", "#ea580c", "#27c93f", "#8b5cf6", "#f59e0b",
+              "#ec4899", "#06b6d4", "#84cc16"]
+    for i, (label, y_pred) in enumerate(predictions_dict.items()):
+        color = colors[i % len(colors)]
+        ax.plot(indices, y_pred, label=label, color=color,
+                linewidth=1.5, alpha=0.85)
+
+    ax.set(xlabel="Sample Index", ylabel="Value",
+           title="Model Predictions Comparison")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    return fig_to_base64(fig, dpi=300)
+
+
+def plot_residuals(y_true, y_pred):
+    """Plot residual histogram, return base64 PNG."""
+    # Flatten multi-output residuals
+    _yt = y_true.ravel() if y_true.ndim > 1 else y_true
+    _yp = y_pred.ravel() if y_pred.ndim > 1 else y_pred
+    fig, ax = plt.subplots(figsize=(5, 4))
+    residuals = _yt - _yp
+    ax.hist(residuals, bins=30, edgecolor="black", alpha=0.7)
+    ax.set(xlabel="Residual", ylabel="Frequency", title="Residual Distribution")
+    fig.tight_layout()
+    return fig_to_base64(fig)

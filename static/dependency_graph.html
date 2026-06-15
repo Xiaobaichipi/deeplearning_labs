@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepLearning Labs - Code Graph</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'neutral',securityLevel:'loose'});</script>
+<style>
+  body { margin: 0; padding: 20px; background: #f5f5f5; font-family: -apple-system,sans-serif; }
+  .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  h1 { margin: 0 0 4px 0; font-size: 20px; }
+  .subtitle { color: #666; font-size: 14px; margin: 0 0 20px 0; }
+  .mermaid { overflow: auto; }
+  .legend { margin-top: 16px; padding: 12px 16px; background: #fafafa; border-radius: 8px; font-size: 13px; color: #555; display: flex; gap: 24px; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>DeepLearning Labs — Code Dependency Graph</h1>
+  <p class="subtitle">Generated from CodeGraph index (2026-06-13)</p>
+  <div class="mermaid">
+graph TB
+  %% Entry
+  subgraph G_Entry["Entry"]
+    n0_main["main.py"]
+  end
+
+  %% Routes
+  subgraph G_Routes["Routes"]
+    n0_routes___init__["routes/__init__.py"]
+    n1_data["routes/data.py"]
+    n2_evaluation["routes/evaluation.py"]
+    n3_training["routes/training.py"]
+    n4_projects["routes/projects.py"]
+  end
+
+  %% Utils
+  subgraph G_Utils["Utils"]
+    n0_utils___init__["utils/__init__.py"]
+    n1_config["utils/config.py"]
+    n2_data_utils["utils/data_utils.py"]
+    n3_fonts["utils/fonts.py"]
+    n4_model_utils["utils/model_utils.py"]
+    n5_plot_utils["utils/plot_utils.py"]
+    n6_session["utils/session.py"]
+    n7_project_manager["utils/project_manager.py"]
+  end
+
+  %% Models
+  subgraph G_Models["Models"]
+    n0_models___init__["utils/models/__init__.py"]
+    n1_base["utils/models/base.py"]
+    n2_cnn["utils/models/cnn.py"]
+    n3_gru["utils/models/gru.py"]
+    n4_lstm["utils/models/lstm.py"]
+    n5_mlp["utils/models/mlp.py"]
+    n6_rnn["utils/models/rnn.py"]
+    n7_transformer["utils/models/transformer.py"]
+    n8_autoformer["utils/models/autoformer.py"]
+  end
+
+  %% Autoformer layers (internal package)
+  subgraph G_AutoformerLayers["Autoformer Layers"]
+    n0_al__init__["utils/models/autoformer_layers/__init__.py"]
+    n1_embed["utils/models/autoformer_layers/Embed.py"]
+    n2_autocorr["utils/models/autoformer_layers/AutoCorrelation.py"]
+    n3_encdec["utils/models/autoformer_layers/Autoformer_EncDec.py"]
+  end
+
+  %% Frontend
+  subgraph G_Frontend["Frontend JS"]
+    n0_api["static/js/api.js"]
+    n1_app["static/js/app.js"]
+    n2_ui["static/js/ui.js"]
+  end
+
+  %% Edges — cross-file dependencies
+  n1_data -->|28| n6_session
+  n1_data -->|8| n5_plot_utils
+  n1_data -->|7| n2_data_utils
+  n1_data -->|1| n1_config
+  n2_evaluation -->|30| n6_session
+  n2_evaluation -->|3| n4_model_utils
+  n2_evaluation -->|2| n2_data_utils
+  n2_evaluation -->|2| n5_plot_utils
+  n2_evaluation -->|1| n1_config
+  n3_training -->|23| n6_session
+  n3_training -->|3| n2_data_utils
+  n3_training -->|3| n7_project_manager
+  n3_training -->|3| n4_model_utils
+  n3_training -->|2| n0_models___init__
+  n3_training -->|1| n1_config
+  n4_projects -->|18| n6_session
+  n4_projects -->|20| n7_project_manager
+  n4_projects -->|4| n2_data_utils
+  n4_projects -->|3| n4_model_utils
+  n4_projects -->|3| n5_plot_utils
+  n4_projects -->|1| n1_config
+  n4_model_utils -->|5| n5_plot_utils
+  n4_model_utils -->|1| n0_models___init__
+  n6_session -->|1| n2_data_utils
+  n0_main -->|1| n6_session
+  n1_app -->|35| n2_ui
+  n1_app -->|17| n0_api
+  n0_models___init__ -->|1| n8_autoformer
+  n8_autoformer -->|1| n1_base
+
+  %% Autoformer internal deps
+  n8_autoformer -->|1| n0_al__init__
+  n8_autoformer -->|1| n2_autocorr
+  n8_autoformer -->|1| n3_encdec
+  n0_al__init__ -->|1| n1_embed
+  n0_al__init__ -->|1| n2_autocorr
+  n0_al__init__ -->|1| n3_encdec
+
+  %% Model inheritance
+  n2_cnn -->|extends| n1_base
+  n3_gru -->|extends| n1_base
+  n4_lstm -->|extends| n1_base
+  n5_mlp -->|extends| n1_base
+  n6_rnn -->|extends| n1_base
+  n7_transformer -->|extends| n1_base
+  n8_autoformer -->|extends| n1_base
+  </div>
+  <div class="legend">
+    <span>→ <strong>N</strong>  Cross-file call/import count</span>
+    <span>⇢ <strong>extends</strong>  Class inheritance</span>
+    <span>Refresh page if graph doesn't render</span>
+  </div>
+</div>
+</body>
+</html>
