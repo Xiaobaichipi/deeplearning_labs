@@ -176,9 +176,10 @@ function updateModelOptions(taskType) {
         "gru": "GRU (Gated Recurrent Unit)",
         "transformer": "Transformer (Encoder)",
         "autoformer": "Autoformer (Long-term Forecast)",
+        "informer": "Informer (ProbSparse Attention)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
@@ -253,14 +254,6 @@ async function startTraining() {
         d_model: parseInt(document.getElementById("transDModel").value) || DEFAULTS.model.transformer.d_model,
         nhead: parseInt(document.getElementById("transNhead").value) || DEFAULTS.model.transformer.nhead,
         dim_feedforward: parseInt(document.getElementById("transDimFeedforward").value) || DEFAULTS.model.transformer.dim_feedforward,
-        d_model: parseInt(document.getElementById("autoDModel").value) || DEFAULTS.model.autoformer.d_model,
-        n_heads: parseInt(document.getElementById("autoNHeads").value) || DEFAULTS.model.autoformer.n_heads,
-        e_layers: parseInt(document.getElementById("autoELayers").value) || DEFAULTS.model.autoformer.e_layers,
-        d_layers: parseInt(document.getElementById("autoDLayers").value) || DEFAULTS.model.autoformer.d_layers,
-        d_ff: parseInt(document.getElementById("autoDFF").value) || DEFAULTS.model.autoformer.d_ff,
-        moving_avg: parseInt(document.getElementById("autoMovingAvg").value) || DEFAULTS.model.autoformer.moving_avg,
-        factor: parseInt(document.getElementById("autoFactor").value) || DEFAULTS.model.autoformer.factor,
-        activation: document.getElementById("autoActivation").value,
         learning_rate: parseFloat(document.getElementById("learningRate").value) || DEFAULTS.training.learning_rate,
         batch_size: parseInt(document.getElementById("batchSize").value) || DEFAULTS.training.batch_size,
         epochs: parseInt(document.getElementById("epochs").value) || DEFAULTS.training.epochs,
@@ -269,6 +262,31 @@ async function startTraining() {
         normalization: document.getElementById("normalization").value,
         device: document.getElementById("deviceSelect").value,
     };
+
+    const mt = params.model_type;
+    if (mt === "autoformer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("autoDModel").value) || DEFAULTS.model.autoformer.d_model,
+            n_heads: parseInt(document.getElementById("autoNHeads").value) || DEFAULTS.model.autoformer.n_heads,
+            e_layers: parseInt(document.getElementById("autoELayers").value) || DEFAULTS.model.autoformer.e_layers,
+            d_layers: parseInt(document.getElementById("autoDLayers").value) || DEFAULTS.model.autoformer.d_layers,
+            d_ff: parseInt(document.getElementById("autoDFF").value) || DEFAULTS.model.autoformer.d_ff,
+            moving_avg: parseInt(document.getElementById("autoMovingAvg").value) || DEFAULTS.model.autoformer.moving_avg,
+            factor: parseInt(document.getElementById("autoFactor").value) || DEFAULTS.model.autoformer.factor,
+            activation: document.getElementById("autoActivation").value,
+        });
+    } else if (mt === "informer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("infoDModel").value) || DEFAULTS.model.informer.d_model,
+            n_heads: parseInt(document.getElementById("infoNHeads").value) || DEFAULTS.model.informer.n_heads,
+            e_layers: parseInt(document.getElementById("infoELayers").value) || DEFAULTS.model.informer.e_layers,
+            d_layers: parseInt(document.getElementById("infoDLayers").value) || DEFAULTS.model.informer.d_layers,
+            d_ff: parseInt(document.getElementById("infoDFF").value) || DEFAULTS.model.informer.d_ff,
+            factor: parseInt(document.getElementById("infoFactor").value) || DEFAULTS.model.informer.factor,
+            distil: document.getElementById("toggleDistil").classList.contains("active"),
+            activation: document.getElementById("infoActivation").value,
+        });
+    }
 
     document.getElementById("trainError").style.display = "none";
     document.getElementById("trainingSummary").style.display = "none";

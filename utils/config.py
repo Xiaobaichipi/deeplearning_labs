@@ -93,6 +93,8 @@ MODEL = {
     "transformer": {"d_model": 64, "nhead": 4, "dim_feedforward": 256, "num_layers": 2},
     "autoformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3, "d_ff": 32,
                    "moving_avg": 25, "factor": 3, "dropout": 0.1, "activation": "gelu"},
+    "informer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3, "d_ff": 32,
+                 "factor": 3, "distil": True, "dropout": 0.1, "activation": "gelu"},
 }
 
 TIME_SERIES = {

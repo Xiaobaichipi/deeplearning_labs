@@ -8,6 +8,7 @@ from .lstm import LSTMModel
 from .gru import GRUModel
 from .transformer import TransformerTabularModel
 from .autoformer import AutoformerWrapper
+from .informer import InformerWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -107,6 +108,22 @@ MODEL_REGISTRY = {
             "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
         },
     },
+    "informer": {
+        "class": InformerWrapper,
+        "name": "Informer (ProbSparse Attention)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_layers": {"type": "int", "default": 3, "label": "Decoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension (d_ff)"},
+            "factor": {"type": "int", "default": 3, "label": "Attention factor (top-k)"},
+            "distil": {"type": "bool", "default": True, "label": "Distillation (ConvLayer)"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
+        },
+    },
 }
 
 
@@ -153,6 +170,7 @@ __all__ = [
     "GRUModel",
     "TransformerTabularModel",
     "AutoformerWrapper",
+    "InformerWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",

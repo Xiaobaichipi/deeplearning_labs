@@ -286,6 +286,7 @@ function toggleModelParams() {
     document.getElementById("seqParams").style.display = seqTypes.includes(type) ? "block" : "none";
     document.getElementById("transformerParams").style.display = type === "transformer" ? "block" : "none";
     document.getElementById("autoformerParams").style.display = type === "autoformer" ? "block" : "none";
+    document.getElementById("informerParams").style.display = type === "informer" ? "block" : "none";
 }
 
 function esc(str) {
