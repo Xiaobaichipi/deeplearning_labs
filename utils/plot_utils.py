@@ -210,12 +210,24 @@ def plot_pred_vs_true_line(y_true, y_pred):
 def plot_model_comparison(y_true, predictions_dict):
     """Line chart comparing true values against multiple model predictions.
 
+    For multi-step time-series predictions (2-D arrays with shape
+    ``(n_samples, pred_len)``), only the last timestep of each window is
+    plotted to avoid overlapping time-delayed lines.
+
     Args:
-        y_true: 1-D array of true values.
-        predictions_dict: dict mapping model_label -> 1-D prediction array.
+        y_true: 1-D or 2-D array of true values.
+        predictions_dict: dict mapping model_label -> prediction array.
     Returns:
         base64 PNG string.
     """
+    # For multi-step predictions, take the last timestep of each window
+    if y_true.ndim > 1:
+        y_true = y_true[:, -1]
+    predictions_dict = {
+        k: (v[:, -1] if v.ndim > 1 else v)
+        for k, v in predictions_dict.items()
+    }
+
     fig, ax = plt.subplots(figsize=(7, 4))
     indices = np.arange(len(y_true))
 
