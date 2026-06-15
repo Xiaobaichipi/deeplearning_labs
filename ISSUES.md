@@ -1,5 +1,28 @@
 # Issues Log
 
+## 2026-06-15: Bug 修复 — 模型对比图多步预测延时重叠 (feat/informer-integration 分支)
+
+### Bug: 模型对比图多步预测延时重叠
+
+**症状**: Compare Selected 生成模型预测对比图时，真实值和模型预测值都显示为 pred_len 条时间上存在延迟的线条叠加在一起，图形混乱难以观察。
+
+**根因**: 时间序列任务中 `predict()` 返回 `(n_samples, pred_len)` 形状的 2-D 数组，每行是一个滑动窗口的 pred_len 步预测。`plot_model_comparison()` 直接将所有点绘制到图中，未对多步预测做降维处理，导致每个样本的 pred_len 个预测值（时间上连续偏移）全部重叠显示。
+
+**修复**: `utils/plot_utils.py:210` — `plot_model_comparison()` 在绘图前检查输入维度，对 2-D 数组取 `[:, -1]`（每个窗口的最后时间步），将数据降为 1-D 后正常绘图。
+
+```python
+if y_true.ndim > 1:
+    y_true = y_true[:, -1]
+predictions_dict = {
+    k: (v[:, -1] if v.ndim > 1 else v)
+    for k, v in predictions_dict.items()
+}
+```
+
+**验证**: 2-D 输入（n_samples=10, pred_len=4）和 1-D 输入均通过，返回合法 base64 PNG。
+
+---
+
 ## 2026-06-15: Bug 修复 — Train / Evaluate & Predict 页面丢失 + GPU 不可用 (feat/informer-integration 分支)
 
 ### Bug 1: Train / Evaluate & Predict 页面丢失
