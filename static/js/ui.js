@@ -124,11 +124,39 @@ function populateModelList(models) {
 
 /* =============== Model Selector Dropdown =============== */
 
-function populateModelDropdown(models) {
+function filterModelsByTask(models, taskType) {
+    const isTs = taskType === "time_series";
+    return models.filter((m) => {
+        // is_time_series undefined (older models) → treated as non-time-series
+        const mTs = m.is_time_series === true;
+        return isTs ? mTs : !mTs;
+    });
+}
+
+function populateModelDropdown(models, taskType) {
     const select = document.getElementById("modelSelect");
-    if (!select) return;
+    if (!select) return [];
+    const filtered = filterModelsByTask(models, taskType);
     select.innerHTML = '<option value="">-- Select a model --</option>';
-    models.forEach((m) => {
+
+    if (models.length === 0) {
+        // No models in project at all → hide selector
+        document.getElementById("modelSelector").style.display = "none";
+        return [];
+    }
+
+    if (filtered.length === 0) {
+        // Models exist but none match the current task type → show message
+        const taskLabel = taskType === "time_series" ? "time series" : "general";
+        const opt = document.createElement("option");
+        opt.disabled = true;
+        opt.textContent = `No ${taskLabel} models trained yet`;
+        select.appendChild(opt);
+        document.getElementById("modelSelector").style.display = "block";
+        return [];
+    }
+
+    filtered.forEach((m) => {
         const mid = esc(m.id || "");
         const mtype = esc(m.model_type || "unknown");
         const fm = m.final_metrics || {};
@@ -139,6 +167,7 @@ function populateModelDropdown(models) {
         select.appendChild(opt);
     });
     document.getElementById("modelSelector").style.display = "block";
+    return filtered;
 }
 
 function showLoadedModelBadge(ok, text) {

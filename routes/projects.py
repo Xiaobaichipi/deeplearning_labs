@@ -368,6 +368,8 @@ def activate_project(project_id):
     info["models"] = [
         {"id": m["id"], "model_type": m.get("model_type"),
          "created_at": m.get("created_at"),
+         "is_time_series": m.get("is_time_series"),
+         "task_type": m.get("task_type"),
          "final_metrics": m.get("final_metrics", {})}
         for m in models
     ]

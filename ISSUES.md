@@ -1037,6 +1037,51 @@ Flask 路由函数中存在大量重复的 try/except 模板、`current_app.conf
 
 ---
 
+## 2026-06-15: 功能增强 — 模型下拉框按任务类型过滤 (feat/informer-integration 分支)
+
+### 功能：Active Model 下拉框按任务类型过滤
+
+**背景**: 时间序列项目里会看到通用模型（如 MLP），通用项目里会看到时间序列模型（如 LSTM），造成混淆。
+
+**方案**: 新增 `filterModelsByTask(models, taskType)` 纯函数，`populateModelDropdown()` 根据当前任务类型过滤模型列表。
+
+### 涉及变更
+
+1. **`static/js/ui.js`**
+   - 新增 `filterModelsByTask(models, taskType)` — 单一过滤逻辑
+   - `populateModelDropdown()` 接受 taskType 参数，返回过滤后的模型数组
+   - 过滤为空时不隐藏选择器，显示 `"No {taskLabel} models trained yet"` 占位消息
+
+2. **`static/js/app.js`**
+   - `activateProject()` / `refreshModelDropdown()` — 利用 `populateModelDropdown()` 返回值替代重复过滤
+   - `startTraining()` — 训练前自动同步前端任务类型到服务端，避免任务类型不匹配导致模型 `is_time_series` 字段错误
+
+3. **`routes/projects.py`**
+   - `activate_project()` 响应中模型字段补充 `is_time_series` 和 `task_type`（之前遗漏导致前端过滤永远返回空）
+
+### 验证
+
+```
+TS Project: rnn: is_time_series=True → time_series filter: 1 | general filter: 0
+General Project: mlp: is_time_series=False → time_series filter: 0 | general filter: 1
+```
+
+### 修复的 Bug
+
+| Bug | 根因 | 修复 |
+|-----|------|------|
+| 项目激活后下拉框始终为空 | `activate_project()` 响应缺 `is_time_series` 字段 | 补充 `is_time_series` + `task_type` |
+| 切换任务类型后训练，下拉框消失 | 任务类型未同步到服务端，模型 `is_time_series` 错误 | `startTraining()` 训练前自动同步 task_config |
+| 过滤为空时下拉框完全隐藏 | `display: none` 导致用户误以为功能丢失 | 显示占位消息 + 保留下拉框可见 |
+
+### 涉及文件
+
+- `static/js/ui.js` — filterModelsByTask + populateModelDropdown 重构
+- `static/js/app.js` — activateProject/refreshModelDropdown/startTraining 三处修改
+- `routes/projects.py` — activate_project 响应补充字段
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

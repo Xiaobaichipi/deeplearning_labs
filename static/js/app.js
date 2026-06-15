@@ -148,6 +148,7 @@ async function applyTaskConfig() {
         await _setTaskConfig(config);
         showTaskConfigSaved();
         updateModelOptions(config.task_type);
+        refreshModelDropdown();
         // Clear downstream UI state (split/model/history removed on server)
         document.getElementById("trainingSummary").style.display = "none";
         document.getElementById("trainingProgress").style.display = "none";
@@ -236,6 +237,18 @@ async function startTraining() {
     if (!targetCol) { alert("Please select a target column"); return; }
 
     const btn = document.getElementById("trainBtn");
+
+    // Sync task config to server before training, so the server uses the
+    // current task type (fixes model selector disappearing when user changes
+    // task type and clicks Train without applying first).
+    await _setTaskConfig({
+        task_type: document.getElementById("taskTypeSelect").value,
+        time_col: document.getElementById("timeColSelect").value,
+        seq_len: parseInt(document.getElementById("seqLenInput").value) || 10,
+        pred_len: parseInt(document.getElementById("predLenInput").value) || 1,
+        label_len: parseInt(document.getElementById("labelLenInput").value) || 0,
+        time_granularity: document.getElementById("granularitySelect").value || "auto",
+    });
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Training...';
 
@@ -438,10 +451,15 @@ async function activateProject(projectId) {
 
         const models = data.models || [];
         if (models.length) {
-            populateModelDropdown(models);
-            document.getElementById("modelSelect").value = models[0].id;
-            await _loadModelToSession(projectId, models[0].id);
-            showLoadedModelBadge(true, models[0].model_type);
+            const taskType = document.getElementById("taskTypeSelect").value;
+            const filtered = populateModelDropdown(models, taskType);
+            if (filtered.length) {
+                document.getElementById("modelSelect").value = filtered[0].id;
+                await _loadModelToSession(projectId, filtered[0].id);
+                showLoadedModelBadge(true, filtered[0].model_type);
+            } else {
+                showLoadedModelBadge(false);
+            }
         } else {
             document.getElementById("modelSelector").style.display = "none";
         }
@@ -476,12 +494,12 @@ async function refreshModelDropdown() {
     if (!_activeProjectId) return;
     try {
         const models = await _loadProjectModels(_activeProjectId);
-        if (models.length) {
-            populateModelDropdown(models);
-            const latest = models[0];
-            document.getElementById("modelSelect").value = latest.id;
-            await _loadModelToSession(_activeProjectId, latest.id);
-            showLoadedModelBadge(true, latest.model_type);
+        const taskType = document.getElementById("taskTypeSelect").value;
+        const filtered = populateModelDropdown(models, taskType);
+        if (filtered.length) {
+            document.getElementById("modelSelect").value = filtered[0].id;
+            await _loadModelToSession(_activeProjectId, filtered[0].id);
+            showLoadedModelBadge(true, filtered[0].model_type);
         }
     } catch (err) {
         console.error("refreshModelDropdown:", err.message);
