@@ -60,6 +60,7 @@ class _RawCrossformer(nn.Module):
                 1, configs.dropout,
                 self.in_seg_num if l == 0 else ceil(self.in_seg_num / self.win_size ** l),
                 configs.factor,
+                activation=configs.activation,
             )
             for l in range(configs.e_layers)
         ])
@@ -72,6 +73,7 @@ class _RawCrossformer(nn.Module):
                 TwoStageAttentionLayer(
                     configs, (self.pad_out_len // self.seg_len), configs.factor,
                     configs.d_model, configs.n_heads, configs.d_ff, configs.dropout,
+                    activation=configs.activation,
                 ),
                 AttentionLayer(
                     FullAttention(False, configs.factor, attention_dropout=configs.dropout,
@@ -79,6 +81,7 @@ class _RawCrossformer(nn.Module):
                     configs.d_model, configs.n_heads,
                 ),
                 self.seg_len, configs.d_model, configs.d_ff, dropout=configs.dropout,
+                activation=configs.activation,
             )
             for _ in range(configs.e_layers + 1)
         ])
@@ -137,6 +140,7 @@ class CrossformerWrapper(BaseModel):
             d_ff=kwargs.get("d_ff", 32),
             factor=kwargs.get("factor", 3),
             dropout=kwargs.get("dropout", 0.1),
+            activation=kwargs.get("activation", "gelu"),
             # Crossformer-specific
             seg_len=kwargs.get("seg_len", 12),
             win_size=kwargs.get("win_size", 2),

@@ -106,6 +106,7 @@ MODEL_REGISTRY = {
             "seg_len": {"type": "int", "default": 12, "label": "Segment length (seg_len)"},
             "win_size": {"type": "int", "default": 2, "label": "Merge window (win_size)"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
         },
     },
     "autoformer": {

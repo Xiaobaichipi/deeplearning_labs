@@ -309,6 +309,7 @@ async function startTraining() {
             factor: parseInt(document.getElementById("crossFactor").value) || DEFAULTS.model.crossformer.factor,
             seg_len: parseInt(document.getElementById("crossSegLen").value) || DEFAULTS.model.crossformer.seg_len,
             win_size: parseInt(document.getElementById("crossWinSize").value) || DEFAULTS.model.crossformer.win_size,
+            activation: document.getElementById("crossActivation").value,
         });
     }
 

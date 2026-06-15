@@ -37,7 +37,7 @@ class scale_block(nn.Module):
     """A single encoder scale block with optional SegMerging + TSA layers."""
 
     def __init__(self, configs, win_size, d_model, n_heads, d_ff, depth, dropout,
-                 seg_num=10, factor=10):
+                 seg_num=10, factor=10, activation="gelu"):
         super(scale_block, self).__init__()
         if win_size > 1:
             self.merge_layer = SegMerging(d_model, win_size, nn.LayerNorm)
@@ -48,7 +48,7 @@ class scale_block(nn.Module):
         for i in range(depth):
             self.encode_layers.append(
                 TwoStageAttentionLayer(configs, seg_num, factor, d_model, n_heads,
-                                       d_ff, dropout),
+                                       d_ff, dropout, activation=activation),
             )
 
     def forward(self, x, attn_mask=None, tau=None, delta=None):
@@ -78,15 +78,16 @@ class Encoder(nn.Module):
 class DecoderLayer(nn.Module):
     """Crossformer DecoderLayer — TSA self-attention + cross-attention."""
 
-    def __init__(self, self_attention, cross_attention, seg_len, d_model, d_ff=None, dropout=0.1):
+    def __init__(self, self_attention, cross_attention, seg_len, d_model, d_ff=None, dropout=0.1, activation="gelu"):
         super(DecoderLayer, self).__init__()
         self.self_attention = self_attention
         self.cross_attention = cross_attention
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
+        act = nn.GELU() if activation == "gelu" else nn.ReLU()
         self.MLP1 = nn.Sequential(
-            nn.Linear(d_model, d_model), nn.GELU(), nn.Linear(d_model, d_model),
+            nn.Linear(d_model, d_model), act, nn.Linear(d_model, d_model),
         )
         self.linear_pred = nn.Linear(d_model, seg_len)
 

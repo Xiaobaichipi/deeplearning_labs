@@ -464,6 +464,13 @@
                                 <label>Merge window (win_size)</label>
                                 <input type="number" id="crossWinSize" value="{{ cfg.model.crossformer.win_size }}" min="1" max="8">
                             </div>
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="crossActivation">
+                                    <option value="gelu" {{ 'selected' if cfg.model.crossformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.crossformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 

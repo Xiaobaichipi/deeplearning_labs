@@ -318,6 +318,21 @@ def _setup_training(sm, data_id, df, params):
         if seq_len <= pred_len:
             raise RouteError(f"seq_len ({seq_len}) must be greater than pred_len ({pred_len})")
 
+        # Crossformer-specific validation
+        if model_type == "crossformer":
+            seg_len = int(params.get("seg_len", 12))
+            win_size = int(params.get("win_size", 2))
+            e_layers = int(params.get("e_layers", 3))
+            if seq_len % seg_len != 0:
+                raise RouteError(
+                    f"seq_len ({seq_len}) must be divisible by seg_len ({seg_len}) "
+                    f"for Crossformer. Try adjusting seg_len or seq_len."
+                )
+            if win_size > e_layers:
+                raise RouteError(
+                    f"win_size ({win_size}) must be ≤ e_layers ({e_layers}) for Crossformer."
+                )
+
         ts_params = {
             "time_series": True,
             "time_col": task_config.get("time_col"),
