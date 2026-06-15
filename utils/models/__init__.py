@@ -9,6 +9,7 @@ from .gru import GRUModel
 from .transformer import TransformerTabularModel
 from .autoformer import AutoformerWrapper
 from .informer import InformerWrapper
+from .crossformer import CrossformerWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -92,6 +93,21 @@ MODEL_REGISTRY = {
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },
+    "crossformer": {
+        "class": CrossformerWrapper,
+        "name": "Crossformer (Two-Stage Attention)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension (d_ff)"},
+            "factor": {"type": "int", "default": 3, "label": "Attention factor (top-k)"},
+            "seg_len": {"type": "int", "default": 12, "label": "Segment length (seg_len)"},
+            "win_size": {"type": "int", "default": 2, "label": "Merge window (win_size)"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
     "autoformer": {
         "class": AutoformerWrapper,
         "name": "Autoformer (Long-term Forecast)",
@@ -171,6 +187,7 @@ __all__ = [
     "TransformerTabularModel",
     "AutoformerWrapper",
     "InformerWrapper",
+    "CrossformerWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",

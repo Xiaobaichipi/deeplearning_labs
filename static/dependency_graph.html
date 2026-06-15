@@ -61,6 +61,7 @@ graph TB
     n7_transformer["utils/models/transformer.py"]
     n8_autoformer["utils/models/autoformer.py"]
     n9_informer["utils/models/informer.py"]
+    n10_crossformer["utils/models/crossformer.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -69,6 +70,14 @@ graph TB
     n1_embed["utils/models/autoformer_layers/Embed.py"]
     n2_autocorr["utils/models/autoformer_layers/AutoCorrelation.py"]
     n3_encdec["utils/models/autoformer_layers/Autoformer_EncDec.py"]
+  end
+
+  %% Crossformer layers (internal package)
+  subgraph G_CrossformerLayers["Crossformer Layers"]
+    n0_cl__init__["utils/models/crossformer_layers/__init__.py"]
+    n1_cl_embed["utils/models/crossformer_layers/Embed.py"]
+    n2_cl_attn["utils/models/crossformer_layers/SelfAttention_Family.py"]
+    n3_cl_encdec["utils/models/crossformer_layers/Crossformer_EncDec.py"]
   end
 
   %% Shared Layers (extracted for reuse across large models)
@@ -137,10 +146,19 @@ graph TB
 
   %% Informer deps
   n0_models___init__ -->|1| n9_informer
+  n0_models___init__ -->|1| n10_crossformer
   n9_informer -->|1| n1_base
   n9_informer -->|1| n0_sl__init__
   n9_informer -->|1| n0_il__init__
   n0_il__init__ -->|1| n1_il_attention
+
+  %% Crossformer deps
+  n10_crossformer -->|1| n1_base
+  n10_crossformer -->|1| n0_cl__init__
+  n0_cl__init__ -->|1| n1_cl_embed
+  n0_cl__init__ -->|1| n2_cl_attn
+  n0_cl__init__ -->|1| n3_cl_encdec
+  n3_cl_encdec -->|1| n2_cl_attn
 
   %% Shared layers internal deps
   n0_sl__init__ -->|1| n1_sl_embed
@@ -156,6 +174,7 @@ graph TB
   n7_transformer -->|extends| n1_base
   n8_autoformer -->|extends| n1_base
   n9_informer -->|extends| n1_base
+  n10_crossformer -->|extends| n1_base
   </div>
   <div class="legend">
     <span>→ <strong>N</strong>  Cross-file call/import count</span>

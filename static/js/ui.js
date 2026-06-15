@@ -316,6 +316,7 @@ function toggleModelParams() {
     document.getElementById("transformerParams").style.display = type === "transformer" ? "block" : "none";
     document.getElementById("autoformerParams").style.display = type === "autoformer" ? "block" : "none";
     document.getElementById("informerParams").style.display = type === "informer" ? "block" : "none";
+    document.getElementById("crossformerParams").style.display = type === "crossformer" ? "block" : "none";
 }
 
 function esc(str) {

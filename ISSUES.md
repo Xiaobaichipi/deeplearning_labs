@@ -1102,6 +1102,55 @@ General Project: mlp: is_time_series=False → time_series filter: 0 | general f
 
 ---
 
+## 2026-06-15: 新增模型 — Crossformer (Two-Stage Attention) (feat/informer-integration 分支)
+
+### 集成概述
+
+从 `time_series_models_labs` 移植 Crossformer 模型，遵循 Autoformer/Informer 的 `pipeline="large"` 模式。
+
+### 架构
+
+Crossformer 的核心创新是 **Two-Stage Attention (TSA)**：
+1. **Cross-Time Stage**: 在每个特征维度内部分别做时间维度的 FullAttention
+2. **Cross-Dimension Stage**: 通过一组可学习的 router vectors 在不同特征维度间交换信息
+
+Encoder 使用 `scale_block` + `SegMerging` 实现多尺度层次化表示，Decoder 使用 TSA self-attention + cross-attention 逐层生成预测。
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/crossformer.py` | **新建** — CrossformerWrapper (pipeline="large")，含 output_proj 投影 enc_in→1 |
+| `utils/models/crossformer_layers/__init__.py` | **新建** — 包导出 |
+| `utils/models/crossformer_layers/Embed.py` | **新建** — PatchEmbedding, PositionalEmbedding（自包含） |
+| `utils/models/crossformer_layers/SelfAttention_Family.py` | **新建** — FullAttention, AttentionLayer, TwoStageAttentionLayer |
+| `utils/models/crossformer_layers/Crossformer_EncDec.py` | **新建** — SegMerging, scale_block, Encoder, Decoder, DecoderLayer |
+| `utils/models/__init__.py` | **修改** — 注册 CrossformerWrapper 到 MODEL_REGISTRY |
+| `utils/config.py` | **修改** — 添加 crossformer 默认超参 |
+| `templates/index.html` | **修改** — 添加模型选项和配置面板 |
+| `static/js/app.js` | **修改** — 添加 crossformer 到 allOptions/tsModels/startTraining |
+| `static/js/ui.js` | **修改** — toggleModelParams 添加 crossformerParams |
+| `static/dependency_graph.html` | **修改** — 添加 Crossformer 节点和边 |
+
+### 关键设计决策
+
+1. **输出投影**: Crossformer 原生输出 (batch, pred_len, enc_in) 所有特征维度，通过 `nn.Linear(enc_in, 1)` 投影为 (batch, pred_len, 1)，与 LargePipelineStrategy 兼容。
+2. **自包含包**: `crossformer_layers/` 独立复制所有依赖层（Follow Autoformer 模式），避免与 Informer/shared_layers 耦合。
+3. **超参暴露**: 暴露 `seg_len` 和 `win_size` 给用户，默认值 12/2 与原文一致。`d_ff` 默认 32 与 Autoformer/Informer 对齐。
+
+### 验证
+
+```
+模型实例化: ✓ (input_dim=5, output_dim=12, seq_len=48)
+前向传播:   ✓ → (4, 12, 1)
+训练流水线:  ✓ (epochs=3, batch=8, loss 正常下降)
+预测:       ✓ → (10, 12)
+保存/加载:  ✓ (state_dict 一致)
+测试套件:   ✓ (160 passed)
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

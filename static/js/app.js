@@ -178,9 +178,10 @@ function updateModelOptions(taskType) {
         "transformer": "Transformer (Encoder)",
         "autoformer": "Autoformer (Long-term Forecast)",
         "informer": "Informer (ProbSparse Attention)",
+        "crossformer": "Crossformer (Two-Stage Attention)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
@@ -298,6 +299,16 @@ async function startTraining() {
             factor: parseInt(document.getElementById("infoFactor").value) || DEFAULTS.model.informer.factor,
             distil: document.getElementById("toggleDistil").classList.contains("active"),
             activation: document.getElementById("infoActivation").value,
+        });
+    } else if (mt === "crossformer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("crossDModel").value) || DEFAULTS.model.crossformer.d_model,
+            n_heads: parseInt(document.getElementById("crossNHeads").value) || DEFAULTS.model.crossformer.n_heads,
+            e_layers: parseInt(document.getElementById("crossELayers").value) || DEFAULTS.model.crossformer.e_layers,
+            d_ff: parseInt(document.getElementById("crossDFF").value) || DEFAULTS.model.crossformer.d_ff,
+            factor: parseInt(document.getElementById("crossFactor").value) || DEFAULTS.model.crossformer.factor,
+            seg_len: parseInt(document.getElementById("crossSegLen").value) || DEFAULTS.model.crossformer.seg_len,
+            win_size: parseInt(document.getElementById("crossWinSize").value) || DEFAULTS.model.crossformer.win_size,
         });
     }
 
