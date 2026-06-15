@@ -46,6 +46,7 @@ graph TB
     n5_plot_utils["utils/plot_utils.py"]
     n6_session["utils/session.py"]
     n7_project_manager["utils/project_manager.py"]
+    n8_pipeline_strategy["utils/pipeline_strategy.py"]
   end
 
   %% Models
@@ -101,20 +102,24 @@ graph TB
   n2_evaluation -->|2| n2_data_utils
   n2_evaluation -->|2| n5_plot_utils
   n2_evaluation -->|1| n1_config
+  n2_evaluation -->|1| n8_pipeline_strategy
   n3_training -->|23| n6_session
   n3_training -->|3| n2_data_utils
   n3_training -->|3| n7_project_manager
   n3_training -->|3| n4_model_utils
   n3_training -->|2| n0_models___init__
   n3_training -->|1| n1_config
+  n3_training -->|1| n8_pipeline_strategy
   n4_projects -->|18| n6_session
   n4_projects -->|20| n7_project_manager
   n4_projects -->|4| n2_data_utils
   n4_projects -->|3| n4_model_utils
   n4_projects -->|3| n5_plot_utils
   n4_projects -->|1| n1_config
+  n4_projects -->|1| n8_pipeline_strategy
   n4_model_utils -->|5| n5_plot_utils
   n4_model_utils -->|1| n0_models___init__
+  n4_model_utils -->|1| n8_pipeline_strategy
   n6_session -->|1| n2_data_utils
   n0_main -->|1| n6_session
   n1_app -->|35| n2_ui
