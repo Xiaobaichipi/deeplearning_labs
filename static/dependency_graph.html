@@ -19,7 +19,7 @@
 <body>
 <div class="container">
   <h1>DeepLearning Labs — Code Dependency Graph</h1>
-  <p class="subtitle">Generated from CodeGraph index (2026-06-13)</p>
+  <p class="subtitle">Generated from CodeGraph index (2026-06-15)</p>
   <div class="mermaid">
 graph TB
   %% Entry
@@ -59,6 +59,7 @@ graph TB
     n6_rnn["utils/models/rnn.py"]
     n7_transformer["utils/models/transformer.py"]
     n8_autoformer["utils/models/autoformer.py"]
+    n9_informer["utils/models/informer.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -67,6 +68,20 @@ graph TB
     n1_embed["utils/models/autoformer_layers/Embed.py"]
     n2_autocorr["utils/models/autoformer_layers/AutoCorrelation.py"]
     n3_encdec["utils/models/autoformer_layers/Autoformer_EncDec.py"]
+  end
+
+  %% Shared Layers (extracted for reuse across large models)
+  subgraph G_SharedLayers["Shared Layers"]
+    n0_sl__init__["utils/models/shared_layers/__init__.py"]
+    n1_sl_embed["utils/models/shared_layers/Embed.py"]
+    n2_sl_encdec["utils/models/shared_layers/Transformer_EncDec.py"]
+    n3_sl_mask["utils/models/shared_layers/masking.py"]
+  end
+
+  %% Informer Layers (internal package)
+  subgraph G_InformerLayers["Informer Layers"]
+    n0_il__init__["utils/models/informer_layers/__init__.py"]
+    n1_il_attention["utils/models/informer_layers/SelfAttention_Family.py"]
   end
 
   %% Frontend
@@ -115,6 +130,18 @@ graph TB
   n0_al__init__ -->|1| n2_autocorr
   n0_al__init__ -->|1| n3_encdec
 
+  %% Informer deps
+  n0_models___init__ -->|1| n9_informer
+  n9_informer -->|1| n1_base
+  n9_informer -->|1| n0_sl__init__
+  n9_informer -->|1| n0_il__init__
+  n0_il__init__ -->|1| n1_il_attention
+
+  %% Shared layers internal deps
+  n0_sl__init__ -->|1| n1_sl_embed
+  n0_sl__init__ -->|1| n2_sl_encdec
+  n0_sl__init__ -->|1| n3_sl_mask
+
   %% Model inheritance
   n2_cnn -->|extends| n1_base
   n3_gru -->|extends| n1_base
@@ -123,6 +150,7 @@ graph TB
   n6_rnn -->|extends| n1_base
   n7_transformer -->|extends| n1_base
   n8_autoformer -->|extends| n1_base
+  n9_informer -->|extends| n1_base
   </div>
   <div class="legend">
     <span>→ <strong>N</strong>  Cross-file call/import count</span>

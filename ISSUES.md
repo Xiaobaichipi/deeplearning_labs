@@ -1,5 +1,99 @@
 # Issues Log
 
+## 2026-06-15: Bug 修复 — Train / Evaluate & Predict 页面丢失 + GPU 不可用 (feat/informer-integration 分支)
+
+### Bug 1: Train / Evaluate & Predict 页面丢失
+
+**根因**: Informer 集成时 `templates/index.html:267` 的 `<div class="input-group">` 闭合标签被误删。导致 `<div class="form-row">` 一直未闭合，后续所有参数面板被吞入 form-row，模型架构 card 的 HTML 结构被破坏，浏览器无法正确渲染 Step 5（Training）和 Step 6（Evaluate & Predict）。
+
+**修复**: 在 `</select>` 后补回缺失的 `</div>`。
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | 第 267 行补回 `</div>`，恢复 input-group → form-row → card 的正确嵌套 |
+
+### Bug 2: PyTorch 升级导致 GPU 不可用
+
+**症状**: `torch.cuda.is_available()` 返回 `False`，所有训练在 CPU 上运行，速度极慢。
+
+**根因**: 项目 conda 环境的 PyTorch 被升级到 `2.11.0+cu130`（需 CUDA 13.0 驱动），但系统 NVIDIA 驱动 `535.309.01` 最高支持 CUDA 12.2。`requirements.txt` 中 `torch>=2.0` 无上限锁定，导致 `pip install` 时自动拉取不兼容的版本。
+
+**修复**: 降级 PyTorch 到 `2.5.1+cu121`，锁定 `requirements.txt`。
+
+| 文件 | 变更 |
+|------|------|
+| `requirements.txt` | `torch>=2.0` → `torch>=2.0,<2.6` |
+
+### 验证
+
+| 检查项 | 结果 |
+|--------|------|
+| 页面渲染（6 个 step-item） | ✅ |
+| `torch.cuda.is_available()` | ✅ True |
+| GPU 数量 | ✅ 2 × RTX 3090 |
+| GRU GPU 前向传播 | ✅ 通过 |
+
+---
+
+## 2026-06-15: Informer 模型集成 (feat/informer-integration 分支)
+
+### 概述
+
+将 Informer 模型（ProbSparse Attention）集成到 DeepLearning Labs，作为第二个 "large pipeline" 模型。Informer 使用 ProbSparse 自注意力机制（O(L log L) 复杂度），通过 ConvLayer 蒸馏在编码器层间进行下采样，适用于长序列时间序列预测。
+
+### 新增文件
+
+| 文件 | 内容 |
+|------|------|
+| `utils/models/informer.py` | InformerWrapper + _RawInformer（含 ProbSparse 注意力 + 蒸馏编码器 + 稀疏解码器） |
+| `utils/models/informer_layers/__init__.py` | 包初始化 |
+| `utils/models/informer_layers/SelfAttention_Family.py` | ProbAttention（Top-k 查询采样）+ AttentionLayer（QKV 投影包装） |
+| `utils/models/shared_layers/__init__.py` | 共享层包初始化，导出 TokenEmbedding / PositionalEmbedding / DataEmbedding / Encoder / Decoder 等 |
+| `utils/models/shared_layers/Embed.py` | TokenEmbedding、PositionalEmbedding、DataEmbedding（n_time_features 自适应 Linear） |
+| `utils/models/shared_layers/Transformer_EncDec.py` | Encoder（支持 ConvLayer 蒸馏蒸馏）、Decoder、EncoderLayer、DecoderLayer、ConvLayer |
+| `utils/models/shared_layers/masking.py` | TriangularCausalMask、ProbMask |
+
+### 架构亮点
+
+| 设计决策 | 说明 |
+|----------|------|
+| **共享层提取** | Encoder/Decoder/Embedding 等标准 Transformer 组件提取到 `shared_layers/`，后续其他 Transformer 变体可直接复用 |
+| **蒸馏模式** | `distil=True` 时，编码器首个 EncoderLayer 后插入 ConvLayer（3×1 conv + 1×1 maxpool），序列长度减半 |
+| **ProbSparse Attention** | Top-k 查询采样替代全注意力（O(L log L) 而非 O(L²)），k = c * ln(L) 从均匀分布采样 M 个 key 对 |
+| **DataEmbedding** | 继承 Autoformer 的 n_time_features 自适应设计，position 使用 sin/cos 位置编码 |
+
+### 后端修改
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/__init__.py` | MODEL_REGISTRY 注册 InformerWrapper（params: d_model, n_heads, e_layers, d_layers, d_ff, factor, distil, dropout, activation）；__all__ 新增 |
+| `utils/config.py` | MODEL 字典新增 informer 默认超参数（d_model=256, n_heads=8, e_layers=3, d_layers=3, d_ff=32, factor=3, distil=True, dropout=0.1, activation="gelu"） |
+
+### 前端修改
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | modelType 新增 Informer 选项；新增 informerParams 配置区域（d_model, n_heads, e_layers, d_layers, d_ff, factor, distil toggle, activation） |
+| `static/js/app.js` | allOptions 新增 Informer；tsModels 数组新增；startTraining() 读取 informer 参数 |
+| `static/js/ui.js` | toggleModelParams() 显示/隐藏 informer 参数区 |
+
+### 测试验证
+
+| 功能 | 状态 |
+|------|------|
+| 训练流（2 epochs, loss 0.8805） | ✅ |
+| 评估（MSE 0.8390 + 可视化） | ✅ |
+| 预测（40 条预测 + 散点图/折线图） | ✅ |
+| 交叉验证（2-fold, scores -0.43/-0.34） | ✅ |
+
+### 技术债务
+
+| 项目 | 说明 | 状态 |
+|------|------|------|
+| Autoformer 未迁移到 shared_layers | `autoformer_layers/Autoformer_EncDec.py` 包含独立副本的 Encoder/Decoder/EncoderLayer/DecoderLayer，与 `shared_layers/Transformer_EncDec.py` 高度重复。后续 `feat/unify-shared-layers` 分支应将 Autoformer 改为引用共享层并删除冗余代码。 | ⏳ 待处理 |
+
+---
+
 ## 2026-06-09: Autoformer 大模型流水线集成 (feat/large-model-pipeline 分支)
 
 ### 概述
