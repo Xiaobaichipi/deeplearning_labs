@@ -359,20 +359,23 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
             preds = strategy.format_output(outputs, task_type).cpu().numpy()
             y_true = y_t.cpu().numpy()
 
-            # Denormalize before computing metrics so they reflect original scale
-            if y_scaler is not None:
-                from .data_utils import denormalize_target
-                preds = denormalize_target(preds, y_scaler)
-                y_true = denormalize_target(y_true, y_scaler)
-
+            # Metrics on normalized scale (consistent across datasets)
             mse = mean_squared_error(y_true, preds)
             rmse = float(np.sqrt(mse))
             mae = mean_absolute_error(y_true, preds)
             r2 = r2_score(y_true, preds)
 
+            # Denormalize only for visualization
+            if y_scaler is not None:
+                from .data_utils import denormalize_target
+                plot_preds = denormalize_target(preds, y_scaler)
+                plot_true = denormalize_target(y_true, y_scaler)
+            else:
+                plot_preds, plot_true = preds, y_true
+
             images = {
-                "pred_vs_true": plot_pred_vs_true(y_true, preds),
-                "residuals": plot_residuals(y_true, preds),
+                "pred_vs_true": plot_pred_vs_true(plot_true, plot_preds),
+                "residuals": plot_residuals(plot_true, plot_preds),
             }
 
             return {
