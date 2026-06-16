@@ -211,10 +211,13 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
             y_mark=split_result["y_mark_test"],
         )
 
+    extra_kw = strategy.extra_model_kwargs(pd_train)
+    if split_result.get("is_time_series") and "seq_len" not in extra_kw:
+        extra_kw["seq_len"] = split_result["seq_len"]
     model = create_model(
         built["model_type"], split_result["input_dim"], output_dim,
         **built["model_params"],
-        **strategy.extra_model_kwargs(pd_train),
+        **extra_kw,
     )
 
     trained_model, history = train_model(

@@ -1239,6 +1239,27 @@ series_decomp ──→ seasonal (batch, seq_len, enc_in)
 | 注册表查询 | ✓ pipeline="small", params=moving_avg+individual |
 | 测试套件 | ✓ 160 passed |
 
+### Bug: DLinear 训练时报 shape mismatch (mat1 and mat2 cannot be multiplied)
+
+**症状**: 训练 DLinear 时崩溃：
+```
+RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x10 and 96x5)
+```
+
+**根因**: `DLinearWrapper.__init__` 中 `seq_len` 默认值为 96（硬编码），但 small pipeline 的 TS 数据 `seq_len` 为 10（来自 `config.TIME_SERIES.seq_len`）。`SmallPipelineStrategy.extra_model_kwargs()` 返回空 dict，不传递 `seq_len`，导致模型 Linear 层用 `nn.Linear(96, pred_len)` 初始化，但实际输入是 `(batch, 10, enc_in)`。
+
+**涉及路径**:
+| 路径 | 问题 | 修复 |
+|------|------|------|
+| `_run_and_persist()` 训练创建模型 | `pd_train=None` 导致 `extra_model_kwargs` 返回 `{}` | 从 `split_result` 补充 `seq_len` |
+| `_reconstruct_model()` 项目重建 | 虽构建 `PipelineData(seq_len=...)`，但 `SmallPipelineStrategy` 忽略 | `SmallPipelineStrategy.extra_model_kwargs()` 返回 `pd.seq_len` |
+
+**修复**:
+1. `routes/training.py:_run_and_persist()` — 模型创建前检查 `extra_kw` 是否有 `seq_len`，没有则从 `split_result` 补充
+2. `utils/pipeline_strategy.py:SmallPipelineStrategy.extra_model_kwargs()` — 返回 `pd` 中的 `seq_len` 和 `label_len`（修复项目重建路径）
+
+**验证**: 手动复现脚本测试通过。160 测试全部通过。
+
 ---
 
 ## Prior Issues (前序会话已解决)
