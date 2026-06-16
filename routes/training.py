@@ -303,6 +303,16 @@ def _setup_training(sm, data_id, df, params):
     # Check for time series config
     task_config = sm.get_task_config(data_id) or {}
     ts_params = {}
+
+    # Large-pipeline models (Autoformer, Informer, Crossformer) require
+    # time_series mode because they need multi-dimensional data
+    # (x_mark, dec_inp, y_mark) produced by the large-pipeline split path.
+    if pipeline == "large" and task_config.get("task_type") != "time_series":
+        raise RouteError(
+            f"{model_type} requires Time Series mode. "
+            f"Set task type to 'Time Series' in Step 2 and click Apply & Refresh."
+        )
+
     if task_config.get("task_type") == "time_series":
         seq_len = int(task_config.get("seq_len", config.TIME_SERIES["seq_len"]))
         pred_len = int(task_config.get("pred_len", config.TIME_SERIES["pred_len"]))
