@@ -158,3 +158,23 @@ async function _compareModels(projectId, modelIds) {
     if (data.error) throw new Error(data.error);
     return data;
 }
+
+/* =============== Window Exports (for Vitest) =============== */
+window._uploadFile = _uploadFile;
+window._cleanData = _cleanData;
+window._fillData = _fillData;
+window._getTaskConfig = _getTaskConfig;
+window._setTaskConfig = _setTaskConfig;
+window._setupTraining = _setupTraining;
+window._evaluateModel = _evaluateModel;
+window._validateModel = _validateModel;
+window._predictModel = _predictModel;
+window.downloadPredictions = downloadPredictions;
+window.downloadHistory = downloadHistory;
+window._loadProjects = _loadProjects;
+window._createProject = _createProject;
+window._activateProject = _activateProject;
+window._deleteProject = _deleteProject;
+window._loadProjectModels = _loadProjectModels;
+window._loadModelToSession = _loadModelToSession;
+window._compareModels = _compareModels;

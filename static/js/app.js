@@ -583,3 +583,26 @@ function backToProjects() {
     showProjectList();
     loadProjects();
 }
+
+/* =============== Window Exports (for Vitest) =============== */
+window.handleUpload = handleUpload;
+window.loadTaskConfig = loadTaskConfig;
+window.applyTaskConfig = applyTaskConfig;
+window.updateModelOptions = updateModelOptions;
+window.runClean = runClean;
+window.runFill = runFill;
+window.startTraining = startTraining;
+window.runEvaluation = runEvaluation;
+window.runValidation = runValidation;
+window.runPredict = runPredict;
+window.loadProjects = loadProjects;
+window.createProject = createProject;
+window.activateProject = activateProject;
+window.deleteProject = deleteProject;
+window.loadProjectModels = loadProjectModels;
+window.refreshModelDropdown = refreshModelDropdown;
+window.onModelSelect = onModelSelect;
+window.compareModels = compareModels;
+window.exportModel = exportModel;
+window.resetAll = resetAll;
+window.backToProjects = backToProjects;

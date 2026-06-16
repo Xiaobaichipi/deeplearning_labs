@@ -1,5 +1,65 @@
 # Issues Log
 
+## 2026-06-16: 前端测试全覆盖 — 全局挂载方案 + 46 个 Vitest 测试 (feat/informer-integration 分支)
+
+### 概述
+
+在前一阶段（filterUtils 纯函数提取 + 5 测试）基础上，将测试覆盖扩展到所有 DOM 操作函数。采用 **全局挂载方案**：JS 文件末尾添加 `window.xxx = xxx` 导出，`vitest.setup.js` 通过 `(0, globalThis.eval)()` 注入源码到 jsdom 全局作用域，测试通过 `window` 访问函数。
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| 模块模式 | 全局挂载（非 ES module） | ESLint 检测通过，不修改 HTML `<script>` 标签，`onclick` 兼容 |
+| 源码加载 | `(0, globalThis.eval)()` indirect eval | 函数声明提升为全局变量，`const`/`let` 也通过 eval 作用域链路可访问 |
+| 加载方式 | setupFiles + 静态 HTML 骨架 | 避免测试文件重复注入 DOM，一次 setup 全局可用 |
+
+### 新增文件
+
+| 文件 | 内容 |
+|------|------|
+| `vitest.setup.js` | DOM 骨架（200+ 元素匹配 index.html）+ 4 个 JS 文件 indirect eval 加载 |
+| `static/js/__tests__/ui.test.js` | 22 个测试（toggleModelParams/populateModelDropdown/esc/showBadge/goToStep 等） |
+| `static/js/__tests__/app.test.js` | 9 个测试（updateModelOptions/applyTaskConfig/startTraining 参数收集） |
+| `static/js/__tests__/api.test.js` | 10 个测试（API URL 正确性/错误处理） |
+
+### 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/api.js` | 末尾添加 18 个 `window.xxx = xxx` 导出 |
+| `static/js/app.js` | 末尾添加 21 个 `window.xxx = xxx` 导出 |
+| `static/js/ui.js` | 末尾添加 37 个 `window.xxx = xxx` 导出 |
+| `vitest.config.js` | 新增 `setupFiles: ["./vitest.setup.js"]` |
+
+### 测试覆盖
+
+| 函数 | 测试数 | 覆盖场景 |
+|------|--------|---------|
+| `toggleModelParams` | 7 | mlp、rnn/lstm/gru、transformer、autoformer、informer、crossformer、dlinear |
+| `populateModelDropdown` | 5 | TS 过滤、General 过滤、空列表、无匹配、select 缺失 |
+| `esc` | 3 | HTML 转义、空字符串、纯文本 |
+| `showLoadedModelBadge` | 2 | 显示/隐藏 |
+| `showTaskConfigSaved` | 1 | 3 秒后自动隐藏 |
+| `onTaskTypeChange` | 2 | TS 显示配置、General 隐藏 |
+| `goToStep` | 1 | 激活目标 step |
+| `showTrainError` | 1 | 错误信息展示 |
+| `updateModelOptions` | 2 | General 全显示、TS 过滤非时序 |
+| `applyTaskConfig` | 2 | DOM 值收集、空值回退默认 |
+| `startTraining` | 5 | 缺 target 提前返回、MLP 参数、Autoformer 参数、Crossformer 参数、DLinear 参数 |
+| API URL 正确性 | 9 | 8 个端点 URL + method 验证 |
+| 错误处理 | 1 | error 响应抛异常 |
+
+### 验证
+
+```
+JS:  46 passed (1.54s)
+Python: 200 passed (100.50s)
+Total: 246 passed
+```
+
+---
+
 ## 2026-06-16: 引入 JS 单元测试 — Vitest + filterUtils 提取 (feat/informer-integration 分支)
 
 ### 概述

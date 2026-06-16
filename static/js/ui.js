@@ -623,3 +623,42 @@ function showTrainError(msg) {
     div.textContent = msg;
     div.style.display = "block";
 }
+
+/* =============== Window Exports (for Vitest) =============== */
+window.populateProjectGrid = populateProjectGrid;
+window.showNewProjectModal = showNewProjectModal;
+window.hideNewProjectModal = hideNewProjectModal;
+window.showProjectList = showProjectList;
+window.hideProjectList = hideProjectList;
+window.populateModelList = populateModelList;
+window.populateModelDropdown = populateModelDropdown;
+window.showLoadedModelBadge = showLoadedModelBadge;
+window.toggleHeaderMenu = toggleHeaderMenu;
+window.goToStep = goToStep;
+window.onTaskTypeChange = onTaskTypeChange;
+window.populateTimeColSelect = populateTimeColSelect;
+window.showTaskConfigSaved = showTaskConfigSaved;
+window.populateStep2 = populateStep2;
+window.populateStep3Columns = populateStep3Columns;
+window.populateTargetCol = populateTargetCol;
+window.toggleModelParams = toggleModelParams;
+window.esc = esc;
+window.showUploadResult = showUploadResult;
+window.showUploadError = showUploadError;
+window.showUploadLoading = showUploadLoading;
+window.showCleanResult = showCleanResult;
+window.showFillResult = showFillResult;
+window.showTrainingComplete = showTrainingComplete;
+window.showEvalResult = showEvalResult;
+window.showCVResult = showCVResult;
+window.showPredResult = showPredResult;
+window.resetAllUI = resetAllUI;
+window._initCharts = _initCharts;
+window._appendChartPoint = _appendChartPoint;
+window._updateCharts = _updateCharts;
+window.destroyCharts = destroyCharts;
+window.initTrainingProgress = initTrainingProgress;
+window.updateTrainingProgress = updateTrainingProgress;
+window.updateProgressMetrics = updateProgressMetrics;
+window.hideTrainingProgress = hideTrainingProgress;
+window.showTrainError = showTrainError;
