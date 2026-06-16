@@ -1,5 +1,29 @@
 # Issues Log
 
+## 2026-06-16: Bug 修复 — einops 缺失导致 Flask 服务拒绝连接 (feat/informer-integration 分支)
+
+### Bug: Crossformer 集成后 localhost:5000 拒绝连接
+
+**症状**: 浏览器访问 `localhost:5000` 显示「拒绝了连接请求」，服务启动后立即退出。
+
+**根因**: Crossformer 模型在 `utils/models/crossformer.py:13` 中使用 `from einops import rearrange, repeat`，但 `einops` 包从未加入 `requirements.txt`。`start.sh` 使用的 Python 环境的 pip 列表中没有 `einops`，`main.py` 在导入阶段即崩溃：
+
+```
+File "/data/wj/programmer/learning/deeplearning_labs/utils/models/crossformer.py", line 13, in <module>
+    from einops import rearrange, repeat
+ModuleNotFoundError: No module named 'einops'
+```
+
+旧进程（PID 1995182）因启动崩溃退出，`.server.pid` 指向已终止的进程。
+
+**修复**:
+1. `requirements.txt` — 新增 `einops>=0.8`
+2. 在服务器 Python 环境中执行 `pip install einops`
+
+**验证**: `curl http://localhost:5000` → `200 OK`
+
+---
+
 ## 2026-06-15: Bug 修复 — 模型对比图多步预测延时重叠 (feat/informer-integration 分支)
 
 ### Bug: 模型对比图多步预测延时重叠
