@@ -1,5 +1,53 @@
 # Issues Log
 
+## 2026-06-16: 引入 JS 单元测试 — Vitest + filterUtils 提取 (feat/informer-integration 分支)
+
+### 概述
+
+引入轻量 JS 测试框架 Vitest，覆盖前端纯逻辑函数。采用"提取纯函数到独立文件"策略，不改动现有 JS 加载方式。
+
+### 新增文件
+
+| 文件 | 内容 |
+|------|------|
+| `package.json` | JS 开发依赖清单（private=true, type=module） |
+| `package-lock.json` | 版本锁定 |
+| `vitest.config.js` | Vitest 配置（jsdom 环境） |
+| `static/js/filterUtils.js` | 纯函数工具文件（当前仅 `filterModelsByTask`） |
+| `static/js/__tests__/filterUtils.test.js` | 5 个 Vitest 测试 |
+
+### 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/ui.js` | 删除 `filterModelsByTask` 定义（已移至 `filterUtils.js`） |
+| `templates/index.html` | 新增 `<script src="filterUtils.js">` 加载（在 `ui.js` 之前） |
+| `.gitignore` | 新增 `node_modules/` |
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| 测试文件代码复制 | 测试文件复制 `filterModelsByTask` 源码 | 源文件无 `export`，移动前端到 ES module 需要改 HTML `onclick`，风险高 |
+| `package.json` 位置 | 项目根目录 | 标准做法，CI 配置简单 |
+| Vitest 环境 | jsdom | 后续可测 DOM 操作函数 |
+| 测试范围 | 纯函数起步 | 覆盖最易出 bug 的边界条件（undefined、空数组、TS 切换） |
+
+### 验证
+
+```
+JS:  5 passed (1.55s)
+Python: 59 route tests passed (无变化)
+```
+
+### 后续扩展路径
+
+1. 提取更多纯函数到 `filterUtils.js` 或新建 `paramUtils.js`
+2. 积累 10+ 纯函数后，考虑 `module.exports` 消除测试文件中的代码复制
+3. 如需测试 DOM 操作函数，再走混合模式（`window.xxx` 挂载）
+
+---
+
 ## 2026-06-16: Bug 修复 — einops 缺失导致 Flask 服务拒绝连接 (feat/informer-integration 分支)
 
 ### Bug: Crossformer 集成后 localhost:5000 拒绝连接

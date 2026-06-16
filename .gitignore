@@ -6,3 +6,4 @@ server.log
 start_copy.sh
 .server.pid
 static/dependency_graph.html
+node_modules/
