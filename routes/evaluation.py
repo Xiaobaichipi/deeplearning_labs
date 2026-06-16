@@ -210,6 +210,12 @@ def api_validate():
         label_len=split_result.get("label_len", 24),
     ) if "x_mark_train" in split_result else None
 
+    # Models like DLinear need seq_len at create time, but for small pipeline
+    # pipeline_data is None → extra_model_kwargs returns {}.  Pass it explicitly.
+    extra_model_kw = {}
+    if split_result.get("is_time_series") and pd is None:
+        extra_model_kw.setdefault("seq_len", split_result["seq_len"])
+
     result = cross_validate_model(
         model_type=model_config["model_type"],
         input_dim=split_result["input_dim"],
@@ -224,6 +230,7 @@ def api_validate():
         lr=model_config.get("learning_rate", config.TRAINING["learning_rate"]),
         device=model_config.get("device", config.DEVICE),
         pipeline_strategy=strategy, pipeline_data=pd,
+        extra_model_kw=extra_model_kw,
     )
 
     return json_ok({"success": True, **result})
