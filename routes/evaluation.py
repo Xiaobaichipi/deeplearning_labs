@@ -25,11 +25,7 @@ def api_evaluate():
     model_config = sm.get_model_config(data_id) or {}
     device = model_config.get("device", "cpu")
 
-    pd = PipelineData(
-        X_mark=split_result["x_mark_test"],
-        dec_inp=split_result["dec_inp_test"],
-        y_mark=split_result["y_mark_test"],
-    ) if "x_mark_test" in split_result else None
+    pd = PipelineData.from_split(split_result, "test")
 
     strategy = PipelineStrategy.for_model_type(model_config.get("model_type", "mlp"))
 
@@ -149,19 +145,11 @@ def _compute_predictions(sm, data_id, use_test):
     if use_test:
         X = split_result["X_test"]
         y_true = split_result["y_test"]
-        pd = PipelineData(
-            X_mark=split_result["x_mark_test"],
-            dec_inp=split_result["dec_inp_test"],
-            y_mark=split_result["y_mark_test"],
-        ) if is_large else None
+        pd = PipelineData.from_split(split_result, "test")
     else:
         X = split_result["X_train"]
         y_true = split_result["y_train"]
-        pd = PipelineData(
-            X_mark=split_result["x_mark_train"],
-            dec_inp=split_result["dec_inp_train"],
-            y_mark=split_result["y_mark_train"],
-        ) if is_large else None
+        pd = PipelineData.from_split(split_result, "train")
 
     preds, probs = predict(model, X, split_result["task_type"], device=device,
                            pipeline_strategy=strategy, pipeline_data=pd)
@@ -201,14 +189,20 @@ def api_validate():
 
     strategy = PipelineStrategy.for_model_type(model_config["model_type"])
 
-    pd = PipelineData(
-        X_mark=split_result["x_mark_train"],
-        dec_inp=split_result["dec_inp_train"],
-        y_mark=split_result["y_mark_train"],
-        n_time_features=split_result.get("n_time_features", 4),
-        seq_len=split_result.get("seq_len", 48),
-        label_len=split_result.get("label_len", 24),
-    ) if "x_mark_train" in split_result else None
+    # Build pipeline data if it's a large-pipeline model (has x_mark keys).
+    # Keeping the explicit check here because cross_validate_model uses None
+    # as a sentinel for fold data slicing.
+    if "x_mark_train" in split_result:
+        pd = PipelineData(
+            X_mark=split_result["x_mark_train"],
+            dec_inp=split_result["dec_inp_train"],
+            y_mark=split_result["y_mark_train"],
+            n_time_features=split_result.get("n_time_features", 4),
+            seq_len=split_result.get("seq_len", 48),
+            label_len=split_result.get("label_len", 24),
+        )
+    else:
+        pd = None
 
     # Models like DLinear need seq_len at create time, but for small pipeline
     # pipeline_data is None → extra_model_kwargs returns {}.  Pass it explicitly.

@@ -194,22 +194,8 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
     """
     strategy = PipelineStrategy.for_model_type(built["model_type"])
 
-    pd_train = None
-    pd_val = None
-    if "x_mark_train" in split_result:
-        pd_train = PipelineData(
-            X_mark=split_result["x_mark_train"],
-            dec_inp=split_result["dec_inp_train"],
-            y_mark=split_result["y_mark_train"],
-            n_time_features=split_result.get("n_time_features", 4),
-            seq_len=split_result.get("seq_len", 96),
-            label_len=split_result.get("label_len", split_result.get("seq_len", 96) // 2),
-        )
-        pd_val = PipelineData(
-            X_mark=split_result["x_mark_test"],
-            dec_inp=split_result["dec_inp_test"],
-            y_mark=split_result["y_mark_test"],
-        )
+    pd_train = PipelineData.from_split(split_result, "train")
+    pd_val = PipelineData.from_split(split_result, "test")
 
     extra_kw = strategy.extra_model_kwargs(pd_train)
     if split_result.get("is_time_series") and "seq_len" not in extra_kw:
@@ -374,40 +360,23 @@ def _setup_training(sm, data_id, df, params):
 
     # Always normalize target for regression so loss/metric are scale-independent
     if split_result["task_type"] == "regression":
-        if pipeline == "large":
-            if norm_method in ("minmax", "mean"):
-                # y_train/y_test are NOT normalized by normalize_data() above
-                # (they are separate arrays from X_train).  Extract the target
-                # column's statistics from norm_params and apply them here.
-                target_idx = split_result.get("target_idx", -1)
-                y_train = split_result["y_train"].astype(np.float32)
-                y_test = split_result["y_test"].astype(np.float32)
-                if norm_method == "minmax":
-                    t_min = np.array(norm_params["min"])[target_idx]
-                    t_max = np.array(norm_params["max"])[target_idx]
-                    denom = float(t_max - t_min) or 1.0
-                    split_result["y_train"] = (y_train - float(t_min)) / denom
-                    split_result["y_test"] = (y_test - float(t_min)) / denom
-                    split_result["y_scaler"] = {
-                        "method": "minmax", "min": float(t_min), "max": float(t_max)}
-                else:  # mean
-                    t_mean = np.array(norm_params["mean"])[target_idx]
-                    t_std = np.array(norm_params["std"])[target_idx]
-                    t_std = float(t_std) or 1.0
-                    split_result["y_train"] = (y_train - float(t_mean)) / t_std
-                    split_result["y_test"] = (y_test - float(t_mean)) / t_std
-                    split_result["y_scaler"] = {
-                        "method": "mean", "mean": float(t_mean), "std": t_std}
-            else:
-                split_result["y_scaler"] = None
+        if pipeline == "large" and norm_method in ("minmax", "mean"):
+            # Large-pipeline: extract the target column's statistics from the
+            # precomputed norm_params (the target is the last feature column
+            # in the decoder input) to keep both on the same scale.
+            y_norm_result = normalize_target(
+                split_result["y_train"], split_result["y_test"],
+                method=norm_method,
+                norm_params=norm_params,
+                target_idx=split_result.get("target_idx", -1),
+            )
+        elif pipeline == "large":
+            y_norm_result = split_result["y_train"], split_result["y_test"], None
         else:
             y_norm = norm_method if norm_method in ("minmax", "mean") else "mean"
-            y_train, y_test, y_scaler = normalize_target(
-                split_result["y_train"], split_result["y_test"], method=y_norm
-            )
-            split_result["y_train"] = y_train
-            split_result["y_test"] = y_test
-            split_result["y_scaler"] = y_scaler
+            y_norm_result = normalize_target(
+                split_result["y_train"], split_result["y_test"], method=y_norm)
+        split_result["y_train"], split_result["y_test"], split_result["y_scaler"] = y_norm_result
 
     sm.set_split(data_id, split_result)
 

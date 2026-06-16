@@ -1278,6 +1278,129 @@ size mismatch for _model.Linear_Seasonal.0.weight:
 
 ---
 
+## 2026-06-16: 架构加深优化 — PipelineData.from_split + SplitResult 数据类 + 归一化去重 + 基础设施测试 (feat/informer-integration 分支)
+
+### 概述
+
+基于 `/improve-codebase-architecture` 分析结果，实施 4 个架构加深候选：
+
+| 候选 | 目标 | 涉及文件 |
+|------|------|---------|
+| ① `PipelineData.from_split()` 工厂 | 消除 8 个调用点的手动构造重复 | `pipeline_strategy.py`, `routes/training.py`, `routes/evaluation.py` |
+| ② `normalize_target()` 支持预计算参数 | 消除 `_setup_training()` 35 行内联归一化 | `data_utils.py`, `routes/training.py` |
+| ③ `SplitResult` 类型化数据类 | 消除 split_result 隐式 dict 契约（30+ key） | `data_utils.py`, `project_manager.py` |
+| ④ 基础设施单元测试 | PipelineStrategy + ProjectManager + SplitResult 覆盖 | 3 个新测试文件 |
+
+### 候选 1: PipelineData.from_split() 工厂方法
+
+**`utils/pipeline_strategy.py`** — 新增 `@classmethod from_split(cls, split_result, subset)`：
+
+```python
+@classmethod
+def from_split(cls, split_result: dict, subset: str = "train") -> "PipelineData":
+    suffix = f"_{subset}"
+    key = f"x_mark{suffix}"
+    if key not in split_result:
+        return cls()
+    return cls(
+        X_mark=split_result[f"x_mark{suffix}"],
+        dec_inp=split_result[f"dec_inp{suffix}"],
+        y_mark=split_result[f"y_mark{suffix}"],
+        n_time_features=split_result.get("n_time_features", 4),
+        seq_len=split_result.get("seq_len", 96),
+        label_len=split_result.get("label_len", 0),
+    )
+```
+
+key 不存在时返回空的 `PipelineData()`（全字段 None），而非返回 None。调用者无需 `if/else`。
+
+**替换的 6 处调用点**:
+
+| 位置 | 旧代码 (行数) | 新代码 |
+|------|---------------|--------|
+| `routes/training.py:_run_and_persist` pd_train | 14 行 if-block | `PipelineData.from_split(split_result, "train")` |
+| `routes/training.py:_run_and_persist` pd_val | 6 行 | `PipelineData.from_split(split_result, "test")` |
+| `routes/evaluation.py:api_evaluate` | 4 行 ternary | `PipelineData.from_split(split_result, "test")` |
+| `routes/evaluation.py:_compute_predictions` test | 4 行 ternary | `PipelineData.from_split(split_result, "test")` |
+| `routes/evaluation.py:_compute_predictions` train | 4 行 ternary | `PipelineData.from_split(split_result, "train")` |
+| `routes/evaluation.py:api_validate` | 8 行 if-block | **保留显式构造**（cross_validate_model 使用 None 作为 fold 数据切片哨兵值） |
+
+### 候选 2: normalize_target 支持预计算参数
+
+**`utils/data_utils.py`** — `normalize_target()` 新增可选 `norm_params` 和 `target_idx` 参数：
+
+```python
+def normalize_target(y_train, y_test, method="mean",
+                     norm_params=None, target_idx=None):
+    if norm_params is not None and target_idx is not None:
+        # Extract target statistics from precomputed norm_params
+        if method == "minmax":
+            t_min = np.array(norm_params["min"])[target_idx]
+            t_max = np.array(norm_params["max"])[target_idx]
+            ...
+```
+
+**`routes/training.py`** — `_setup_training()` 中 35 行内联归一化块替换为：
+
+```python
+if split_result["task_type"] == "regression":
+    if pipeline == "large" and norm_method in ("minmax", "mean"):
+        y_norm_result = normalize_target(
+            split_result["y_train"], split_result["y_test"],
+            method=norm_method,
+            norm_params=norm_params,
+            target_idx=split_result.get("target_idx", -1),
+        )
+    else:
+        ...
+```
+
+### 候选 3: SplitResult 类型化数据类
+
+**`utils/data_utils.py`** — 新增 `SplitResult` 数据类（26 字段）：
+
+```python
+@dataclass
+class SplitResult:
+    X_train: np.ndarray; X_test: np.ndarray
+    y_train: np.ndarray; y_test: np.ndarray
+    feature_names: list; target_name: str; task_type: str; n_classes: int
+    target_encoder: Optional[object] = None; input_dim: int = 0
+    is_time_series: bool = False; seq_len: int = 0; pred_len: int = 0
+    label_len: int = 0; time_col: str = ""; time_granularity: str = ""
+    time_encoding_features: list = field(default_factory=list)
+    n_time_features: int = 0
+    x_mark_train: Optional[np.ndarray] = None; dec_inp_train: Optional[np.ndarray] = None
+    y_mark_train: Optional[np.ndarray] = None; x_mark_test: Optional[np.ndarray] = None
+    dec_inp_test: Optional[np.ndarray] = None; y_mark_test: Optional[np.ndarray] = None
+    target_idx: int = -1; y_scaler: Optional[dict] = None
+```
+
+向后兼容设计：
+- `__getitem__` / `__setitem__` — 属性访问伪装成 dict 访问
+- `__contains__` — 可选字段（default=None）只在值不为 None 时返回 True，匹配旧 dict 语义
+- `get()` / `items()` / `update()` — dict 兼容方法
+
+**`utils/project_manager.py`** — `load_split()` 返回 `SplitResult(**data)`；`save_split()` 用 `dataclasses.asdict()` 序列化。
+
+### 候选 4: 基础设施单元测试
+
+| 测试文件 | 测试数 | 覆盖内容 |
+|----------|--------|---------|
+| `tests/test_pipeline_strategy.py` | 22 | PipelineData.from_split 4 场景 + SmallPipelineStrategy 9 方法 + LargePipelineStrategy 7 方法 |
+| `tests/test_project_manager.py` | 7 | SplitResult 序列化往返（通用/时序/y_scaler/encoder/None/空） |
+| `tests/test_split_result.py` | 10 | 数据类 dict 兼容（getitem/setitem/get/contains/items/update） |
+
+新增 41 测试，原有 159 测试全部通过，总计 200 测试。
+
+### 验证
+
+```
+200 passed in 131.19s (0:02:11)
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

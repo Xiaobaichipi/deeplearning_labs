@@ -38,6 +38,28 @@ class PipelineData:
     seq_len: int = 0
     label_len: int = 0
 
+    @classmethod
+    def from_split(cls, split_result: dict, subset: str = "train") -> "PipelineData":
+        """Construct PipelineData from a split_result dict.
+
+        ``subset`` must be ``"train"`` or ``"test"``.  Returns a populated
+        ``PipelineData`` when the corresponding ``x_mark_*`` keys exist in
+        *split_result*, or an empty ``PipelineData()`` (all ``None`` fields)
+        when they don't (e.g. non-time-series data).
+        """
+        suffix = f"_{subset}"  # "_train" or "_test"
+        key = f"x_mark{suffix}"
+        if key not in split_result:
+            return cls()
+        return cls(
+            X_mark=split_result[f"x_mark{suffix}"],
+            dec_inp=split_result[f"dec_inp{suffix}"],
+            y_mark=split_result[f"y_mark{suffix}"],
+            n_time_features=split_result.get("n_time_features", 4),
+            seq_len=split_result.get("seq_len", 96),
+            label_len=split_result.get("label_len", 0),
+        )
+
 
 class PipelineStrategy(ABC):
     """Interface for pipeline-specific behaviour in training and inference.

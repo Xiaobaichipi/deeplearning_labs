@@ -2,6 +2,87 @@ import pandas as pd
 import numpy as np
 import io
 import os
+from dataclasses import dataclass, field, MISSING
+from typing import Optional
+
+
+@dataclass
+class SplitResult:
+    """Typed result of ``split_data()``.
+
+    Dict-compatible accessors (``__getitem__``, ``get``, ``items``,
+    ``__contains__``, ``__setitem__``) are provided for backward
+    compatibility during the migration from loose dicts.
+    """
+
+    X_train: np.ndarray
+    X_test: np.ndarray
+    y_train: np.ndarray
+    y_test: np.ndarray
+    feature_names: list
+    target_name: str
+    task_type: str  # "regression" | "classification"
+    n_classes: int
+    input_dim: int
+    is_time_series: bool = False
+    target_encoder: Optional[object] = None  # LabelEncoder | None
+
+    # Time-series fields (TS paths only)
+    seq_len: int = 0
+    pred_len: int = 0
+    label_len: int = 0
+    time_col: str = ""
+    time_granularity: str = ""
+    time_encoding_features: list = field(default_factory=list)
+
+    # Large-pipeline fields
+    x_mark_train: Optional[np.ndarray] = None
+    dec_inp_train: Optional[np.ndarray] = None
+    y_mark_train: Optional[np.ndarray] = None
+    x_mark_test: Optional[np.ndarray] = None
+    dec_inp_test: Optional[np.ndarray] = None
+    y_mark_test: Optional[np.ndarray] = None
+    target_idx: int = -1
+    n_time_features: int = 0
+    pipeline: str = ""
+
+    # Runtime normalization (added by _setup_training)
+    norm_params: Optional[dict] = None
+    y_scaler: Optional[dict] = None
+
+    # ── Dict-compatible accessors ────────────────────────────────────────
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __contains__(self, key):
+        """Check key existence — matches old dict semantics for optional fields.
+
+        For optional fields (those with ``default=None``), returns False
+        when the value is still ``None`` (i.e. not explicitly set).  For
+        required fields and fields with non-``None`` defaults, returns True
+        whenever the field exists on the dataclass.
+        """
+        if not hasattr(self, key):
+            return False
+        field = self.__dataclass_fields__.get(key)
+        if field is not None and field.default is None and field.default_factory is MISSING:
+            return getattr(self, key) is not None
+        return True
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def items(self):
+        for name in self.__dataclass_fields__:
+            yield name, getattr(self, name)
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 def load_data(filepath):
@@ -410,7 +491,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
             n_features = X_val_with_target.shape[1]
             input_dim = n_features
 
-            return {
+            return SplitResult(**{
                 "X_train": X_train,
                 "x_mark_train": xm_tr,
                 "dec_inp_train": di_tr,
@@ -437,7 +518,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
                 "time_encoding_features": enc_names,
                 "time_granularity": used_granularity,
                 "pipeline": "large",
-            }
+            })
 
         # ── Small-model pipeline: time features baked into X ──────────────────
         X_num = X[num_cols].values.astype(np.float32)
@@ -469,7 +550,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
         n_features = X_num.shape[1]
         input_dim = n_features
 
-        return {
+        return SplitResult(**{
             "X_train": X_train,
             "X_test": X_test,
             "y_train": y_train,
@@ -487,7 +568,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
             "time_col": time_col,
             "time_encoding_features": enc_names,
             "time_granularity": used_granularity,
-        }
+        })
 
     # --- General (non-time-series) path: existing behavior ---
     y = df[target_col]
@@ -525,7 +606,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
 
     n_classes = len(np.unique(y_encoded)) if task_type == "classification" else 1
 
-    return {
+    return SplitResult(**{
         "X_train": X_train,
         "X_test": X_test,
         "y_train": y_train,
@@ -537,7 +618,7 @@ def split_data(df, target_col, test_size=0.2, random_state=42,
         "target_encoder": target_encoder,
         "input_dim": X_processed.shape[1],
         "is_time_series": False,
-    }
+    })
 
 
 def normalize_data(X_train, X_test, method="minmax"):
@@ -623,17 +704,48 @@ def normalize_data_apply(X, norm_params, method):
     return normed.reshape(orig_shape).astype(np.float32)
 
 
-def normalize_target(y_train, y_test, method="mean"):
+def normalize_target(y_train, y_test, method="mean",
+                     norm_params=None, target_idx=None):
     """Normalize target values for regression so MSE is scale-independent.
 
-    For classification tasks, y is passed through unchanged.
-    Returns (y_train, y_test, params) where params contains mean/std
-    needed to invert the transformation later.
+    When *norm_params* and *target_idx* are provided, the normalization
+    statistics are extracted from the precomputed *norm_params* (as produced
+    by ``normalize_data``) instead of being computed directly from *y_train*.
+    This is needed for large-pipeline models where the target column is
+    embedded as the last feature of the decoder input and must use the same
+    scaling constants.
+
+    Returns
+    -------
+    (y_train_norm, y_test_norm, params)
+        *params* is a dict with ``method`` and the scaling constants.
     """
     if method is None:
         return y_train, y_test, {"method": None}
 
     params = {"method": method}
+    if norm_params is not None and target_idx is not None:
+        # Extract target statistics from precomputed feature-level norm_params
+        if method == "mean":
+            t_mean = float(np.array(norm_params["mean"])[target_idx])
+            t_std = float(np.array(norm_params["std"])[target_idx])
+            t_std = t_std or 1.0
+            y_train_norm = (y_train - t_mean) / t_std
+            y_test_norm = (y_test - t_mean) / t_std
+            params["mean"] = t_mean
+            params["std"] = t_std
+        elif method == "minmax":
+            t_min = float(np.array(norm_params["min"])[target_idx])
+            t_max = float(np.array(norm_params["max"])[target_idx])
+            denom = t_max - t_min or 1.0
+            y_train_norm = (y_train - t_min) / denom
+            y_test_norm = (y_test - t_min) / denom
+            params["min"] = t_min
+            params["max"] = t_max
+        else:
+            return y_train, y_test, {"method": None}
+        return y_train_norm, y_test_norm, params
+
     if method == "mean":
         y_mean = float(np.mean(y_train))
         y_std = float(np.std(y_train))

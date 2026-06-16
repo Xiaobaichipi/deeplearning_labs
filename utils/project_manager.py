@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from utils.data_utils import SplitResult
+
 
 class ProjectManager:
     """Manages project directories under *projects_dir*.
@@ -137,7 +139,7 @@ class ProjectManager:
         with open(os.path.join(splits_dir, "latest.json"), "w", encoding="utf-8") as f:
             json.dump(serializable, f, ensure_ascii=False, indent=2)
 
-    def load_split(self, project_id: str) -> dict | None:
+    def load_split(self, project_id: str) -> SplitResult | None:
         json_path = self._pp(project_id, "splits", "latest.json")
         if not os.path.isfile(json_path):
             return None
@@ -170,7 +172,9 @@ class ProjectManager:
             if key.startswith("_"):
                 del data[key]
 
-        return data
+        # Convert to SplitResult (only matching fields to be safe)
+        valid_keys = SplitResult.__dataclass_fields__
+        return SplitResult(**{k: v for k, v in data.items() if k in valid_keys})
 
     # ── model ─────────────────────────────────────────────────────────────────
 
