@@ -1262,6 +1262,22 @@ RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x10 and 96x5)
 
 ---
 
+### Bug: 项目激活时 DLinear state_dict size mismatch
+
+**症状**: 激活含 DLinear 模型的项目时报错：
+```
+Failed to reconstruct model: Error(s) in loading state_dict for DLinearWrapper:
+size mismatch for _model.Linear_Seasonal.0.weight:
+  copying a param with shape torch.Size([5,10]) from checkpoint,
+  the shape in current model is torch.Size([5,96]).
+```
+
+**根因**: `_reconstruct_model()` (routes/projects.py:42) 中 PipelineData 创建和 `extra_model_kwargs()` 调用被包裹在 `if meta.get("pipeline") == "large":` 条件块内。DLinear 的 pipeline="small"，跳过该块，`model_kw` 永远不含 `seq_len`，模型用默认值 `seq_len=96` 初始化。checkpoint 保存的是实际训练时的 `seq_len=10`，导致 `load_state_dict` 时 Linear 层 weight shape 不匹配。
+
+**修复**: 将条件从 `if meta.get("pipeline") == "large":` 改为 `if meta.get("is_time_series"):`，使所有时序模型（无论 pipeline 类型）都能正确获取 `seq_len`/`label_len`。`label_len` 降级：large pipeline 默认 `seq_len//2`，small pipeline 默认 `0`。
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
