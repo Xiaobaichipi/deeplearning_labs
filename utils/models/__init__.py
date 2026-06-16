@@ -10,6 +10,7 @@ from .transformer import TransformerTabularModel
 from .autoformer import AutoformerWrapper
 from .informer import InformerWrapper
 from .crossformer import CrossformerWrapper
+from .dlinear import DLinearWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -91,6 +92,15 @@ MODEL_REGISTRY = {
             "num_layers": {"type": "int", "default": 2, "label": "Encoder layers"},
             "dim_feedforward": {"type": "int", "default": 256, "label": "Feedforward dimension"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "dlinear": {
+        "class": DLinearWrapper,
+        "name": "DLinear (Decomposition Linear)",
+        "pipeline": "small",
+        "params": {
+            "moving_avg": {"type": "int", "default": 25, "label": "Moving average kernel"},
+            "individual": {"type": "bool", "default": False, "label": "Individual channels"},
         },
     },
     "crossformer": {
@@ -189,6 +199,7 @@ __all__ = [
     "AutoformerWrapper",
     "InformerWrapper",
     "CrossformerWrapper",
+    "DLinearWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",

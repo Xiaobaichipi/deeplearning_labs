@@ -62,6 +62,7 @@ graph TB
     n8_autoformer["utils/models/autoformer.py"]
     n9_informer["utils/models/informer.py"]
     n10_crossformer["utils/models/crossformer.py"]
+    n11_dlinear["utils/models/dlinear.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -147,6 +148,7 @@ graph TB
   %% Informer deps
   n0_models___init__ -->|1| n9_informer
   n0_models___init__ -->|1| n10_crossformer
+  n0_models___init__ -->|1| n11_dlinear
   n9_informer -->|1| n1_base
   n9_informer -->|1| n0_sl__init__
   n9_informer -->|1| n0_il__init__
@@ -155,6 +157,9 @@ graph TB
   %% Crossformer deps
   n10_crossformer -->|1| n1_base
   n10_crossformer -->|1| n0_cl__init__
+
+  %% DLinear deps
+  n11_dlinear -->|1| n1_base
   n0_cl__init__ -->|1| n1_cl_embed
   n0_cl__init__ -->|1| n2_cl_attn
   n0_cl__init__ -->|1| n3_cl_encdec
@@ -175,6 +180,7 @@ graph TB
   n8_autoformer -->|extends| n1_base
   n9_informer -->|extends| n1_base
   n10_crossformer -->|extends| n1_base
+  n11_dlinear -->|extends| n1_base
   </div>
   <div class="legend">
     <span>→ <strong>N</strong>  Cross-file call/import count</span>

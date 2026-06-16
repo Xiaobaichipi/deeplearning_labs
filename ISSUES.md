@@ -1166,6 +1166,81 @@ Encoder 使用 `scale_block` + `SegMerging` 实现多尺度层次化表示，Dec
 
 ---
 
+## 2026-06-16: 新增模型 — DLinear (Decomposition Linear) (feat/informer-integration 分支)
+
+### 集成概述
+
+从 `time_series_models_labs` 移植 DLinear 模型。DLinear 是 Areal 团队提出的极简线性模型（与 Autoformer 同一团队），核心创新是使用 series decomposition 将时间序列分解为 seasonal + trend 分量，每个分量独立通过 Linear 层映射 seq_len → pred_len。
+
+### 架构
+
+```
+x (batch, seq_len, enc_in)
+    ↓
+series_decomp ──→ seasonal (batch, seq_len, enc_in)
+│                    ↓ permute(0,2,1)
+│                    ↓ Linear(seq_len, pred_len)
+│                    ↓ (batch, enc_in, pred_len)
+│
+└──→ trend (batch, seq_len, enc_in)
+                     ↓ permute(0,2,1)
+                     ↓ Linear(seq_len, pred_len)
+                     ↓ (batch, enc_in, pred_len)
+                         ↓ sum
+                    (batch, enc_in, pred_len)
+                         ↓ permute(0,2,1)
+                    (batch, pred_len, enc_in)
+                         ↓ output_proj enc_in→1
+                    (batch, pred_len, 1)
+                         ↓ squeeze
+                    (batch, pred_len)
+```
+
+### Pipeline 决策
+
+与 Autoformer/Informer/Crossformer（large pipeline）不同，DLinear 使用 **small pipeline**：
+
+| 维度 | Large Pipeline 模型 | DLinear |
+|------|-------------------|---------|
+| forward | `(x_enc, x_mark, x_dec, x_mark)` | `(x)` |
+| 时间特征 | 需要 | 不需要 |
+| PipelineData | 必须 | 不需要 |
+| 依赖层 | attention/embedding/encoder/decoder | 仅 series_decomp（30行内联） |
+| 输出 | `(batch, pred_len, 1)` → format squeeze | 直接 `(batch, pred_len)` |
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| series_decomp 来源 | 内联在 `dlinear.py` | 仅 30 行，不值得独立包或跨包引用 |
+| 参数暴露 | `moving_avg` + `individual` | DLinear 原始参数就这两个 |
+| Dropout | 不暴露 | 原始 DLinear 无 dropout，线性层加 dropout 意义不大 |
+| Weight 初始化 | `(1/seq_len) × ones(pred_len, seq_len)` | 论文核心设计——从均值预测开始训练 |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/dlinear.py` | **新建** — DLinearWrapper (pipeline="small") + 内联 _MovingAvg / _SeriesDecomp + _RawDLinear |
+| `utils/models/__init__.py` | **修改** — 注册 DLinearWrapper，参数 moving_avg + individual |
+| `utils/config.py` | **修改** — MODEL 字典添加 dlinear 默认超参（moving_avg=25, individual=False） |
+| `templates/index.html` | **修改** — 添加 DLinear 选项和参数面板（moving_avg + individual toggle） |
+| `static/js/app.js` | **修改** — allOptions 添加 DLinear；tsModels 添加；startTraining 参数收集 |
+| `static/js/ui.js` | **修改** — toggleModelParams 添加 dlinearParams |
+| `static/dependency_graph.html` | **修改** — 添加 DLinear 节点和继承边 |
+
+### 验证
+
+| 功能 | 状态 |
+|------|------|
+| 模型实例化 (input_dim=5, output_dim=12, seq_len=48) | ✓ |
+| 前向传播 shared | ✓ → (4, 12) |
+| 前向传播 individual | ✓ → (4, 12) |
+| 注册表查询 | ✓ pipeline="small", params=moving_avg+individual |
+| 测试套件 | ✓ 160 passed |
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

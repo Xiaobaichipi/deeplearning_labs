@@ -97,6 +97,7 @@ MODEL = {
                  "factor": 3, "distil": True, "dropout": 0.1, "activation": "gelu"},
     "crossformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_ff": 32,
                     "factor": 3, "seg_len": 12, "win_size": 2, "dropout": 0.1, "activation": "gelu"},
+    "dlinear": {"moving_avg": 25, "individual": False},
 }
 
 TIME_SERIES = {

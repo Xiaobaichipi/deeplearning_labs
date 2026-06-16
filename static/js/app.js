@@ -179,9 +179,10 @@ function updateModelOptions(taskType) {
         "autoformer": "Autoformer (Long-term Forecast)",
         "informer": "Informer (ProbSparse Attention)",
         "crossformer": "Crossformer (Two-Stage Attention)",
+        "dlinear": "DLinear (Decomposition Linear)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "dlinear"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
@@ -310,6 +311,11 @@ async function startTraining() {
             seg_len: parseInt(document.getElementById("crossSegLen").value) || DEFAULTS.model.crossformer.seg_len,
             win_size: parseInt(document.getElementById("crossWinSize").value) || DEFAULTS.model.crossformer.win_size,
             activation: document.getElementById("crossActivation").value,
+        });
+    } else if (mt === "dlinear") {
+        Object.assign(params, {
+            moving_avg: parseInt(document.getElementById("dlMovingAvg").value) || DEFAULTS.model.dlinear.moving_avg,
+            individual: document.getElementById("toggleIndividual").classList.contains("active"),
         });
     }
 

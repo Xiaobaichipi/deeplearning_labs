@@ -474,6 +474,24 @@
                         </div>
                     </div>
 
+                    <div id="dlinearParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Moving average kernel</label>
+                                <input type="number" id="dlMovingAvg" value="{{ cfg.model.dlinear.moving_avg }}" min="3" max="99" step="2">
+                            </div>
+                            <div class="input-group">
+                                <label>Individual channels</label>
+                                <div class="toggle-container" style="margin-top:6px;">
+                                    <div class="toggle" id="toggleIndividual" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-knob"></div>
+                                    </div>
+                                    <input type="hidden" id="dlIndividual" value="false">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>  <!-- /Model Architecture card -->
                     <div class="form-row">
                         <div class="input-group">
