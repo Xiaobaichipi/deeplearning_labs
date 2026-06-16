@@ -1149,6 +1149,21 @@ Encoder 使用 `scale_block` + `SegMerging` 实现多尺度层次化表示，Dec
 测试套件:   ✓ (160 passed)
 ```
 
+### 后续修复
+
+| 提交 | 问题 | 修复 |
+|------|------|------|
+| `4413796` | Crossformer 缺少 `activation` 参数，`TwoStageAttentionLayer` 和 `DecoderLayer` 始终使用 GELU 无法切换；seg_len/win_size 无输入校验 | 统一 activation 为超参（支持 relu/gelu），前后端注册表同步；`_setup_training()` 新增 seg_len 除数校验和 win_size ≤ e_layers 校验 |
+| `520ea76` | large pipeline 未要求 Time Series 模式，非时序任务中 `split_data` 不生成 `x_mark_train/dec_inp/y_mark`，`LargePipelineStrategy` 报 `ValueError` | `_setup_training()` 在 `split_data` 前检查 `pipeline=="large"` 且非 time_series 时提前抛出 `RouteError`，引导用户切换任务类型 |
+
+### 三层防御链（避免用户跨模型搭配）
+
+| 层级 | 位置 | 机制 |
+|------|------|------|
+| ① 前端过滤 | `app.js: tsModels` + `updateModelOptions()` | 时序任务只显示 `pipeline="large"` 模型，非时序任务隐藏 |
+| ② 前端同步 | `app.js: startTraining()` | 训练前自动同步任务类型到服务端 task_config |
+| ③ 后端校验 | `training.py: _setup_training()` | `pipeline=="large"` + 非 time_series 时抛 `RouteError` |
+
 ---
 
 ## Prior Issues (前序会话已解决)
