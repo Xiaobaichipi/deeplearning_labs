@@ -305,3 +305,29 @@ class TestEvaluateClassification:
 
         assert result["accuracy"] >= 0
         assert "confusion_matrix" in result["images"]
+
+
+class TestETSformerFourierLayer:
+    """FourierLayer robustness — topk edge cases."""
+
+    def test_topk_small_seq_len_no_crash(self):
+        """top_k larger than available frequency components does not crash."""
+        import torch
+        from utils.models.etsformer_layers import FourierLayer
+
+        layer = FourierLayer(d_model=256, pred_len=1, k=5, low_freq=1)
+        for seq_len in [4, 6, 8, 10]:
+            x = torch.randn(2, seq_len, 256)
+            out = layer(x)
+            assert out.shape == (2, seq_len + 1, 256), f"shape mismatch at seq_len={seq_len}"
+
+    def test_topk_seq_len_two_no_crash(self):
+        """seq_len=2 (freq_len=0 after low_freq) does not crash, returns zeros."""
+        import torch
+        from utils.models.etsformer_layers import FourierLayer
+
+        layer = FourierLayer(d_model=256, pred_len=1, k=5, low_freq=1)
+        x = torch.randn(2, 2, 256)
+        out = layer(x)
+        assert out.shape == (2, 3, 256)
+        assert (out == 0).all(), "expected zeros when no freq components"

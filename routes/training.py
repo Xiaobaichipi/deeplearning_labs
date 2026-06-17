@@ -332,6 +332,20 @@ def _setup_training(sm, data_id, df, params):
                     f"win_size ({win_size}) must be ≤ e_layers ({e_layers}) for Crossformer."
                 )
 
+        # ETSformer-specific validation
+        if model_type == "etsformer":
+            top_k = int(params.get("top_k", 5))
+            # freq_len after rfft + low_freq=1 slicing:
+            #   even: seq_len//2 - 1   (e.g. 10→4)
+            #   odd:  (seq_len+1)//2 - 1  (e.g. 11→5)
+            max_freq = (seq_len // 2 - 1) if seq_len % 2 == 0 else ((seq_len + 1) // 2 - 1)
+            if top_k > max_freq:
+                raise RouteError(
+                    f"top_k ({top_k}) exceeds available frequency components "
+                    f"({max_freq}) for seq_len={seq_len}. "
+                    f"Reduce top_k or increase seq_len."
+                )
+
         ts_params = {
             "time_series": True,
             "time_col": task_config.get("time_col"),

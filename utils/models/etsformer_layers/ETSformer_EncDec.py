@@ -187,6 +187,11 @@ class FourierLayer(nn.Module):
         else:
             x_freq = x_freq[:, self.low_freq:]
             f = fft.rfftfreq(t)[self.low_freq:]
+
+        # No frequency components after low_freq removal (seq_len too small)
+        if x_freq.shape[1] < 1:
+            return torch.zeros(b, t + self.pred_len, d, device=x.device)
+
         x_freq, index_tuple = self.topk_freq(x_freq)
         f = repeat(f, 'f -> b f d', b=x_freq.size(0), d=x_freq.size(2))
         f = rearrange(f[index_tuple], 'b f d -> b f () d').to(x_freq.device)
@@ -203,7 +208,10 @@ class FourierLayer(nn.Module):
         return reduce(x_time, 'b f t d -> b t d', 'sum')
 
     def topk_freq(self, x_freq):
-        values, indices = torch.topk(x_freq.abs(), self.k, dim=1, largest=True, sorted=True)
+        k = min(self.k, x_freq.shape[1]) if self.k is not None else x_freq.shape[1]
+        if k < 1:
+            k = 1
+        values, indices = torch.topk(x_freq.abs(), k, dim=1, largest=True, sorted=True)
         mesh_a, mesh_b = torch.meshgrid(torch.arange(x_freq.size(0)), torch.arange(x_freq.size(2)),
                                         indexing='ij')
         index_tuple = (mesh_a.unsqueeze(1).to(indices.device), indices, mesh_b.unsqueeze(1).to(indices.device))
