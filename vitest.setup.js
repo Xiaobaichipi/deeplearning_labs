@@ -24,6 +24,14 @@ document.body.innerHTML = `
     film: { window_size: "256", multiscale: "1,2,4", dropout: 0.1 },
     vanilla_transformer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 3, d_ff: 32, dropout: 0.1, activation: "gelu" },
     dlinear: { moving_avg: 25, individual: false },
+    random_forest_regressor: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    random_forest_classifier: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    xgboost_regressor: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    xgboost_classifier: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    lightgbm_regressor: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    lightgbm_classifier: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    decision_tree_regressor: { max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    decision_tree_classifier: { max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
   },
   cv: { default_folds: 5 },
   devices: ["cpu"],
@@ -48,6 +56,14 @@ document.body.innerHTML = `
   <select id="vanillaActivation"><option value="gelu">GELU</option><option value="relu">ReLU</option></select>
 </div>
 <div id="dlinearParams" style="display:none"></div>
+<div id="classicalMlParams" style="display:none">
+  <div id="classicalNEstimatorsRow">
+    <input id="classicalNEstimators" value="100">
+  </div>
+  <input id="classicalMaxDepth" value="">
+  <input id="classicalMinSamplesSplit" value="2">
+  <input id="classicalMinSamplesLeaf" value="1">
+</div>
 <select id="modelType">
   <option value="mlp">MLP</option>
   <option value="cnn">CNN</option>
@@ -63,6 +79,14 @@ document.body.innerHTML = `
   <option value="film">FiLM</option>
   <option value="vanilla_transformer">Vanilla Transformer</option>
   <option value="dlinear">DLinear</option>
+  <option value="random_forest_regressor">Random Forest Regressor</option>
+  <option value="random_forest_classifier">Random Forest Classifier</option>
+  <option value="xgboost_regressor">XGBoost Regressor</option>
+  <option value="xgboost_classifier">XGBoost Classifier</option>
+  <option value="lightgbm_regressor">LightGBM Regressor</option>
+  <option value="lightgbm_classifier">LightGBM Classifier</option>
+  <option value="decision_tree_regressor">Decision Tree Regressor</option>
+  <option value="decision_tree_classifier">Decision Tree Classifier</option>
 </select>
 <div id="modelSelector" style="display:none">
   <select id="modelSelect"><option value="">-- Select --</option></select>
@@ -109,12 +133,14 @@ document.body.innerHTML = `
 <input id="transNhead" value="4">
 <input id="transDimFeedforward" value="256">
 <input id="learningRate" value="0.001">
+<div id="trainingHyperparams">
 <input id="batchSize" value="32">
 <input id="epochs" value="10">
 <input id="dropout" value="0.2">
 <input id="patience" value="10">
 <select id="normalization"><option value="none">None</option><option value="minmax">Min-Max</option><option value="mean">Mean</option></select>
 <select id="deviceSelect"><option value="cpu">cpu</option></select>
+</div>
 <button id="trainBtn"></button>
 <button id="applyTaskConfigBtn">Apply</button>
 <div id="trainError" style="display:none"></div>

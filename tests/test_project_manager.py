@@ -5,8 +5,10 @@ import tempfile
 import numpy as np
 import pytest
 from sklearn.preprocessing import LabelEncoder
+from sklearn.datasets import make_regression
 
 from utils.data_utils import SplitResult
+from utils.model_utils import create_model, train_model
 from utils.project_manager import ProjectManager
 
 
@@ -133,3 +135,36 @@ class TestSplitRoundTrip:
         assert loaded.is_time_series is False
         assert loaded.y_scaler is None
         assert loaded.target_encoder is None
+
+
+class TestSklearnSerialization:
+    """Pickle round-trip for sklearn-backed models via ProjectManager."""
+
+    def test_sklearn_save_load_round_trip(self, pm):
+        """Train a random forest, save via pickle, load, and verify predictions match."""
+        X, y = make_regression(n_samples=50, n_features=2, noise=0.1, random_state=42)
+        X = X.astype(np.float32)
+
+        model = create_model("random_forest_regressor", X.shape[1], 1, n_estimators=10)
+        trained, _ = train_model(
+            model, X, y, X, y, task_type="regression",
+        )
+        preds_before = trained.predict(X)
+
+        pid = pm.create_project("test-sklearn-model")
+        mid = pm.next_model_id(pid)
+        meta = {
+            "model_type": "random_forest_regressor",
+            "_sklearn_backend": True,
+            "input_dim": X.shape[1],
+            "output_dim": 1,
+        }
+        pm.save_model(pid, mid, trained, meta, is_sklearn=True)
+
+        loaded_model, loaded_meta = pm.load_model(pid, mid)
+        assert loaded_model is not None
+        assert loaded_meta["_sklearn_backend"] is True
+        assert loaded_meta["model_type"] == "random_forest_regressor"
+
+        preds_after = loaded_model.predict(X)
+        np.testing.assert_allclose(preds_before, preds_after, rtol=1e-12)

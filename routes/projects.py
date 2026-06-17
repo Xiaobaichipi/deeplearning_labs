@@ -17,8 +17,11 @@ def _pm():
     return current_app.config["project_manager"]
 
 
-def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
-    """Reconstruct a model from saved metadata and state dict.
+def _reconstruct_model(meta, model_or_state, input_dim, output_dim, eval_mode=True):
+    """Reconstruct a model from saved metadata.
+
+    For PyTorch models *model_or_state* is a state_dict loaded via
+    ``torch.load()``; for sklearn models it is the pickled model instance.
 
     ``input_dim`` / ``output_dim`` resolution priority:
 
@@ -33,6 +36,10 @@ def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
     2. ``meta.get("seq_len", 96) // 2`` — fallback heuristic (legacy models)
        with a warning logged.
     """
+    # Sklearn models are loaded directly via pickle — no state_dict to load.
+    if meta.get("_sklearn_backend"):
+        return model_or_state  # already a reconstructed model instance
+
     # Prefer per-model metadata over the shared split_result, which may
     # belong to a different training session (input_dim / output_dim mismatch).
     input_dim = meta.get("input_dim") or input_dim
@@ -54,7 +61,7 @@ def _reconstruct_model(meta, state_dict, input_dim, output_dim, eval_mode=True):
     model = create_model(
         meta["model_type"], input_dim, output_dim, **model_kw,
     )
-    model.load_state_dict(state_dict)
+    model.load_state_dict(model_or_state)
     if eval_mode:
         model.eval()
     return model
@@ -123,7 +130,7 @@ def list_project_models(project_id):
 
 @projects_bp.route("/api/projects/<project_id>/models/<model_id>/export", methods=["GET"])
 def export_model(project_id, model_id):
-    """Download a model's state_dict.pt with custom filename."""
+    """Download a model's state_dict.pt (or model.pkl for sklearn) with custom filename."""
     pm = _pm()
     state_dict, meta = pm.load_model(project_id, model_id)
     if state_dict is None:
@@ -132,14 +139,21 @@ def export_model(project_id, model_id):
     name = request.args.get("name", "").strip()
     if not name:
         name = f"{meta.get('model_type', 'model')}_{model_id}"
-    if not name.endswith(".pt"):
-        name += ".pt"
 
+    is_sklearn = meta.get("_sklearn_backend", False)
     state_path = os.path.join(
         current_app.config["PROJECTS_DIR"],
-        project_id, "models", model_id, "state_dict.pt")
+        project_id, "models", model_id,
+        "model.pkl" if is_sklearn else "state_dict.pt")
     if not os.path.isfile(state_path):
         return jsonify({"error": "Model file not found"}), 404
+
+    if is_sklearn:
+        if not name.endswith(".pkl"):
+            name += ".pkl"
+    else:
+        if not name.endswith(".pt"):
+            name += ".pt"
     return send_file(state_path, as_attachment=True, download_name=name)
 
 

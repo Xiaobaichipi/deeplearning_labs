@@ -9,3 +9,5 @@ openpyxl>=3.1
 scipy>=1.0
 sympy>=1.9
 torch>=2.0,<2.6  # CUDA 12.x driver 兼容
+xgboost>=1.7
+lightgbm>=3.3

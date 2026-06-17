@@ -22,6 +22,103 @@ def create_model(model_type, input_dim, output_dim, **params):
     return model_class(input_dim, output_dim, **params)
 
 
+def _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type):
+    """Train a sklearn-backed model via .fit() and return metrics.
+
+    Returns ``(model, history_dict)`` where history contains train/val scores.
+    """
+    from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+    model.fit(X_train, y_train)
+    train_pred = model.predict(X_train)
+    val_pred = model.predict(X_val)
+
+    if task_type == "classification":
+        train_score = float(accuracy_score(y_train, train_pred))
+        val_score = float(accuracy_score(y_val, val_pred))
+    else:
+        train_score = float(r2_score(y_train, train_pred))
+        val_score = float(r2_score(y_val, val_pred))
+
+    return model, {
+        "train_loss": [train_score],
+        "val_loss": [val_score],
+        "train_metric": [train_score],
+        "val_metric": [val_score],
+        "epoch_times": [0.0],
+        "sklearn_backend": True,
+    }
+
+
+def _evaluate_sklearn(model, X_test, y_test, task_type, target_encoder=None, y_scaler=None):
+    """Evaluate a sklearn-backed model — no PyTorch/cuda involved."""
+    from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                                 f1_score, confusion_matrix, mean_squared_error,
+                                 mean_absolute_error, r2_score)
+    from .plot_utils import plot_confusion_matrix, plot_roc_curve, \
+        plot_pred_vs_true, plot_residuals
+    import numpy as np
+
+    preds = model.predict(X_test)
+    y_true = np.asarray(y_test)
+
+    if task_type == "classification":
+        probs = model.predict_proba(X_test) if hasattr(model, "predict_proba") else None
+
+        acc = accuracy_score(y_true, preds)
+        avg = "binary" if len(np.unique(y_true)) == 2 else "weighted"
+        prec = precision_score(y_true, preds, average=avg, zero_division=0)
+        rec = recall_score(y_true, preds, average=avg, zero_division=0)
+        f1 = f1_score(y_true, preds, average=avg, zero_division=0)
+        cm = confusion_matrix(y_true, preds).tolist()
+
+        classes = (
+            [str(c) for c in target_encoder.classes_]
+            if target_encoder else [str(i) for i in range(len(cm))]
+        )
+
+        images = {"confusion_matrix": plot_confusion_matrix(cm, classes)}
+        if len(np.unique(y_true)) == 2 and probs is not None:
+            roc_img, auc = plot_roc_curve(y_true, probs[:, 1])
+            images["roc_curve"] = roc_img
+
+        return {
+            "accuracy": float(acc),
+            "precision": float(prec),
+            "recall": float(rec),
+            "f1_score": float(f1),
+            "confusion_matrix": cm,
+            "class_names": classes,
+            "task_type": "classification",
+            "images": images,
+        }
+    else:
+        mse = mean_squared_error(y_true, preds)
+        rmse = float(np.sqrt(mse))
+        mae = mean_absolute_error(y_true, preds)
+        r2 = r2_score(y_true, preds)
+
+        if y_scaler is not None:
+            from .data_utils import denormalize_target
+            plot_preds = denormalize_target(preds, y_scaler)
+            plot_true = denormalize_target(y_true, y_scaler)
+        else:
+            plot_preds, plot_true = preds, y_true
+
+        images = {
+            "pred_vs_true": plot_pred_vs_true(plot_true, plot_preds),
+            "residuals": plot_residuals(plot_true, plot_preds),
+        }
+
+        return {
+            "mse": float(mse),
+            "rmse": rmse,
+            "mae": float(mae),
+            "r2": float(r2),
+            "task_type": "regression",
+            "images": images,
+        }
+
+
 def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 epochs=50, batch_size=32, lr=0.001, patience=10,
                 device="cpu", progress_callback=None,
@@ -31,8 +128,11 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 # Deprecated: use pipeline_data / pipeline_data_val instead
                 X_mark_train=None, dec_inp_train=None, y_mark_train=None,
                 X_mark_val=None, dec_inp_val=None, y_mark_val=None):
-    """Train a PyTorch model with early stopping and learning rate scheduling.
+    """Train a model. Dispatches to sklearn .fit() when model uses sklearn backend.
     """
+    if getattr(model, "uses_sklearn_backend", False):
+        return _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type)
+
     if isinstance(device, list):
         device_ids = [torch.device(d) for d in device]
         _device = device_ids[0]
@@ -180,8 +280,16 @@ def predict(model, X, task_type, device="cpu",
     """Run inference and return predictions.
 
     For large-pipeline models, pass *pipeline_data* with ``X_mark``,
-    ``dec_inp``, ``y_mark`` fields.
+    ``dec_inp``, ``y_mark`` fields.  For sklearn-backed models, calls
+    ``model.predict(X)`` directly.
     """
+    if getattr(model, "uses_sklearn_backend", False):
+        preds = model.predict(X)
+        if task_type == "classification":
+            probs = model.predict_proba(X) if hasattr(model, "predict_proba") else None
+            return np.atleast_1d(preds), probs
+        return np.atleast_1d(preds), None
+
     if isinstance(device, list):
         device = torch.device(device[0])
     else:
@@ -205,6 +313,32 @@ def predict(model, X, task_type, device="cpu",
             return np.atleast_1d(pred), None
 
 
+def _cross_validate_sklearn(model_type, input_dim, output_dim, X, y, task_type,
+                             model_params, n_splits):
+    """K-fold CV for sklearn-backed models — no epoch loop needed."""
+    from sklearn.model_selection import KFold
+    from sklearn.metrics import accuracy_score, r2_score
+    import numpy as np
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+    scores = []
+    for train_idx, val_idx in kf.split(X):
+        model = create_model(model_type, input_dim, output_dim, **(model_params or {}))
+        model.fit(X[train_idx], y[train_idx])
+        preds = model.predict(X[val_idx])
+        if task_type == "classification":
+            scores.append(float(accuracy_score(y[val_idx], preds)))
+        else:
+            scores.append(float(r2_score(y[val_idx], preds)))
+
+    return {
+        "cv_scores": [round(s, 4) for s in scores],
+        "mean_score": round(float(np.mean(scores)), 4),
+        "std_score": round(float(np.std(scores)), 4),
+        "n_splits": n_splits,
+    }
+
+
 def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
                          model_params=None, n_splits=5, epochs=20,
                          batch_size=32, lr=0.001, device="cpu",
@@ -222,6 +356,13 @@ def cross_validate_model(model_type, input_dim, output_dim, X, y, task_type,
     """
     from sklearn.model_selection import KFold, train_test_split
     from sklearn.metrics import accuracy_score, r2_score
+    from .models import uses_sklearn_backend
+
+    if uses_sklearn_backend(model_type):
+        return _cross_validate_sklearn(
+            model_type, input_dim, output_dim, X, y, task_type,
+            model_params, n_splits,
+        )
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
     scores = []
@@ -295,8 +436,12 @@ def evaluate(model, X_test, y_test, task_type, target_encoder=None,
     """Evaluate a trained model and return metrics + visualization images.
 
     For large-pipeline models, pass *pipeline_data* with ``X_mark``,
-    ``dec_inp``, ``y_mark`` fields.
+    ``dec_inp``, ``y_mark`` fields.  For sklearn-backed models, computes
+    metrics via ``model.predict()``.
     """
+    if getattr(model, "uses_sklearn_backend", False):
+        return _evaluate_sklearn(model, X_test, y_test, task_type, target_encoder, y_scaler)
+
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
                                  mean_absolute_error, r2_score)

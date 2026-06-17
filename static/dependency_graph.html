@@ -67,6 +67,7 @@ graph TB
     n13_fedformer["utils/models/fedformer.py"]
     n14_film["utils/models/film.py"]
     n15_vanilla["utils/models/vanilla_transformer.py"]
+    n16_classical_ml["utils/models/classical_ml.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -202,6 +203,10 @@ graph TB
 
   %% DLinear deps
   n11_dlinear -->|1| n1_base
+
+  %% Classical ML deps
+  n16_classical_ml -->|extends| n1_base
+  n0_models___init__ -->|1| n16_classical_ml
 
   %% ETSformer deps
   n12_etsformer -->|1| n1_base

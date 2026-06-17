@@ -106,6 +106,15 @@ MODEL = {
     "film": {"window_size": "256", "multiscale": "1,2,4", "dropout": 0.1},
     "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
                             "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
+    # ── Classical ML (sklearn backend) ────────────────────────────────────
+    "random_forest_regressor": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "random_forest_classifier": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "xgboost_regressor": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "xgboost_classifier": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "lightgbm_regressor": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "lightgbm_classifier": {"n_estimators": 100, "max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "decision_tree_regressor": {"max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
+    "decision_tree_classifier": {"max_depth": None, "min_samples_split": 2, "min_samples_leaf": 1},
 }
 
 TIME_SERIES = {

@@ -14,6 +14,8 @@ describe("updateModelOptions", () => {
     const values = Array.from(sel.options).map((o) => o.value);
     expect(values).toContain("mlp");
     expect(values).toContain("cnn");
+    expect(values).toContain("random_forest_regressor");
+    expect(values).toContain("xgboost_classifier");
     expect(values).not.toContain("autoformer");
     expect(values).not.toContain("fedformer");
     expect(values).not.toContain("dlinear");
@@ -121,6 +123,14 @@ describe("startTraining — parameter collection", () => {
       <option value="film">FiLM</option>
       <option value="vanilla_transformer">Vanilla Transformer</option>
       <option value="dlinear">DLinear</option>
+      <option value="random_forest_regressor">Random Forest Regressor</option>
+      <option value="random_forest_classifier">Random Forest Classifier</option>
+      <option value="xgboost_regressor">XGBoost Regressor</option>
+      <option value="xgboost_classifier">XGBoost Classifier</option>
+      <option value="lightgbm_regressor">LightGBM Regressor</option>
+      <option value="lightgbm_classifier">LightGBM Classifier</option>
+      <option value="decision_tree_regressor">Decision Tree Regressor</option>
+      <option value="decision_tree_classifier">Decision Tree Classifier</option>
     `;
 
     // Reset standard input values
@@ -253,6 +263,58 @@ describe("startTraining — parameter collection", () => {
     const body = JSON.parse(setupCalls[0][1].body);
     expect(body.model_type).toBe("dlinear");
     expect(body.moving_avg).toBe(35);
+  });
+
+  it("collects random_forest_regressor params", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "random_forest_regressor";
+    window.toggleModelParams();
+    document.getElementById("classicalNEstimators").value = "200";
+    document.getElementById("classicalMaxDepth").value = "10";
+    document.getElementById("classicalMinSamplesSplit").value = "5";
+    document.getElementById("classicalMinSamplesLeaf").value = "2";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("random_forest_regressor");
+    expect(body.n_estimators).toBe(200);
+    expect(body.max_depth).toBe(10);
+    expect(body.min_samples_split).toBe(5);
+    expect(body.min_samples_leaf).toBe(2);
+  });
+
+  it("collects decision_tree params (null max_depth)", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "decision_tree_regressor";
+    window.toggleModelParams();
+    document.getElementById("classicalMaxDepth").value = "";
+    document.getElementById("classicalMinSamplesSplit").value = "10";
+    document.getElementById("classicalMinSamplesLeaf").value = "5";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("decision_tree_regressor");
+    expect(body.max_depth).toBeNull();
+    expect(body.min_samples_split).toBe(10);
+    expect(body.min_samples_leaf).toBe(5);
   });
 
   it("collects etsformer-specific params", async () => {

@@ -318,6 +318,19 @@ function toggleModelParams() {
     document.getElementById("filmParams").style.display = type === "film" ? "block" : "none";
     document.getElementById("vanillaTransformerParams").style.display = type === "vanilla_transformer" ? "block" : "none";
     document.getElementById("dlinearParams").style.display = type === "dlinear" ? "block" : "none";
+
+    const classicalTypes = ["random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
+    const isClassical = classicalTypes.includes(type);
+    document.getElementById("classicalMlParams").style.display = isClassical ? "block" : "none";
+    // Hide PyTorch-specific training hyperparams for sklearn models
+    const hp = document.getElementById("trainingHyperparams");
+    if (hp) hp.style.display = isClassical ? "none" : "block";
+    // Hide n_estimators for Decision Tree models
+    const hasNEstimators = ["random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier"];
+    const nEstimatorsRow = document.getElementById("classicalNEstimatorsRow");
+    if (nEstimatorsRow) {
+        nEstimatorsRow.style.display = hasNEstimators.includes(type) ? "flex" : "none";
+    }
 }
 
 function esc(str) {

@@ -13,7 +13,7 @@
 
 - **📤 Upload & Explore** — Drag-and-drop CSV/Excel import with auto encoding detection, data preview, statistics, distribution histograms, and correlation heatmaps
 - **🧹 Clean & Fill** — Remove duplicates, handle outliers (IQR), fill missing values with multiple strategies (mean, median, mode, ffill, bfill, constant)
-- **🧠 Multi-Architecture Models** — 14 architectures covering general tabular (MLP, CNN, RNN, LSTM, GRU, Tabular Transformer) and time-series forecasting (Autoformer, Informer, Crossformer, DLinear, ETSformer, FEDformer, FiLM, Vanilla Transformer) — all with configurable hyperparameters
+- **🧠 Multi-Architecture Models** — 22 architectures covering general tabular (MLP, CNN, RNN, LSTM, GRU, Tabular Transformer, Random Forest, XGBoost, LightGBM, Decision Tree) and time-series forecasting (Autoformer, Informer, Crossformer, DLinear, ETSformer, FEDformer, FiLM, Vanilla Transformer) — all with configurable hyperparameters
 - **📊 Real-Time Training** — SSE-streamed per-epoch progress with live Loss/Metric curves (Chart.js), early stopping, and LR scheduling
 - **📈 Evaluation & Visualization** — Regression metrics (MSE/RMSE/MAE/R²), classification metrics (accuracy/precision/recall/F1), confusion matrix, ROC curve, residual plots
 - **🔁 Cross-Validation** — K-fold CV using the same model architecture as training
@@ -80,7 +80,7 @@ The interface is organized as a 6-step wizard with an initial project setup:
 | **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded |
 | **2. Explore** | Browse tabs | Data preview, column info, statistics, distribution plots, correlation heatmap |
 | **3. Clean & Fill** | Toggle options | Duplicate removal, outlier clipping (IQR), missing value imputation |
-| **4. Model Config** | Select task type (General / Time Series), model, device & params | Architecture choice from 14 models, CPU/GPU selection, hyperparameters, normalization |
+| **4. Model Config** | Select task type (General / Time Series), model, device & params | Architecture choice from 22 models, CPU/GPU selection, hyperparameters, normalization |
 | **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, LR scheduling |
 | **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, multi-model comparison, charts, CSV/XLSX download |
 
@@ -104,6 +104,10 @@ The interface is organized as a 6-step wizard with an initial project setup:
 | **FEDformer** | Time Series | large | Frequency enhanced decomposed Transformer (Fourier/Wavelets) | d_model, n_heads, e_layers, d_layers, d_ff, moving_avg, modes, version, mode_select, dropout, activation |
 | **FiLM** | Time Series | large | Frequency-enhanced Legendre Memory with HiPPO-LegT + SpectralConv1d | window_size, multiscale, dropout |
 | **DLinear** | Time Series | small | Decomposition linear model with series decomposition | moving_avg, individual |
+| **Random Forest** | General | small | Ensemble of decision trees (regression + classification) | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **XGBoost** | General | small | Gradient boosted decision trees (regression + classification) | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **LightGBM** | General | small | Lightweight gradient boosting (regression + classification) | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **Decision Tree** | General | small | Single decision tree (regression + classification) | max_depth, min_samples_split, min_samples_leaf |
 
 To add a new model, see the [Model Extension Guide](templates/models_guide.html).
 
@@ -128,7 +132,7 @@ deeplearning_labs/
 │   ├── pipeline_strategy.py    # Small/Large pipeline dispatcher
 │   ├── config.py               # Centralized defaults
 │   ├── fonts.py                # Chinese font detection
-│   └── models/                 # Model registry (14 architectures)
+│   └── models/                 # Model registry (22 architectures)
 │       ├── base.py             # Abstract BaseModel
 │       ├── mlp.py, cnn.py, rnn.py, lstm.py, gru.py, transformer.py
 │       ├── vanilla_transformer.py, autoformer.py, informer.py
@@ -208,7 +212,7 @@ TRAINING = {
     "normalization": "none",
 }
 
-MODEL = { ... }  # Per-architecture defaults (14 models)
+MODEL = { ... }  # Per-architecture defaults (22 models)
 TIME_SERIES = {"seq_len": 10, "pred_len": 1, "label_len": 0}
 CV = {"default_folds": 5, "max_epochs_per_fold": 20}
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -223,10 +227,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 pip install pytest pytest-cov
 npm install          # Vitest for JS tests
 
-# Run Python tests (202 tests)
+# Run Python tests (216 tests)
 pytest tests/
 
-# Run JS tests (54 tests)
+# Run JS tests (66 tests)
 npx vitest run
 
 # Start server (Flask debug mode, reloads on code changes)
@@ -237,7 +241,7 @@ python main.py
 
 ## Project Status
 
-Active development on `feat/informer-integration` branch. 202 Python tests + 54 Vitest JS tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, project management, and frontend logic. See [ISSUES.md](ISSUES.md) for the change log.
+Active development on `feat/informer-integration` branch. 216 Python tests + 66 Vitest JS tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, project management, and frontend logic. See [ISSUES.md](ISSUES.md) for the change log.
 
 ---
 

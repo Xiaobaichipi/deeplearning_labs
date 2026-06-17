@@ -15,6 +15,16 @@ from .dlinear import DLinearWrapper
 from .etsformer import ETSformerWrapper
 from .fedformer import FEDformerWrapper
 from .film import FilmWrapper
+from .classical_ml import (
+    RandomForestRegressorWrapper,
+    RandomForestClassifierWrapper,
+    XGBRegressorWrapper,
+    XGBClassifierWrapper,
+    LGBMRegressorWrapper,
+    LGBMClassifierWrapper,
+    DecisionTreeRegressorWrapper,
+    DecisionTreeClassifierWrapper,
+)
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -211,6 +221,101 @@ MODEL_REGISTRY = {
             "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
         },
     },
+    # ── Classical ML (sklearn backend) ────────────────────────────────────
+    "random_forest_regressor": {
+        "class": RandomForestRegressorWrapper,
+        "name": "Random Forest (Regression)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "random_forest_classifier": {
+        "class": RandomForestClassifierWrapper,
+        "name": "Random Forest (Classification)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "xgboost_regressor": {
+        "class": XGBRegressorWrapper,
+        "name": "XGBoost (Regression)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "xgboost_classifier": {
+        "class": XGBClassifierWrapper,
+        "name": "XGBoost (Classification)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "lightgbm_regressor": {
+        "class": LGBMRegressorWrapper,
+        "name": "LightGBM (Regression)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "lightgbm_classifier": {
+        "class": LGBMClassifierWrapper,
+        "name": "LightGBM (Classification)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "n_estimators": {"type": "int", "default": 100, "label": "Number of trees"},
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "decision_tree_regressor": {
+        "class": DecisionTreeRegressorWrapper,
+        "name": "Decision Tree (Regression)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "decision_tree_classifier": {
+        "class": DecisionTreeClassifierWrapper,
+        "name": "Decision Tree (Classification)",
+        "pipeline": "small",
+        "uses_sklearn_backend": True,
+        "params": {
+            "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
+            "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
+            "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
 }
 
 
@@ -248,6 +353,12 @@ def get_large_model_types():
     return [k for k, v in MODEL_REGISTRY.items() if v.get("pipeline") == "large"]
 
 
+def uses_sklearn_backend(model_type):
+    """Return True if the model type uses sklearn backend (not PyTorch)."""
+    entry = MODEL_REGISTRY.get(model_type, {})
+    return entry.get("uses_sklearn_backend", False)
+
+
 __all__ = [
     "BaseModel",
     "MLPModel",
@@ -264,10 +375,19 @@ __all__ = [
     "ETSformerWrapper",
     "FEDformerWrapper",
     "FilmWrapper",
+    "RandomForestRegressorWrapper",
+    "RandomForestClassifierWrapper",
+    "XGBRegressorWrapper",
+    "XGBClassifierWrapper",
+    "LGBMRegressorWrapper",
+    "LGBMClassifierWrapper",
+    "DecisionTreeRegressorWrapper",
+    "DecisionTreeClassifierWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",
     "get_model_params",
     "get_model_pipeline",
     "get_large_model_types",
+    "uses_sklearn_backend",
 ]

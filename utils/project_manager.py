@@ -2,6 +2,7 @@
 
 import json
 import os
+import pickle
 import shutil
 import uuid
 from datetime import datetime
@@ -187,11 +188,15 @@ class ProjectManager:
         return f"model_{len(existing) + 1:03d}"
 
     def save_model(self, project_id: str, model_id: str,
-                   state_dict: dict, meta: dict):
+                   state_dict: dict, meta: dict, is_sklearn: bool = False):
         model_dir = self._pp(project_id, "models", model_id)
         os.makedirs(model_dir, exist_ok=True)
 
-        torch.save(state_dict, os.path.join(model_dir, "state_dict.pt"))
+        if is_sklearn:
+            with open(os.path.join(model_dir, "model.pkl"), "wb") as f:
+                pickle.dump(state_dict, f)
+        else:
+            torch.save(state_dict, os.path.join(model_dir, "state_dict.pt"))
 
         meta["model_id"] = model_id
         meta.setdefault("created_at", datetime.now().isoformat())
@@ -206,11 +211,22 @@ class ProjectManager:
     def load_model(self, project_id: str, model_id: str):
         model_dir = self._pp(project_id, "models", model_id)
         meta_path = os.path.join(model_dir, "config.json")
-        state_path = os.path.join(model_dir, "state_dict.pt")
-        if not os.path.isfile(meta_path) or not os.path.isfile(state_path):
+        if not os.path.isfile(meta_path):
             return None, None
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
+
+        if meta.get("_sklearn_backend"):
+            pkl_path = os.path.join(model_dir, "model.pkl")
+            if not os.path.isfile(pkl_path):
+                return None, meta
+            with open(pkl_path, "rb") as f:
+                model = pickle.load(f)
+            return model, meta
+
+        state_path = os.path.join(model_dir, "state_dict.pt")
+        if not os.path.isfile(state_path):
+            return None, meta
         state_dict = torch.load(state_path, map_location="cpu", weights_only=True)
         return state_dict, meta
 

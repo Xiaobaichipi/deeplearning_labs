@@ -183,10 +183,18 @@ function updateModelOptions(taskType) {
         "fedformer": "FEDformer (Frequency Enhanced Decomp Transformer)",
         "film": "FiLM (Frequency-enhanced Legendre Memory)",
         "dlinear": "DLinear (Decomposition Linear)",
+        "random_forest_regressor": "Random Forest (Regression)",
+        "random_forest_classifier": "Random Forest (Classification)",
+        "xgboost_regressor": "XGBoost (Regression)",
+        "xgboost_classifier": "XGBoost (Classification)",
+        "lightgbm_regressor": "LightGBM (Regression)",
+        "lightgbm_classifier": "LightGBM (Classification)",
+        "decision_tree_regressor": "Decision Tree (Regression)",
+        "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
     const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "vanilla_transformer", "dlinear"];
-    const generalModels = ["mlp", "cnn", "transformer"];
+    const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     sel.innerHTML = "";
     const visible = isTimeSeries ? tsModels : generalModels;
@@ -360,6 +368,16 @@ async function startTraining() {
         Object.assign(params, {
             moving_avg: parseInt(document.getElementById("dlMovingAvg").value) || DEFAULTS.model.dlinear.moving_avg,
             individual: document.getElementById("toggleIndividual").classList.contains("active"),
+        });
+    } else if (["random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"].includes(mt)) {
+        Object.assign(params, {
+            n_estimators: parseInt(document.getElementById("classicalNEstimators").value) || 100,
+            max_depth: (function() {
+                const v = document.getElementById("classicalMaxDepth").value;
+                return v === "" || v === "None" ? null : parseInt(v);
+            })(),
+            min_samples_split: parseInt(document.getElementById("classicalMinSamplesSplit").value) || 2,
+            min_samples_leaf: parseInt(document.getElementById("classicalMinSamplesLeaf").value) || 1,
         });
     }
 

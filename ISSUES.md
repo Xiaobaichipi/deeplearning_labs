@@ -1930,6 +1930,54 @@ JS:     55 passed (4.2s)
 
 ---
 
+## Classical ML Integration — sklearn 后端（2026-06-17）
+
+集成 8 个经典机器学习模型（随机森林、XGBoost、LightGBM、决策树 — 各含回归和分类），通过 sklearn `.fit()`/`.predict()` 后端运行，不依赖 PyTorch autograd。
+
+### 架构设计
+
+- **`_ClassicalMLMixin`** — 设置 `pipeline = "small"`、`uses_sklearn_backend = True`；8 个包装类继承它
+- **`uses_sklearn_backend()`** — 注册表函数，在 `_build_config`（模型实例化前）判断是否 sklearn 模型
+- **`instance.uses_sklearn_backend`** — 类属性，`train_model`/`predict`/`evaluate` 运行时判断
+- **`MODEL_REGISTRY` 新类型 `int_or_none`** — 支持 `max_depth=None` 表示无限制
+- **Pickle 序列化** — `save_model(is_sklearn=True)` 写 `model.pkl`；`load_model` 检测 `_sklearn_backend` 用 `pickle.load`
+- **`_reconstruct_model`** — 参数重命名 `state_dict` → `model_or_state`；sklearn 分支直接返回模型
+
+### 前端变更
+
+- **`trainingHyperparams`** — lr/batch/epochs/dropout/patience/normalization/device 包裹在 `<div id="trainingHyperparams">` 中，sklearn 模型自动隐藏
+- **`classicalMlParams`** — 新增参数面板（n_estimators, max_depth, min_samples_split, min_samples_leaf）
+- **`n_estimators` 行** — Decision Tree 自动隐藏（决策树无此参数）
+- **modelType 下拉** — 新增 8 个选项，归类在 General 下
+- **SSE 训练** — sklearn 模型单次 `.fit()`，跳过 SSE 流
+
+### 涉及文件
+
+- `utils/models/classical_ml.py` — **新建** 8 个 sklearn 包装类 + `_ClassicalMLMixin`
+- `utils/models/__init__.py` — 注册 8 个模型 + `uses_sklearn_backend` 函数
+- `utils/config.py` — 添加各模型默认参数
+- `routes/training.py` — `_build_config` sklearn 分支 CUDA 旁路 + int_or_none 类型；`_run_and_persist` pickle 序列化
+- `routes/projects.py` — `_reconstruct_model` 参数重命名 + sklearn 分支
+- `utils/project_manager.py` — `save_model(is_sklearn=True)` + `load_model` pickle 支持
+- `templates/index.html` — `classicalMlParams` 面板 + `trainingHyperparams` 包裹
+- `static/js/ui.js` — `toggleModelParams` 新分支
+- `static/js/app.js` — `updateModelOptions` + `startTraining` 参数采集
+- `vitest.setup.js` — 测试 DOM 和默认配置更新
+- `tests/test_classical_ml.py` — **新建** 13 个测试（注册、实例化、训练、评估）
+- `tests/test_project_manager.py` — 新增 sklearn 序列化往返测试
+- `static/js/__tests__/ui.test.js` — 新增古典模型 toggle 测试
+- `static/js/__tests__/app.test.js` — 新增参数采集测试
+- `static/dependency_graph.html` — 添加 classical_ml.py 节点和边
+
+### 验证
+
+```
+Python: 216 passed
+JS:     66 passed
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

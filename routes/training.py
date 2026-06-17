@@ -9,7 +9,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, session
 from utils import config
 from utils.data_utils import normalize_data, normalize_data_apply, normalize_target, split_data
 from utils.model_utils import create_model, train_model
-from utils.models import get_model_class, get_model_params, get_model_pipeline
+from utils.models import get_model_class, get_model_params, get_model_pipeline, uses_sklearn_backend
 from utils.pipeline_strategy import PipelineData, PipelineStrategy
 
 from utils.session import (
@@ -254,7 +254,6 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
         try:
             pm.save_split(active_project_id, split_result)
             model_id = pm.next_model_id(active_project_id)
-            state_dict = trained_model.state_dict()
             meta = {
                 "model_type": built["model_type"],
                 "model_params": built["model_params"],
@@ -275,7 +274,13 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
                 "n_time_features": split_result.get("n_time_features"),
                 "label_len": split_result.get("label_len"),
             }
-            pm.save_model(active_project_id, model_id, state_dict, meta)
+            if uses_sklearn_backend(built["model_type"]):
+                meta["_sklearn_backend"] = True
+                pm.save_model(active_project_id, model_id, trained_model, meta,
+                              is_sklearn=True)
+            else:
+                state_dict = trained_model.state_dict()
+                pm.save_model(active_project_id, model_id, state_dict, meta)
         except Exception:
             pass
 
@@ -425,25 +430,38 @@ def _setup_training(sm, data_id, df, params):
 
 def _build_config(params, df):
     """Build model config dict from request params."""
+    from utils.models import uses_sklearn_backend
+    from utils.models import get_model_params as _get_model_params
+
     default_cfg = config.TRAINING
     model_type = params.get("model_type", "mlp")
-    learning_rate = float(params.get("learning_rate", default_cfg["learning_rate"]))
-    batch_size = int(params.get("batch_size", default_cfg["batch_size"]))
-    epochs = int(params.get("epochs", default_cfg["epochs"]))
-    patience = int(params.get("patience", default_cfg["patience"]))
-    import torch
-    device = config.parse_device(params.get("device", config.DEVICE))
-    if not isinstance(device, list) and device.startswith("cuda") and not torch.cuda.is_available():
-        raise ValueError(
-            f"CUDA is not available: the NVIDIA driver is too old (driver 535 supports CUDA 12.x, "
-            f"but PyTorch was compiled with CUDA {torch.version.cuda}). "
-            f"Please update your NVIDIA driver or install a PyTorch version matching your driver."
-        )
-    elif isinstance(device, list) and not torch.cuda.is_available():
-        raise ValueError(
-            f"Multi-GPU training requires CUDA, but the NVIDIA driver is too old "
-            f"(driver 535 supports CUDA 12.x, PyTorch needs CUDA {torch.version.cuda})."
-        )
+    is_sklearn = uses_sklearn_backend(model_type)
+
+    # Sklearn models don't need PyTorch — skip CUDA checks, use safe defaults.
+    if is_sklearn:
+        learning_rate = 0.0
+        batch_size = 1
+        epochs = 1
+        patience = 1
+        device = "cpu"
+    else:
+        learning_rate = float(params.get("learning_rate", default_cfg["learning_rate"]))
+        batch_size = int(params.get("batch_size", default_cfg["batch_size"]))
+        epochs = int(params.get("epochs", default_cfg["epochs"]))
+        patience = int(params.get("patience", default_cfg["patience"]))
+        import torch
+        device = config.parse_device(params.get("device", config.DEVICE))
+        if not isinstance(device, list) and device.startswith("cuda") and not torch.cuda.is_available():
+            raise ValueError(
+                f"CUDA is not available: the NVIDIA driver is too old (driver 535 supports CUDA 12.x, "
+                f"but PyTorch was compiled with CUDA {torch.version.cuda}). "
+                f"Please update your NVIDIA driver or install a PyTorch version matching your driver."
+            )
+        elif isinstance(device, list) and not torch.cuda.is_available():
+            raise ValueError(
+                f"Multi-GPU training requires CUDA, but the NVIDIA driver is too old "
+                f"(driver 535 supports CUDA 12.x, PyTorch needs CUDA {torch.version.cuda})."
+            )
 
     model_params = {"dropout": float(params.get("dropout", default_cfg["dropout"]))}
     model_defaults = config.MODEL.get(model_type, {})
@@ -451,7 +469,7 @@ def _build_config(params, df):
         raw = params.get("hidden_layers", model_defaults.get("hidden_layers", "128,64,32"))
         model_params["hidden_layers"] = [int(x) for x in raw.split(",") if x.strip()]
     else:
-        schema = get_model_params(model_type)
+        schema = _get_model_params(model_type)
         for key, info in schema.items():
             raw = params.get(key)
             if raw is None:
@@ -461,6 +479,8 @@ def _build_config(params, df):
                 continue
             if info["type"] == "int":
                 model_params[key] = int(raw)
+            elif info["type"] == "int_or_none":
+                model_params[key] = int(raw) if raw is not None else None
             elif info["type"] == "float":
                 model_params[key] = float(raw)
             elif info["type"] == "bool":

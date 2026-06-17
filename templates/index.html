@@ -670,7 +670,33 @@
                         </div>
                     </div>
 
+                    <div id="classicalMlParams" style="display:none;">
+                        <div class="form-row" id="classicalNEstimatorsRow">
+                            <div class="input-group">
+                                <label>Number of trees (n_estimators)</label>
+                                <input type="number" id="classicalNEstimators" value="{{ cfg.model.random_forest_regressor.n_estimators }}" min="1" max="10000">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Max depth (None for unlimited)</label>
+                                <input type="text" id="classicalMaxDepth" value="{% if cfg.model.random_forest_regressor.max_depth is not none %}{{ cfg.model.random_forest_regressor.max_depth }}{% endif %}" placeholder="None">
+                            </div>
+                            <div class="input-group">
+                                <label>Min samples split</label>
+                                <input type="number" id="classicalMinSamplesSplit" value="{{ cfg.model.random_forest_regressor.min_samples_split }}" min="2" max="1000">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Min samples leaf</label>
+                                <input type="number" id="classicalMinSamplesLeaf" value="{{ cfg.model.random_forest_regressor.min_samples_leaf }}" min="1" max="1000">
+                            </div>
+                        </div>
+                    </div>
+
                 </div>  <!-- /Model Architecture card -->
+                    <div id="trainingHyperparams">
                     <div class="form-row">
                         <div class="input-group">
                             <label>Learning rate</label>
@@ -710,6 +736,7 @@
                                 {% endfor %}
                             </select>
                         </div>
+                    </div>
                     </div>
                     <button class="btn btn-primary" onclick="startTraining()" id="trainBtn">Start Training</button>
                 </div>

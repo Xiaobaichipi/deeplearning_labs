@@ -13,7 +13,7 @@
 
 - **📤 上传与探索** — 拖拽导入 CSV/Excel，自动检测编码；数据预览、列信息、统计信息、分布直方图、相关性热力图
 - **🧹 清洗与填充** — 去重、IQR 离群值处理、多种缺失值填充策略（均值/中位数/众数/前向填充/后向填充/常量）
-- **🧠 多架构模型** — 14 种架构，覆盖通用表格分类/回归（MLP、CNN、RNN、LSTM、GRU、Tabular Transformer）与时序预测（Autoformer、Informer、Crossformer、DLinear、ETSformer、FEDformer、FiLM、Vanilla Transformer），全部支持超参配置
+- **🧠 多架构模型** — 22 种架构，覆盖通用表格分类/回归（MLP、CNN、RNN、LSTM、GRU、Tabular Transformer、随机森林、XGBoost、LightGBM、决策树）与时序预测（Autoformer、Informer、Crossformer、DLinear、ETSformer、FEDformer、FiLM、Vanilla Transformer），全部支持超参配置
 - **📊 实时训练** — SSE 流式传输每 epoch 进度，实时 Loss/Metric 曲线图（Chart.js），早停机制 + 学习率调度
 - **📈 评估与可视化** — 回归指标（MSE/RMSE/MAE/R²）、分类指标（准确率/精确率/召回率/F1）、混淆矩阵、ROC 曲线、残差分布图
 - **🔁 交叉验证** — K 折 CV 使用与训练相同的模型架构
@@ -76,7 +76,7 @@ python main.py
 | **1. 上传** | 拖拽或点击上传 CSV/XLSX | 自动检测编码，数据加载到项目 |
 | **2. 探索** | 浏览各个标签页 | 数据预览、列信息、统计、分布图、相关性图 |
 | **3. 清洗填充** | 勾选清洗选项、选择填充策略 | 去重、离群值修剪、缺失值填充 |
-| **4. 模型配置** | 选择任务类型（通用/时序）、模型架构与超参数 | 14 种模型选型 + CPU/GPU 选择 + 归一化配置 + 时序参数 |
+| **4. 模型配置** | 选择任务类型（通用/时序）、模型架构与超参数 | 22 种模型选型 + CPU/GPU 选择 + 归一化配置 + 时序参数 |
 | **5. 训练** | 点击"Start Training" | 实时进度条 + Loss/Metric 曲线、早停、训练历史图 |
 | **6. 评估预测** | 运行评估/交叉验证/预测 | 指标、可视化图表、多模型对比图、CSV/XLSX 下载 |
 
@@ -100,6 +100,10 @@ python main.py
 | **FEDformer** | 时序 | large | 频域增强分解 Transformer（傅里叶/小波） | d_model, n_heads, e_layers, d_layers, d_ff, moving_avg, modes, version, mode_select, dropout, activation |
 | **FiLM** | 时序 | large | 频域增强 Legendre 记忆 + HiPPO-LegT + SpectralConv1d | window_size, multiscale, dropout |
 | **DLinear** | 时序 | small | 分解线性模型 + 序列分解 | moving_avg, individual |
+| **随机森林** | 通用 | small | 决策树集成（回归 + 分类） | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **XGBoost** | 通用 | small | 梯度提升决策树（回归 + 分类） | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **LightGBM** | 通用 | small | 轻量梯度提升（回归 + 分类） | n_estimators, max_depth, min_samples_split, min_samples_leaf |
+| **决策树** | 通用 | small | 单棵决策树（回归 + 分类） | max_depth, min_samples_split, min_samples_leaf |
 
 添加新模型请参考[模型扩展指南](templates/models_guide.html)。
 
@@ -124,7 +128,7 @@ deeplearning_labs/
 │   ├── pipeline_strategy.py    # Small/Large 管道调度器
 │   ├── config.py               # 集中化默认配置
 │   ├── fonts.py                # 中文字体检测
-│   └── models/                 # 模型注册（14 种架构）
+│   └── models/                 # 模型注册（22 种架构）
 │       ├── base.py             # 抽象 BaseModel
 │       ├── mlp.py, cnn.py, rnn.py, lstm.py, gru.py, transformer.py
 │       ├── vanilla_transformer.py, autoformer.py, informer.py
@@ -178,7 +182,7 @@ deeplearning_labs/
 - **共享层** — `shared_layers/` 中存放通用 Transformer 组件，被多个 large-pipeline 模型复用
 - **Chart.js 实时图表** — `animation: false` 避免 SSE 高频更新时闪烁
 - **matplotlib Agg 后端** — 服务端渲染为 base64 PNG，内嵌到页面中
-- **Vitest 前端测试** — 54 个 JS 测试覆盖 UI 切换、参数采集、模型过滤等核心交互逻辑
+- **Vitest 前端测试** — 66 个 JS 测试覆盖 UI 切换、参数采集、模型过滤等核心交互逻辑
 - **SplitResult 数据类** — 类型安全的拆分结果，替代隐式 dict 契约
 
 ---
@@ -195,7 +199,7 @@ TRAINING = {
     "normalization": "none",
 }
 
-MODEL = { ... }  # 各架构默认值（14 种模型）
+MODEL = { ... }  # 各架构默认值（22 种模型）
 TIME_SERIES = {"seq_len": 10, "pred_len": 1, "label_len": 0}
 CV = {"default_folds": 5, "max_epochs_per_fold": 20}
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -210,10 +214,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 pip install pytest pytest-cov
 npm install          # Vitest 前端测试
 
-# 运行 Python 测试（202 个）
+# 运行 Python 测试（216 个）
 pytest tests/
 
-# 运行 JS 测试（54 个）
+# 运行 JS 测试（66 个）
 npx vitest run
 
 # 启动调试模式（Flask debug，代码修改后自动重载）
@@ -224,7 +228,7 @@ python main.py
 
 ## 项目状态
 
-在 `feat/informer-integration` 分支上活跃开发。202 个 Python 测试 + 54 个 Vitest JS 测试全部通过，覆盖训练、评估、预测、交叉验证、数据处理、项目管理和前端交互逻辑。完整变更日志见 [ISSUES.md](ISSUES.md)。
+在 `feat/informer-integration` 分支上活跃开发。216 个 Python 测试 + 66 个 Vitest JS 测试全部通过，覆盖训练、评估、预测、交叉验证、数据处理、项目管理和前端交互逻辑。完整变更日志见 [ISSUES.md](ISSUES.md)。
 
 ---
 

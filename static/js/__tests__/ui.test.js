@@ -17,6 +17,8 @@ describe("toggleModelParams", () => {
     document.getElementById("filmParams").style.display = "none";
     document.getElementById("vanillaTransformerParams").style.display = "none";
     document.getElementById("dlinearParams").style.display = "none";
+    const cm = document.getElementById("classicalMlParams");
+    if (cm) cm.style.display = "none";
   });
 
   it("shows mlpParams for mlp, hides all others", () => {
@@ -90,6 +92,59 @@ describe("toggleModelParams", () => {
     document.getElementById("modelType").value = "vanilla_transformer";
     window.toggleModelParams();
     expect(document.getElementById("vanillaTransformerParams").style.display).toBe("block");
+  });
+
+  const classicalTypes = [
+    "random_forest_regressor", "random_forest_classifier",
+    "xgboost_regressor", "xgboost_classifier",
+    "lightgbm_regressor", "lightgbm_classifier",
+    "decision_tree_regressor", "decision_tree_classifier",
+  ];
+
+  classicalTypes.forEach((t) => {
+    it(`shows classicalMlParams for ${t}`, () => {
+      document.getElementById("modelType").value = t;
+      window.toggleModelParams();
+      expect(document.getElementById("classicalMlParams").style.display).toBe("block");
+      expect(document.getElementById("mlpParams").style.display).toBe("none");
+    });
+  });
+
+  it("hides trainingHyperparams for classical ML, shows for PyTorch models", () => {
+    const classical = ["random_forest_regressor", "xgboost_classifier", "lightgbm_regressor", "decision_tree_classifier"];
+    classical.forEach((t) => {
+      document.getElementById("modelType").value = t;
+      window.toggleModelParams();
+      expect(document.getElementById("trainingHyperparams").style.display).toBe("none");
+    });
+    document.getElementById("modelType").value = "mlp";
+    window.toggleModelParams();
+    expect(document.getElementById("trainingHyperparams").style.display).toBe("block");
+    document.getElementById("modelType").value = "lstm";
+    window.toggleModelParams();
+    expect(document.getElementById("trainingHyperparams").style.display).toBe("block");
+    document.getElementById("modelType").value = "autoformer";
+    window.toggleModelParams();
+    expect(document.getElementById("trainingHyperparams").style.display).toBe("block");
+  });
+
+  it("shows n_estimators row for tree-based models, hides for decision tree", () => {
+    const treeTypes = ["random_forest_regressor", "xgboost_regressor", "lightgbm_classifier"];
+    const dtTypes = ["decision_tree_regressor", "decision_tree_classifier"];
+
+    treeTypes.forEach((t) => {
+      document.getElementById("modelType").value = t;
+      window.toggleModelParams();
+      const row = document.getElementById("classicalNEstimatorsRow");
+      if (row) expect(row.style.display).not.toBe("none");
+    });
+
+    dtTypes.forEach((t) => {
+      document.getElementById("modelType").value = t;
+      window.toggleModelParams();
+      const row = document.getElementById("classicalNEstimatorsRow");
+      if (row) expect(row.style.display).toBe("none");
+    });
   });
 });
 
