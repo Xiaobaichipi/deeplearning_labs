@@ -265,6 +265,8 @@
                                 <option value="informer">Informer (ProbSparse Attention)</option>
                                 <option value="crossformer">Crossformer (Two-Stage Attention)</option>
                                 <option value="etsformer">ETSformer (Exp Smoothing Transformer)</option>
+                                <option value="fedformer">FEDformer (Frequency Enhanced Decomp Transformer)</option>
+                                <option value="film">FiLM (Frequency-enhanced Legendre Memory)</option>
                             </select>
                         </div>
                     </div>
@@ -514,6 +516,95 @@
                                     <option value="gelu" {{ 'selected' if cfg.model.etsformer.activation == 'gelu' else '' }}>GELU</option>
                                     <option value="relu" {{ 'selected' if cfg.model.etsformer.activation == 'relu' else '' }}>ReLU</option>
                                 </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="fedformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="fedDModel" value="{{ cfg.model.fedformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="fedNHeads" value="{{ cfg.model.fedformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers (e_layers)</label>
+                                <input type="number" id="fedELayers" value="{{ cfg.model.fedformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Decoder layers (d_layers)</label>
+                                <input type="number" id="fedDLayers" value="{{ cfg.model.fedformer.d_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Feedforward dimension (d_ff)</label>
+                                <input type="number" id="fedDFF" value="{{ cfg.model.fedformer.d_ff }}" min="8" max="1024">
+                            </div>
+                            <div class="input-group">
+                                <label>Moving average kernel</label>
+                                <input type="number" id="fedMovingAvg" value="{{ cfg.model.fedformer.moving_avg }}" min="3" max="101" step="2">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="fedDropout" value="{{ cfg.model.fedformer.dropout }}" min="0.0" max="0.9" step="0.1">
+                            </div>
+                            <div class="input-group">
+                                <label>Number of frequency modes</label>
+                                <input type="number" id="fedModes" value="{{ cfg.model.fedformer.modes }}" min="1" max="256">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Frequency domain</label>
+                                <select id="fedVersion">
+                                    <option value="Fourier" {{ 'selected' if cfg.model.fedformer.version == 'Fourier' else '' }}>Fourier</option>
+                                    <option value="Wavelets" {{ 'selected' if cfg.model.fedformer.version == 'Wavelets' else '' }}>Wavelets</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Mode selection</label>
+                                <select id="fedModeSelect">
+                                    <option value="random" {{ 'selected' if cfg.model.fedformer.mode_select == 'random' else '' }}>Random</option>
+                                    <option value="low" {{ 'selected' if cfg.model.fedformer.mode_select == 'low' else '' }}>Low</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="fedActivation">
+                                    <option value="gelu" {{ 'selected' if cfg.model.fedformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.fedformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="filmParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>HiPPO window sizes (comma-separated)</label>
+                                <input type="text" id="filmWindowSize" value="{{ cfg.model.film.window_size }}" placeholder="e.g. 256">
+                                <span class="help-text">HiPPO projection order, must be ≤ seq_len</span>
+                            </div>
+                            <div class="input-group">
+                                <label>Multi-scale factors (comma-separated)</label>
+                                <input type="text" id="filmMultiscale" value="{{ cfg.model.film.multiscale }}" placeholder="e.g. 1,2,4">
+                                <span class="help-text">max(factor) * pred_len must be ≤ seq_len</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="filmDropout" value="{{ cfg.model.film.dropout }}" min="0.0" max="0.9" step="0.1">
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,134 @@
+"""Fourier-based attention blocks for FEDformer.
+
+Adapted from ``time_series_models_labs/layers/FourierCorrelation.py``.
+"""
+
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+def get_frequency_modes(seq_len, modes=64, mode_select_method='random'):
+    """Get modes on frequency domain: 'random' means sampling randomly; else lowest modes."""
+    modes = min(modes, seq_len // 2)
+    if mode_select_method == 'random':
+        index = list(range(0, seq_len // 2))
+        np.random.shuffle(index)
+        index = index[:modes]
+    else:
+        index = list(range(0, modes))
+    index.sort()
+    return index
+
+
+class FourierBlock(nn.Module):
+    """1D Fourier block — FFT, linear transform, inverse FFT."""
+
+    def __init__(self, in_channels, out_channels, n_heads, seq_len, modes=0, mode_select_method='random'):
+        super().__init__()
+        self.index = get_frequency_modes(seq_len, modes=modes, mode_select_method=mode_select_method)
+        self.n_heads = n_heads
+        self.scale = 1 / (in_channels * out_channels)
+        self.weights1 = nn.Parameter(
+            self.scale * torch.rand(n_heads, in_channels // n_heads, out_channels // n_heads,
+                                    len(self.index), dtype=torch.float))
+        self.weights2 = nn.Parameter(
+            self.scale * torch.rand(n_heads, in_channels // n_heads, out_channels // n_heads,
+                                    len(self.index), dtype=torch.float))
+
+    def compl_mul1d(self, order, x, weights):
+        x_is_real = not torch.is_complex(x)
+        w_is_real = not torch.is_complex(weights)
+        if x_is_real:
+            x = torch.complex(x, torch.zeros_like(x).to(x.device))
+        if w_is_real:
+            weights = torch.complex(weights, torch.zeros_like(weights).to(weights.device))
+        if not (x_is_real and w_is_real):
+            return torch.complex(
+                torch.einsum(order, x.real, weights.real) - torch.einsum(order, x.imag, weights.imag),
+                torch.einsum(order, x.real, weights.imag) + torch.einsum(order, x.imag, weights.real))
+        return torch.einsum(order, x.real, weights.real)
+
+    def forward(self, q, k, v, mask):
+        B, L, H, E = q.shape
+        x = q.permute(0, 2, 3, 1)
+        x_ft = torch.fft.rfft(x, dim=-1)
+        out_ft = torch.zeros(B, H, E, L // 2 + 1, device=x.device, dtype=torch.cfloat)
+        for wi, i in enumerate(self.index):
+            if i >= x_ft.shape[3] or wi >= out_ft.shape[3]:
+                continue
+            out_ft[:, :, :, wi] = self.compl_mul1d(
+                "bhi,hio->bho", x_ft[:, :, :, i],
+                torch.complex(self.weights1, self.weights2)[:, :, :, wi])
+        x = torch.fft.irfft(out_ft, n=x.size(-1))
+        return (x, None)
+
+
+class FourierCrossAttention(nn.Module):
+    """1D Fourier Cross Attention — FFT, linear transform, attention, inverse FFT."""
+
+    def __init__(self, in_channels, out_channels, seq_len_q, seq_len_kv, modes=64,
+                 mode_select_method='random', activation='tanh', num_heads=8):
+        super().__init__()
+        self.activation = activation
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.index_q = get_frequency_modes(seq_len_q, modes=modes, mode_select_method=mode_select_method)
+        self.index_kv = get_frequency_modes(seq_len_kv, modes=modes, mode_select_method=mode_select_method)
+        self.scale = 1 / (in_channels * out_channels)
+        self.weights1 = nn.Parameter(
+            self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                    len(self.index_q), dtype=torch.float))
+        self.weights2 = nn.Parameter(
+            self.scale * torch.rand(num_heads, in_channels // num_heads, out_channels // num_heads,
+                                    len(self.index_q), dtype=torch.float))
+
+    def compl_mul1d(self, order, x, weights):
+        x_is_real = not torch.is_complex(x)
+        w_is_real = not torch.is_complex(weights)
+        if x_is_real:
+            x = torch.complex(x, torch.zeros_like(x).to(x.device))
+        if w_is_real:
+            weights = torch.complex(weights, torch.zeros_like(weights).to(weights.device))
+        if not (x_is_real and w_is_real):
+            return torch.complex(
+                torch.einsum(order, x.real, weights.real) - torch.einsum(order, x.imag, weights.imag),
+                torch.einsum(order, x.real, weights.imag) + torch.einsum(order, x.imag, weights.real))
+        return torch.einsum(order, x.real, weights.real)
+
+    def forward(self, q, k, v, mask):
+        B, L, H, E = q.shape
+        xq = q.permute(0, 2, 3, 1)
+        xk = k.permute(0, 2, 3, 1)
+        xv = v.permute(0, 2, 3, 1)
+
+        xq_ft_ = torch.zeros(B, H, E, len(self.index_q), device=xq.device, dtype=torch.cfloat)
+        xq_ft = torch.fft.rfft(xq, dim=-1)
+        for i, j in enumerate(self.index_q):
+            if j >= xq_ft.shape[3]:
+                continue
+            xq_ft_[:, :, :, i] = xq_ft[:, :, :, j]
+
+        xk_ft_ = torch.zeros(B, H, E, len(self.index_kv), device=xq.device, dtype=torch.cfloat)
+        xk_ft = torch.fft.rfft(xk, dim=-1)
+        for i, j in enumerate(self.index_kv):
+            if j >= xk_ft.shape[3]:
+                continue
+            xk_ft_[:, :, :, i] = xk_ft[:, :, :, j]
+
+        xqk_ft = self.compl_mul1d("bhex,bhey->bhxy", xq_ft_, xk_ft_)
+        if self.activation == 'tanh':
+            xqk_ft = torch.complex(xqk_ft.real.tanh(), xqk_ft.imag.tanh())
+        elif self.activation == 'softmax':
+            xqk_ft = torch.softmax(abs(xqk_ft), dim=-1)
+            xqk_ft = torch.complex(xqk_ft, torch.zeros_like(xqk_ft))
+
+        xqkv_ft = self.compl_mul1d("bhxy,bhey->bhex", xqk_ft, xk_ft_)
+        xqkvw = self.compl_mul1d("bhex,heox->bhox", xqkv_ft, torch.complex(self.weights1, self.weights2))
+        out_ft = torch.zeros(B, H, E, L // 2 + 1, device=xq.device, dtype=torch.cfloat)
+        for i, j in enumerate(self.index_q):
+            if i >= xqkvw.shape[3] or j >= out_ft.shape[3]:
+                continue
+            out_ft[:, :, :, j] = xqkvw[:, :, :, i]
+        out = torch.fft.irfft(out_ft / self.in_channels / self.out_channels, n=xq.size(-1))
+        return (out, None)

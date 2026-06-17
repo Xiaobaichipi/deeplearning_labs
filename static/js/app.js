@@ -180,10 +180,12 @@ function updateModelOptions(taskType) {
         "informer": "Informer (ProbSparse Attention)",
         "crossformer": "Crossformer (Two-Stage Attention)",
         "etsformer": "ETSformer (Exp Smoothing Transformer)",
+        "fedformer": "FEDformer (Frequency Enhanced Decomp Transformer)",
+        "film": "FiLM (Frequency-enhanced Legendre Memory)",
         "dlinear": "DLinear (Decomposition Linear)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "etsformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "dlinear"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
@@ -322,6 +324,26 @@ async function startTraining() {
             top_k: parseInt(document.getElementById("etsTopK").value) || DEFAULTS.model.etsformer.top_k,
             dropout: parseFloat(document.getElementById("etsDropout").value) || DEFAULTS.model.etsformer.dropout,
             activation: document.getElementById("etsActivation").value,
+        });
+    } else if (mt === "fedformer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("fedDModel").value) || DEFAULTS.model.fedformer.d_model,
+            n_heads: parseInt(document.getElementById("fedNHeads").value) || DEFAULTS.model.fedformer.n_heads,
+            e_layers: parseInt(document.getElementById("fedELayers").value) || DEFAULTS.model.fedformer.e_layers,
+            d_layers: parseInt(document.getElementById("fedDLayers").value) || DEFAULTS.model.fedformer.d_layers,
+            d_ff: parseInt(document.getElementById("fedDFF").value) || DEFAULTS.model.fedformer.d_ff,
+            moving_avg: parseInt(document.getElementById("fedMovingAvg").value) || DEFAULTS.model.fedformer.moving_avg,
+            dropout: parseFloat(document.getElementById("fedDropout").value) || DEFAULTS.model.fedformer.dropout,
+            modes: parseInt(document.getElementById("fedModes").value) || DEFAULTS.model.fedformer.modes,
+            version: document.getElementById("fedVersion").value,
+            mode_select: document.getElementById("fedModeSelect").value,
+            activation: document.getElementById("fedActivation").value,
+        });
+    } else if (mt === "film") {
+        Object.assign(params, {
+            window_size: document.getElementById("filmWindowSize").value || DEFAULTS.model.film.window_size,
+            multiscale: document.getElementById("filmMultiscale").value || DEFAULTS.model.film.multiscale,
+            dropout: parseFloat(document.getElementById("filmDropout").value) || DEFAULTS.model.film.dropout,
         });
     } else if (mt === "dlinear") {
         Object.assign(params, {

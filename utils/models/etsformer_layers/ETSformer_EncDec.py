@@ -183,10 +183,10 @@ class FourierLayer(nn.Module):
         x_freq = fft.rfft(x, dim=1)
         if t % 2 == 0:
             x_freq = x_freq[:, self.low_freq:-1]
-            f = fft.rfftfreq(t)[self.low_freq:-1]
+            f = fft.rfftfreq(t, device=x.device)[self.low_freq:-1]
         else:
             x_freq = x_freq[:, self.low_freq:]
-            f = fft.rfftfreq(t)[self.low_freq:]
+            f = fft.rfftfreq(t, device=x.device)[self.low_freq:]
 
         # No frequency components after low_freq removal (seq_len too small)
         if x_freq.shape[1] < 1:
@@ -212,9 +212,11 @@ class FourierLayer(nn.Module):
         if k < 1:
             k = 1
         values, indices = torch.topk(x_freq.abs(), k, dim=1, largest=True, sorted=True)
-        mesh_a, mesh_b = torch.meshgrid(torch.arange(x_freq.size(0)), torch.arange(x_freq.size(2)),
-                                        indexing='ij')
-        index_tuple = (mesh_a.unsqueeze(1).to(indices.device), indices, mesh_b.unsqueeze(1).to(indices.device))
+        mesh_a, mesh_b = torch.meshgrid(
+            torch.arange(x_freq.size(0), device=x_freq.device),
+            torch.arange(x_freq.size(2), device=x_freq.device),
+            indexing='ij')
+        index_tuple = (mesh_a.unsqueeze(1), indices, mesh_b.unsqueeze(1))
         x_freq = x_freq[index_tuple]
         return x_freq, index_tuple
 

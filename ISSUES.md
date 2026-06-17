@@ -1644,6 +1644,239 @@ max_freq = seq_len // 2  # rfft → 去除直流分量后的频率分量数
 
 ---
 
+## 2026-06-17: 新增模型 — FEDformer (Frequency Enhanced Decomposed Transformer) (feat/informer-integration 分支)
+
+### 概述
+
+从 `time_series_models_labs` 移植 FEDformer 模型。FEDformer 使用频域注意力机制（Fourier 或 Wavelets）替代标准自注意力，通过 FFT 或小波分解在频域进行线性变换，实现 O(L log L) 复杂度的时间序列预测（`pipeline="large"`）。
+
+### 同源派生架构
+
+FEDformer 与 Autoformer 共享 Encoder/Decoder 堆栈，是首个"同源派生"模型：
+
+| 文件 | 来源 | 内容 |
+|------|------|------|
+| `fedformer_layers/__init__.py` | **新建** | 从 `autoformer_layers/` 重新导出 `Encoder`/`Decoder`/`EncoderLayer`/`DecoderLayer`/`my_Layernorm`/`series_decomp` 和 `AutoCorrelationLayer` + `FourierBlock`/`FourierCrossAttention` + `MultiWaveletTransform`/`MultiWaveletCross` |
+| `fedformer_layers/FourierCorrelation.py` | **新建** | `FourierBlock`（FFT→线性→IFFT 自注意力）+ `FourierCrossAttention`（FFT→注意力→IFFT 交叉注意力）|
+| `fedformer_layers/MultiWaveletCorrelation.py` | **新建** | `MultiWaveletTransform`（小波分解→频域自注意力）+ `MultiWaveletCross`（小波分解→4 个子交叉注意力）依赖 `sympy` 计算 Legendre/Chebyshev 多项式 |
+
+### 核心创新
+
+FEDformer 的关键设计是 `AutoCorrelationLayer` 包裹频域注意力块：
+
+```
+AutoCorrelationLayer (QKV 投影 + mask 处理)
+    └── inner_correlation: FourierBlock / MultiWaveletTransform (频域注意力)
+```
+
+QKV 线性投影和 mask 维度处理由 `AutoCorrelationLayer` 统一完成，频域块只接收 `(q, k, v, mask)` 返回 `(attn_out, attn_weights)`。这种分层设计使得 `FourierBlock` 内部无需感知头数和 QKV 投影——`AutoCorrelationLayer` 在进入内层前已经做好了维度变换。
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| Pipeline | large | 需 x_mark_enc/dec_inp/y_mark，4 参数 forward 签名 |
+| 层包策略 | 同源派生 (homologous-derived) | 通过 `__init__.py` 从 `autoformer_layers/` 重新导出，`fedformer_layers/` 仅包含 3 个文件 |
+| version 默认 | Fourier | 速度更快，内存更低；Wavelets 作为高级选项 |
+| mode_select 默认 | random | FEDformer 论文实验表明 random 模式收敛更好 |
+| modes 默认 | 32 | 与论文默认值一致 |
+| label_len 防护 | 同 Autoformer 的 label_len=0 guard | `-self.label_len` 在 Python 中等于 `-0 == 0`，slice 选取全部 |
+| trend_proj | `nn.Linear(enc_in, c_out)` | 参考 Autoformer 相同模式，FEDformer 原实验假设 `enc_in == c_out` |
+
+### 暴露参数
+
+| 参数 | 默认 | 范围 |
+|------|------|------|
+| d_model | 256 | 16~512 |
+| n_heads | 8 | 1~16 |
+| e_layers | 3 | 1~8 |
+| d_layers | 3 | 1~8 |
+| d_ff | 32 | 8~1024 |
+| moving_avg | 25 | 3~101 |
+| dropout | 0.1 | 0.0~0.9 |
+| activation | gelu | gelu / relu |
+| version | Fourier | Fourier / Wavelets |
+| mode_select | random | random / low |
+| modes | 32 | 1~256 |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/fedformer.py` | **新建** — `FEDformerWrapper(BaseModel, pipeline="large")` + `_RawFEDformer` + `_DataEmbedding` |
+| `utils/models/fedformer_layers/` (3 文件) | **新建** — 同源派生层包 |
+| `utils/models/__init__.py` | **修改** — 注册 FEDformerWrapper |
+| `utils/config.py` | **修改** — MODEL 字典新增 fedformer 默认值 |
+| `requirements.txt` | **修改** — 新增 `sympy>=1.9` |
+| `templates/index.html` | **修改** — modelType 选项 + fedformerParams 面板（含 version/mode_select/modes） |
+| `static/js/app.js` | **修改** — allOptions + tsModels + startTraining 参数收集 |
+| `static/js/ui.js` | **修改** — toggleModelParams 切换 |
+| `static/dependency_graph.html` | **修改** — 新增 FEDformer 节点和边 |
+| `vitest.setup.js` | **修改** — DOM 骨架 + 默认值 |
+| `static/js/__tests__/ui.test.js` | **修改** — 新增 toggleModelParams('fedformer') 测试 |
+| `static/js/__tests__/app.test.js` | **修改** — 新增 toContain('fedformer') + startTraining FEDformer 参数收集测试 |
+
+### 修复的 Bug
+
+| Bug | 根因 | 修复 |
+|-----|------|------|
+| `compl_mul1d` 标志逻辑反转 | `x_flag = not torch.is_complex(x)` 在两端都复数时返回实数 | `x_is_real = not torch.is_complex(x); if not (x_is_real and w_is_real):` — 4 处统一修复 |
+| 输出 shape 为 `(batch, pred_len, enc_in)` 而非 `(batch, pred_len, 1)` | 缺少 trend_proj 投影层 | `self.trend_proj = nn.Linear(enc_in, c_out)` |
+| label_len=0 时 decoder 输入 prepend 全部历史而非零 | `-0 == 0` Python 语义 | `if self.label_len > 0: ... else: trend_init=mean; seasonal_init=zeros` |
+
+### 验证
+
+```
+Python: 202 passed (100.01s)
+JS:      50 passed (1.52s)
+Total:  252 passed
+```
+
+---
+
+## 2026-06-17: 新增模型 — FiLM (Frequency-enhanced Legendre Memory) (feat/informer-integration 分支)
+
+### 概述
+
+从 `time_series_models_labs` 移植 FiLM 模型。FiLM 使用 HiPPO-Legendre 多项式投影 + SpectralConv1d（FFT 频域卷积）进行时间序列预测。不同于其他大模型，FiLM **没有 d_model/n_heads/d_ff/activation 等 Transformer 参数**，直接在原始特征维度 `enc_in` 上操作。
+
+### 核心架构
+
+FiLM 的核心流程：
+
+```
+x_enc (batch, seq_len, enc_in)
+  │
+  ├─ Instance Normalization (Non-stationary Transformer 风格)
+  │   └─ 减均值 ÷ 标准差，再应用可学习的 affine_weight + affine_bias
+  │
+  ├─ Multi-scale 处理 (multiscale=[1,2,4] × window_size=[256])
+  │   │
+  │   ├─ HiPPO-LegT 投影: Legendre 多项式状态空间模型
+  │   │   └─ 将输入投影到 Legendre 基函数 (SSM 离散化: bilinear)
+  │   │
+  │   ├─ SpectralConv1d: FFT → 频域线性变换 → IFFT
+  │   │   └─ modes=min(32, seq_len//2)，频域可学习权重
+  │   │
+  │   └─ Legendre 重构 → pred_len 维输出
+  │
+  ├─ MLP 融合: 将所有尺度的输出堆叠后融合为单通道
+  │
+  └─ 反归一化: 恢复 affine → 乘标准差 → 加均值
+```
+
+### 特殊设计
+
+FiLM 有 3 个与其他大模型本质不同的设计：
+
+#### 1. 无 d_model 概念
+
+所有其他大模型（Autoformer/Informer/Crossformer/FEDformer/ETSformer）都将输入通过 embedding 投影到统一的高维空间 `d_model`（如 256）。FiLM 直接在 `enc_in` 维度上操作，没有 embedding 层。
+
+#### 2. 内部归一化 (uses_internal_normalization = True)
+
+FiLM 在 `forecast` 开头执行 Non-stationary Transformer 风格的实例归一化（减均值除标准差），并在输出时反归一化。这意味着它期望接收原始尺度数据，**外部归一化会破坏输入语义**。
+
+训练路由 `_setup_training()` 通过 `BaseModel` 类属性 `uses_internal_normalization` 检测到 FiLM 后：
+- 跳过外部 X 归一化（minmax/mean）
+- 设置 `y_scaler = None`（FiLM 自行反归一化，输出原始尺度）
+
+这个标记的使用模式为未来同样包含内部归一化的模型（如 Non-stationary Transformer）建立了样板。
+
+#### 3. HiPPO-LegT 状态空间模型
+
+HiPPO-LegT 是整个模型最具创新性的组件：
+- 使用 Legendre 多项式作为投影基函数
+- 通过 `scipy.signal.cont2discrete` 将连续系统离散化（bilinear 方法）
+- 在时间维度上递归更新状态 `c = F.linear(c, A) + new`
+- 重构时通过 Legendre 多项式的预计算矩阵映射到输出长度
+
+### 层包策略
+
+与 ETSformer 一致的**自包含层包**策略：
+
+| 文件 | 内容 |
+|------|------|
+| `film_layers/__init__.py` | 包导出 |
+| `film_layers/HiPPO_LegT.py` | `transition()` + `HiPPO_LegT` 类（去除了设备硬编码） |
+| `film_layers/SpectralConv1d.py` | `SpectralConv1d` 频域卷积层 |
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| Pipeline | large | forward 签名匹配 `(x_enc, x_mark, x_dec, x_mark)`，即使内部只用 x_enc |
+| 归一化标记 | `uses_internal_normalization = True` 在类属性 | 与 `pipeline` 字段一致：模型行为特征由类自身声明 |
+| 参数体系 | 无 d_model/n_heads/d_ff/activation | FiLM 直接在 enc_in 上操作，无 Transformer 架构 |
+| 暴露参数 | window_size / multiscale / dropout | window_size 控制 HiPPO 阶数，multiscale 控制多尺度因子 |
+| 输出投影 | `output_proj = nn.Linear(enc_in, 1)` | 与 Autoformer/FEDformer 的 trend_proj 模式一致 |
+| 层包策略 | 自包含 | HiPPO_LegT 和 SpectralConv1d 极为特殊，无共享可能 |
+| scipy 依赖 | 已有（scipy>=1.0） | `scipy.signal.cont2discrete` + `scipy.special.eval_legendre` |
+
+### 参数校验
+
+| 校验 | 规则 | 错误信息 |
+|------|------|---------|
+| window_size | 每个值 ≤ seq_len | `window_size ({ws}) exceeds seq_len ({seq_len})` |
+| multiscale | max(scale) * pred_len ≤ seq_len | `multiscale max * pred_len exceeds seq_len` |
+
+### 暴露参数
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| window_size | `"256"` | HiPPO 投影阶数，逗号分隔可支持多窗口 |
+| multiscale | `"1,2,4"` | 多尺度因子，逗号分隔 |
+| dropout | 0.1 | Dropout |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/film.py` | **新建** — `FilmWrapper(BaseModel, pipeline="large", uses_internal_normalization=True)` + `_RawFiLM` |
+| `utils/models/film_layers/` (3 文件) | **新建** — 自包含层包（HiPPO_LegT + SpectralConv1d） |
+| `utils/models/__init__.py` | **修改** — 注册 FilmWrapper，参数 window_size/multiscale/dropout |
+| `utils/config.py` | **修改** — MODEL 字典新增 film 默认值 |
+| `routes/training.py` | **修改** — `uses_internal_normalization` 检测 + FiLM 专属校验 + `get_model_class` 导入 |
+| `templates/index.html` | **修改** — modelType 选项 + filmParams 面板（window_size/multiscale/dropout + 帮助文字） |
+| `static/js/app.js` | **修改** — allOptions + tsModels + startTraining 参数收集 |
+| `static/js/ui.js` | **修改** — toggleModelParams 切换 |
+| `static/dependency_graph.html` | **修改** — 新增 FiLM 节点和边 |
+| `vitest.setup.js` | **修改** — DOM 骨架 + 默认值 |
+| `static/js/__tests__/ui.test.js` | **修改** — 新增 toggleModelParams('film') 测试 |
+| `static/js/__tests__/app.test.js` | **修改** — 新增 toContain('film') + startTraining FiLM 参数收集测试 |
+
+### 验证
+
+```
+Python: 202 passed (104.86s)
+JS:      52 passed (1.50s)
+Total:  254 passed
+```
+
+---
+
+## 2026-06-17: Fix — ETSformer top_k 修复 (feat/informer-integration 分支)
+
+### 问题
+
+ETSformer `FourierLayer.topk_freq` 中 `torch.topk(x_freq.abs(), self.k, dim=1)` 在输入序列较短或 top_k 设置过大时崩溃 `RuntimeError: selected index k out of range`。`x_freq` 频率维度（`seq_len // 2 + 1`）可能小于 `self.k`。
+
+### 修复
+
+`utils/models/etsformer_layers/ETSformer_EncDec.py` — `topk_freq` 方法增加动态调整：
+```python
+k = min(self.k, x_freq.shape[1])
+values, indices = torch.topk(x_freq.abs(), k, dim=1, largest=True, sorted=True)
+```
+
+### 验证
+
+```
+Python: 202 passed (100.75s)
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

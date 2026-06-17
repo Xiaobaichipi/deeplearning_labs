@@ -64,6 +64,8 @@ graph TB
     n10_crossformer["utils/models/crossformer.py"]
     n11_dlinear["utils/models/dlinear.py"]
     n12_etsformer["utils/models/etsformer.py"]
+    n13_fedformer["utils/models/fedformer.py"]
+    n14_film["utils/models/film.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -101,6 +103,20 @@ graph TB
     n0_el__init__["utils/models/etsformer_layers/__init__.py"]
     n1_el_embed["utils/models/etsformer_layers/Embed.py"]
     n2_el_encdec["utils/models/etsformer_layers/ETSformer_EncDec.py"]
+  end
+
+  %% FEDformer layers (internal package, reuses Autoformer EncDec via __init__)
+  subgraph G_FEDformerLayers["FEDformer Layers"]
+    n0_fl__init__["utils/models/fedformer_layers/__init__.py"]
+    n1_fl_fourier["utils/models/fedformer_layers/FourierCorrelation.py"]
+    n2_fl_wavelet["utils/models/fedformer_layers/MultiWaveletCorrelation.py"]
+  end
+
+  %% FiLM layers (internal package)
+  subgraph G_FiLMLayers["FiLM Layers"]
+    n0_flm__init__["utils/models/film_layers/__init__.py"]
+    n1_flm_hippo["utils/models/film_layers/HiPPO_LegT.py"]
+    n2_flm_spec["utils/models/film_layers/SpectralConv1d.py"]
   end
 
   %% Frontend
@@ -158,7 +174,17 @@ graph TB
   n0_models___init__ -->|1| n10_crossformer
   n0_models___init__ -->|1| n11_dlinear
   n0_models___init__ -->|1| n12_etsformer
+  n0_models___init__ -->|1| n13_fedformer
+  n0_models___init__ -->|1| n14_film
   n9_informer -->|1| n1_base
+
+  %% FiLM deps
+  n14_film -->|1| n1_base
+  n14_film -->|1| n0_flm__init__
+
+  %% FiLM layers internal deps
+  n0_flm__init__ -->|1| n1_flm_hippo
+  n0_flm__init__ -->|1| n2_flm_spec
   n9_informer -->|1| n0_sl__init__
   n9_informer -->|1| n0_il__init__
   n0_il__init__ -->|1| n1_il_attention
@@ -177,6 +203,14 @@ graph TB
   %% ETSformer layers internal deps
   n0_el__init__ -->|1| n1_el_embed
   n0_el__init__ -->|1| n2_el_encdec
+
+  %% FEDformer deps
+  n13_fedformer -->|1| n1_base
+  n13_fedformer -->|1| n0_fl__init__
+
+  %% FEDformer layers internal deps
+  n0_fl__init__ -->|1| n1_fl_fourier
+  n0_fl__init__ -->|1| n2_fl_wavelet
 
   n0_cl__init__ -->|1| n1_cl_embed
   n0_cl__init__ -->|1| n2_cl_attn
@@ -199,6 +233,8 @@ graph TB
   n9_informer -->|extends| n1_base
   n10_crossformer -->|extends| n1_base
   n12_etsformer -->|extends| n1_base
+  n13_fedformer -->|extends| n1_base
+  n14_film -->|extends| n1_base
   n11_dlinear -->|extends| n1_base
   </div>
   <div class="legend">

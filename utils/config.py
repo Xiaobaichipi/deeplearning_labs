@@ -100,6 +100,10 @@ MODEL = {
     "etsformer": {"d_model": 256, "n_heads": 8, "e_layers": 2, "d_ff": 32,
                   "top_k": 5, "dropout": 0.1, "activation": "sigmoid"},
     "dlinear": {"moving_avg": 25, "individual": False},
+    "fedformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3, "d_ff": 32,
+                  "moving_avg": 25, "dropout": 0.1, "activation": "gelu",
+                  "version": "Fourier", "mode_select": "random", "modes": 32},
+    "film": {"window_size": "256", "multiscale": "1,2,4", "dropout": 0.1},
 }
 
 TIME_SERIES = {

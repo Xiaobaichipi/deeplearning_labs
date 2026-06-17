@@ -12,6 +12,8 @@ from .informer import InformerWrapper
 from .crossformer import CrossformerWrapper
 from .dlinear import DLinearWrapper
 from .etsformer import ETSformerWrapper
+from .fedformer import FEDformerWrapper
+from .film import FilmWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -107,6 +109,34 @@ MODEL_REGISTRY = {
             "top_k": {"type": "int", "default": 5, "label": "Top-k Fourier frequencies"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
             "activation": {"type": "string", "default": "sigmoid", "label": "Activation (sigmoid/gelu/relu)"},
+        },
+    },
+    "fedformer": {
+        "class": FEDformerWrapper,
+        "name": "FEDformer (Frequency Enhanced Decomp Transformer)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_layers": {"type": "int", "default": 3, "label": "Decoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension (d_ff)"},
+            "moving_avg": {"type": "int", "default": 25, "label": "Moving average kernel"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (relu/gelu)"},
+            "version": {"type": "string", "default": "Fourier", "label": "Frequency domain (Fourier/Wavelets)"},
+            "mode_select": {"type": "string", "default": "random", "label": "Mode selection (random/low)"},
+            "modes": {"type": "int", "default": 32, "label": "Number of frequency modes"},
+        },
+    },
+    "film": {
+        "class": FilmWrapper,
+        "name": "FiLM (Frequency-enhanced Legendre Memory)",
+        "pipeline": "large",
+        "params": {
+            "window_size": {"type": "string", "default": "256", "label": "HiPPO window sizes (comma-separated)"},
+            "multiscale": {"type": "string", "default": "1,2,4", "label": "Multi-scale factors (comma-separated)"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },
     "dlinear": {
@@ -216,6 +246,8 @@ __all__ = [
     "CrossformerWrapper",
     "DLinearWrapper",
     "ETSformerWrapper",
+    "FEDformerWrapper",
+    "FilmWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",

@@ -15,6 +15,7 @@ describe("updateModelOptions", () => {
     expect(values).toContain("mlp");
     expect(values).toContain("cnn");
     expect(values).toContain("autoformer");
+    expect(values).toContain("fedformer");
     expect(values).toContain("dlinear");
   });
 
@@ -25,8 +26,8 @@ describe("updateModelOptions", () => {
     expect(values).toContain("rnn");
     expect(values).toContain("lstm");
     expect(values).toContain("autoformer");
+    expect(values).toContain("fedformer");
     expect(values).toContain("dlinear");
-    expect(values).not.toContain("mlp");
     expect(values).not.toContain("cnn");
   });
 });
@@ -263,5 +264,75 @@ describe("startTraining — parameter collection", () => {
     // Should NOT have dlinear/autoformer-specific fields
     expect(body.moving_avg).toBeUndefined();
     expect(body.seg_len).toBeUndefined();
+  });
+
+  it("collects fedformer-specific params", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "fedformer";
+    window.toggleModelParams();
+    document.getElementById("fedDModel").value = "128";
+    document.getElementById("fedNHeads").value = "4";
+    document.getElementById("fedELayers").value = "2";
+    document.getElementById("fedDLayers").value = "2";
+    document.getElementById("fedDFF").value = "64";
+    document.getElementById("fedMovingAvg").value = "15";
+    document.getElementById("fedDropout").value = "0.2";
+    document.getElementById("fedModes").value = "16";
+    document.getElementById("fedVersion").value = "Wavelets";
+    document.getElementById("fedModeSelect").value = "low";
+    document.getElementById("fedActivation").value = "relu";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("fedformer");
+    expect(body.d_model).toBe(128);
+    expect(body.n_heads).toBe(4);
+    expect(body.e_layers).toBe(2);
+    expect(body.d_layers).toBe(2);
+    expect(body.d_ff).toBe(64);
+    expect(body.moving_avg).toBe(15);
+    expect(body.dropout).toBe(0.2);
+    expect(body.modes).toBe(16);
+    expect(body.version).toBe("Wavelets");
+    expect(body.mode_select).toBe("low");
+    expect(body.activation).toBe("relu");
+    // Should NOT have etsformer-specific fields
+    expect(body.top_k).toBeUndefined();
+  });
+
+  it("collects film-specific params", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "film";
+    window.toggleModelParams();
+    document.getElementById("filmWindowSize").value = "128";
+    document.getElementById("filmMultiscale").value = "1,2";
+    document.getElementById("filmDropout").value = "0.2";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("film");
+    expect(body.window_size).toBe("128");
+    expect(body.multiscale).toBe("1,2");
+    expect(body.dropout).toBe(0.2);
+    // Should NOT have fedformer-specific fields
+    expect(body.modes).toBeUndefined();
   });
 });

@@ -12,6 +12,7 @@ describe("toggleModelParams", () => {
     document.getElementById("autoformerParams").style.display = "none";
     document.getElementById("informerParams").style.display = "none";
     document.getElementById("crossformerParams").style.display = "none";
+    document.getElementById("etsformerParams").style.display = "none";
     document.getElementById("dlinearParams").style.display = "none";
   });
 
@@ -68,6 +69,18 @@ describe("toggleModelParams", () => {
     document.getElementById("modelType").value = "etsformer";
     window.toggleModelParams();
     expect(document.getElementById("etsformerParams").style.display).toBe("block");
+  });
+
+  it("shows fedformerParams only for fedformer", () => {
+    document.getElementById("modelType").value = "fedformer";
+    window.toggleModelParams();
+    expect(document.getElementById("fedformerParams").style.display).toBe("block");
+  });
+
+  it("shows filmParams only for film", () => {
+    document.getElementById("modelType").value = "film";
+    window.toggleModelParams();
+    expect(document.getElementById("filmParams").style.display).toBe("block");
   });
 });
 

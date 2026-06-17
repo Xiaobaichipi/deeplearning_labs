@@ -20,6 +20,8 @@ document.body.innerHTML = `
     informer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 2, d_ff: 32, factor: 3, activation: "gelu" },
     crossformer: { d_model: 256, n_heads: 8, e_layers: 3, d_ff: 32, factor: 3, seg_len: 12, win_size: 2, activation: "gelu" },
     etsformer: { d_model: 256, n_heads: 8, e_layers: 2, d_ff: 32, top_k: 5, dropout: 0.1, activation: "sigmoid" },
+    fedformer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 3, d_ff: 32, moving_avg: 25, dropout: 0.1, modes: 32, version: "Fourier", mode_select: "random", activation: "gelu" },
+    film: { window_size: "256", multiscale: "1,2,4", dropout: 0.1 },
     dlinear: { moving_avg: 25, individual: false },
   },
   cv: { default_folds: 5 },
@@ -33,6 +35,8 @@ document.body.innerHTML = `
 <div id="informerParams" style="display:none"></div>
 <div id="crossformerParams" style="display:none"></div>
 <div id="etsformerParams" style="display:none"></div>
+<div id="fedformerParams" style="display:none"></div>
+<div id="filmParams" style="display:none"></div>
 <div id="dlinearParams" style="display:none"></div>
 <select id="modelType">
   <option value="mlp">MLP</option>
@@ -45,6 +49,8 @@ document.body.innerHTML = `
   <option value="informer">Informer</option>
   <option value="crossformer">Crossformer</option>
   <option value="etsformer">ETSformer</option>
+  <option value="fedformer">FEDformer</option>
+  <option value="film">FiLM</option>
   <option value="dlinear">DLinear</option>
 </select>
 <div id="modelSelector" style="display:none">
@@ -131,6 +137,20 @@ document.body.innerHTML = `
 <input id="etsTopK" value="5">
 <input id="etsDropout" value="0.1">
 <select id="etsActivation"><option value="sigmoid">Sigmoid</option><option value="gelu">GELU</option></select>
+<input id="fedDModel" value="256">
+<input id="fedNHeads" value="8">
+<input id="fedELayers" value="3">
+<input id="fedDLayers" value="3">
+<input id="fedDFF" value="32">
+<input id="fedMovingAvg" value="25">
+<input id="fedDropout" value="0.1">
+<input id="fedModes" value="32">
+<select id="fedVersion"><option value="Fourier">Fourier</option><option value="Wavelets">Wavelets</option></select>
+<select id="fedModeSelect"><option value="random">Random</option><option value="low">Low</option></select>
+<select id="fedActivation"><option value="gelu">GELU</option><option value="relu">ReLU</option></select>
+<input id="filmWindowSize" value="256">
+<input id="filmMultiscale" value="1,2,4">
+<input id="filmDropout" value="0.1">
 <select id="crossActivation"><option value="gelu">GELU</option><option value="relu">ReLU</option></select>
 <input id="dlMovingAvg" value="25">
 <div class="toggle" id="toggleIndividual"></div>

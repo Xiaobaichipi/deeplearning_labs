@@ -9,7 +9,7 @@ from flask import Blueprint, Response, current_app, jsonify, request, session
 from utils import config
 from utils.data_utils import normalize_data, normalize_data_apply, normalize_target, split_data
 from utils.model_utils import create_model, train_model
-from utils.models import get_model_params, get_model_pipeline
+from utils.models import get_model_class, get_model_params, get_model_pipeline
 from utils.pipeline_strategy import PipelineData, PipelineStrategy
 
 from utils.session import (
@@ -346,6 +346,26 @@ def _setup_training(sm, data_id, df, params):
                     f"Reduce top_k or increase seq_len."
                 )
 
+        # FiLM-specific validation
+        if model_type == "film":
+            ws_str = params.get("window_size", "256")
+            ws_list = [int(x.strip()) for x in ws_str.split(",") if x.strip()]
+            for ws in ws_list:
+                if ws > seq_len:
+                    raise RouteError(
+                        f"window_size ({ws}) exceeds seq_len ({seq_len}) "
+                        f"for FiLM. Reduce window_size or increase seq_len."
+                    )
+            ms_str = params.get("multiscale", "1,2,4")
+            ms_list = [int(x.strip()) for x in ms_str.split(",") if x.strip()]
+            max_scale = max(ms_list)
+            if max_scale * pred_len > seq_len:
+                raise RouteError(
+                    f"multiscale max ({max_scale}) * pred_len ({pred_len}) = "
+                    f"{max_scale * pred_len} exceeds seq_len ({seq_len}) "
+                    f"for FiLM. Reduce multiscale, reduce pred_len, or increase seq_len."
+                )
+
         ts_params = {
             "time_series": True,
             "time_col": task_config.get("time_col"),
@@ -356,6 +376,14 @@ def _setup_training(sm, data_id, df, params):
         }
 
     split_result = split_data(df, target_col, test_size=test_size, pipeline=pipeline, **ts_params)
+
+    # Models with internal normalization (e.g. FiLM) handle normalization
+    # themselves — skip external normalization entirely.
+    model_cls = get_model_class(model_type)
+    if getattr(model_cls, 'uses_internal_normalization', False):
+        split_result['y_scaler'] = None
+        sm.set_split(data_id, split_result)
+        return
 
     norm_method = params.get("normalization", "none")
     if norm_method in ("minmax", "mean"):
