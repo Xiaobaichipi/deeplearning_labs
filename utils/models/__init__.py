@@ -11,6 +11,7 @@ from .autoformer import AutoformerWrapper
 from .informer import InformerWrapper
 from .crossformer import CrossformerWrapper
 from .dlinear import DLinearWrapper
+from .etsformer import ETSformerWrapper
 
 # ---------------------------------------------------------------------------
 # Model Registry
@@ -92,6 +93,20 @@ MODEL_REGISTRY = {
             "num_layers": {"type": "int", "default": 2, "label": "Encoder layers"},
             "dim_feedforward": {"type": "int", "default": 256, "label": "Feedforward dimension"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "etsformer": {
+        "class": ETSformerWrapper,
+        "name": "ETSformer (Exp Smoothing Transformer)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 2, "label": "Encoder layers (= Decoder layers)"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension (d_ff)"},
+            "top_k": {"type": "int", "default": 5, "label": "Top-k Fourier frequencies"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "sigmoid", "label": "Activation (sigmoid/gelu/relu)"},
         },
     },
     "dlinear": {
@@ -200,6 +215,7 @@ __all__ = [
     "InformerWrapper",
     "CrossformerWrapper",
     "DLinearWrapper",
+    "ETSformerWrapper",
     "MODEL_REGISTRY",
     "get_model_class",
     "get_model_names",

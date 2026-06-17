@@ -63,6 +63,12 @@ describe("toggleModelParams", () => {
     window.toggleModelParams();
     expect(document.getElementById("dlinearParams").style.display).toBe("block");
   });
+
+  it("shows etsformerParams only for etsformer", () => {
+    document.getElementById("modelType").value = "etsformer";
+    window.toggleModelParams();
+    expect(document.getElementById("etsformerParams").style.display).toBe("block");
+  });
 });
 
 /* ============ populateModelDropdown ============ */

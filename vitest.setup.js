@@ -19,6 +19,7 @@ document.body.innerHTML = `
     autoformer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 2, d_ff: 32, moving_avg: 25, factor: 3, activation: "gelu" },
     informer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 2, d_ff: 32, factor: 3, activation: "gelu" },
     crossformer: { d_model: 256, n_heads: 8, e_layers: 3, d_ff: 32, factor: 3, seg_len: 12, win_size: 2, activation: "gelu" },
+    etsformer: { d_model: 256, n_heads: 8, e_layers: 2, d_ff: 32, top_k: 5, dropout: 0.1, activation: "sigmoid" },
     dlinear: { moving_avg: 25, individual: false },
   },
   cv: { default_folds: 5 },
@@ -31,6 +32,7 @@ document.body.innerHTML = `
 <div id="autoformerParams" style="display:none"></div>
 <div id="informerParams" style="display:none"></div>
 <div id="crossformerParams" style="display:none"></div>
+<div id="etsformerParams" style="display:none"></div>
 <div id="dlinearParams" style="display:none"></div>
 <select id="modelType">
   <option value="mlp">MLP</option>
@@ -42,6 +44,7 @@ document.body.innerHTML = `
   <option value="autoformer">Autoformer</option>
   <option value="informer">Informer</option>
   <option value="crossformer">Crossformer</option>
+  <option value="etsformer">ETSformer</option>
   <option value="dlinear">DLinear</option>
 </select>
 <div id="modelSelector" style="display:none">
@@ -121,6 +124,13 @@ document.body.innerHTML = `
 <input id="crossFactor" value="3">
 <input id="crossSegLen" value="12">
 <input id="crossWinSize" value="2">
+<input id="etsDModel" value="256">
+<input id="etsNHeads" value="8">
+<input id="etsELayers" value="2">
+<input id="etsDFF" value="32">
+<input id="etsTopK" value="5">
+<input id="etsDropout" value="0.1">
+<select id="etsActivation"><option value="sigmoid">Sigmoid</option><option value="gelu">GELU</option></select>
 <select id="crossActivation"><option value="gelu">GELU</option><option value="relu">ReLU</option></select>
 <input id="dlMovingAvg" value="25">
 <div class="toggle" id="toggleIndividual"></div>

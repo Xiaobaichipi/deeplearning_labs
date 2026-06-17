@@ -179,10 +179,11 @@ function updateModelOptions(taskType) {
         "autoformer": "Autoformer (Long-term Forecast)",
         "informer": "Informer (ProbSparse Attention)",
         "crossformer": "Crossformer (Two-Stage Attention)",
+        "etsformer": "ETSformer (Exp Smoothing Transformer)",
         "dlinear": "DLinear (Decomposition Linear)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "etsformer", "dlinear"];
 
     sel.innerHTML = "";
     Object.entries(allOptions).forEach(([val, label]) => {
@@ -311,6 +312,16 @@ async function startTraining() {
             seg_len: parseInt(document.getElementById("crossSegLen").value) || DEFAULTS.model.crossformer.seg_len,
             win_size: parseInt(document.getElementById("crossWinSize").value) || DEFAULTS.model.crossformer.win_size,
             activation: document.getElementById("crossActivation").value,
+        });
+    } else if (mt === "etsformer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("etsDModel").value) || DEFAULTS.model.etsformer.d_model,
+            n_heads: parseInt(document.getElementById("etsNHeads").value) || DEFAULTS.model.etsformer.n_heads,
+            e_layers: parseInt(document.getElementById("etsELayers").value) || DEFAULTS.model.etsformer.e_layers,
+            d_ff: parseInt(document.getElementById("etsDFF").value) || DEFAULTS.model.etsformer.d_ff,
+            top_k: parseInt(document.getElementById("etsTopK").value) || DEFAULTS.model.etsformer.top_k,
+            dropout: parseFloat(document.getElementById("etsDropout").value) || DEFAULTS.model.etsformer.dropout,
+            activation: document.getElementById("etsActivation").value,
         });
     } else if (mt === "dlinear") {
         Object.assign(params, {

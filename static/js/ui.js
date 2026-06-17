@@ -308,6 +308,7 @@ function toggleModelParams() {
     document.getElementById("autoformerParams").style.display = type === "autoformer" ? "block" : "none";
     document.getElementById("informerParams").style.display = type === "informer" ? "block" : "none";
     document.getElementById("crossformerParams").style.display = type === "crossformer" ? "block" : "none";
+    document.getElementById("etsformerParams").style.display = type === "etsformer" ? "block" : "none";
     document.getElementById("dlinearParams").style.display = type === "dlinear" ? "block" : "none";
 }
 

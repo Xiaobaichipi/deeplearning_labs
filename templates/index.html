@@ -264,6 +264,7 @@
                                 <option value="autoformer">Autoformer (Long-term Forecast)</option>
                                 <option value="informer">Informer (ProbSparse Attention)</option>
                                 <option value="crossformer">Crossformer (Two-Stage Attention)</option>
+                                <option value="etsformer">ETSformer (Exp Smoothing Transformer)</option>
                             </select>
                         </div>
                     </div>
@@ -469,6 +470,49 @@
                                 <select id="crossActivation">
                                     <option value="gelu" {{ 'selected' if cfg.model.crossformer.activation == 'gelu' else '' }}>GELU</option>
                                     <option value="relu" {{ 'selected' if cfg.model.crossformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="etsformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="etsDModel" value="{{ cfg.model.etsformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="etsNHeads" value="{{ cfg.model.etsformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers (e_layers = d_layers)</label>
+                                <input type="number" id="etsELayers" value="{{ cfg.model.etsformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Feedforward dimension (d_ff)</label>
+                                <input type="number" id="etsDFF" value="{{ cfg.model.etsformer.d_ff }}" min="8" max="1024">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Top-k Fourier frequencies</label>
+                                <input type="number" id="etsTopK" value="{{ cfg.model.etsformer.top_k }}" min="1" max="20">
+                            </div>
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="etsDropout" value="{{ cfg.model.etsformer.dropout }}" min="0.0" max="0.9" step="0.1">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="etsActivation">
+                                    <option value="sigmoid" {{ 'selected' if cfg.model.etsformer.activation == 'sigmoid' else '' }}>Sigmoid</option>
+                                    <option value="gelu" {{ 'selected' if cfg.model.etsformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.etsformer.activation == 'relu' else '' }}>ReLU</option>
                                 </select>
                             </div>
                         </div>

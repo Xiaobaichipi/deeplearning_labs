@@ -232,4 +232,36 @@ describe("startTraining — parameter collection", () => {
     expect(body.model_type).toBe("dlinear");
     expect(body.moving_avg).toBe(35);
   });
+
+  it("collects etsformer-specific params", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "etsformer";
+    window.toggleModelParams();
+    document.getElementById("etsDModel").value = "128";
+    document.getElementById("etsNHeads").value = "4";
+    document.getElementById("etsELayers").value = "3";
+    document.getElementById("etsTopK").value = "7";
+    document.getElementById("etsActivation").value = "gelu";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("etsformer");
+    expect(body.d_model).toBe(128);
+    expect(body.n_heads).toBe(4);
+    expect(body.e_layers).toBe(3);
+    expect(body.top_k).toBe(7);
+    expect(body.activation).toBe("gelu");
+    // Should NOT have dlinear/autoformer-specific fields
+    expect(body.moving_avg).toBeUndefined();
+    expect(body.seg_len).toBeUndefined();
+  });
 });
