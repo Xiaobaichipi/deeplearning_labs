@@ -217,6 +217,7 @@ def _run_and_persist(sm, data_id, split_result, built, output_dim,
         progress_callback=progress_callback,
         pipeline_strategy=strategy,
         pipeline_data=pd_train, pipeline_data_val=pd_val,
+        target_encoder=split_result.get("target_encoder"),
     )
 
     sm.set_model(data_id, trained_model)

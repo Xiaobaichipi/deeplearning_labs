@@ -22,12 +22,49 @@ def create_model(model_type, input_dim, output_dim, **params):
     return model_class(input_dim, output_dim, **params)
 
 
-def _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type):
+def _sklearn_model_kind(model):
+    """Return 'classifier', 'regressor', or None for an sklearn model object."""
+    name = type(model).__name__.lower()
+    if 'classifier' in name:
+        return 'classifier'
+    if 'regressor' in name:
+        return 'regressor'
+    return None
+
+
+def _validate_sklearn_task(model, task_type):
+    """Raise ValueError if model kind doesn't match task_type."""
+    kind = _sklearn_model_kind(model)
+    if kind == 'classifier' and task_type != 'classification':
+        raise ValueError(
+            f"Model {type(model).__name__} is a classifier, "
+            f"cannot be used for task_type='{task_type}'."
+        )
+    if kind == 'regressor' and task_type != 'regression':
+        raise ValueError(
+            f"Model {type(model).__name__} is a regressor, "
+            f"cannot be used for task_type='{task_type}'."
+        )
+
+
+def _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type,
+                         target_encoder=None):
     """Train a sklearn-backed model via .fit() and return metrics.
+
+    Validates that the model kind (classifier/regressor) matches task_type.
+    For classification, encodes string labels via *target_encoder* if provided.
 
     Returns ``(model, history_dict)`` where history contains train/val scores.
     """
-    from sklearn.metrics import accuracy_score, r2_score, mean_squared_error
+    from sklearn.metrics import accuracy_score, r2_score
+
+    _validate_sklearn_task(model, task_type)
+
+    if task_type == "classification":
+        if target_encoder is not None:
+            y_train = target_encoder.transform(y_train)
+            y_val = target_encoder.transform(y_val)
+
     model.fit(X_train, y_train)
     train_pred = model.predict(X_train)
     val_pred = model.predict(X_val)
@@ -51,6 +88,8 @@ def _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type):
 
 def _evaluate_sklearn(model, X_test, y_test, task_type, target_encoder=None, y_scaler=None):
     """Evaluate a sklearn-backed model — no PyTorch/cuda involved."""
+    _validate_sklearn_task(model, task_type)
+
     from sklearn.metrics import (accuracy_score, precision_score, recall_score,
                                  f1_score, confusion_matrix, mean_squared_error,
                                  mean_absolute_error, r2_score)
@@ -60,6 +99,10 @@ def _evaluate_sklearn(model, X_test, y_test, task_type, target_encoder=None, y_s
 
     preds = model.predict(X_test)
     y_true = np.asarray(y_test)
+
+    # Encode string labels for classification metric computation
+    if task_type == "classification" and target_encoder is not None:
+        y_true = target_encoder.transform(y_true)
 
     if task_type == "classification":
         probs = model.predict_proba(X_test) if hasattr(model, "predict_proba") else None
@@ -127,11 +170,14 @@ def train_model(model, X_train, y_train, X_val, y_val, task_type,
                 pipeline_strategy=None,
                 # Deprecated: use pipeline_data / pipeline_data_val instead
                 X_mark_train=None, dec_inp_train=None, y_mark_train=None,
-                X_mark_val=None, dec_inp_val=None, y_mark_val=None):
+                X_mark_val=None, dec_inp_val=None, y_mark_val=None,
+                # Sklearn-specific
+                target_encoder=None):
     """Train a model. Dispatches to sklearn .fit() when model uses sklearn backend.
     """
     if getattr(model, "uses_sklearn_backend", False):
-        return _train_sklearn_model(model, X_train, y_train, X_val, y_val, task_type)
+        return _train_sklearn_model(model, X_train, y_train, X_val, y_val,
+                                     task_type, target_encoder=target_encoder)
 
     if isinstance(device, list):
         device_ids = [torch.device(d) for d in device]
@@ -313,9 +359,28 @@ def predict(model, X, task_type, device="cpu",
             return np.atleast_1d(pred), None
 
 
+def _validate_sklearn_model_type(model_type, task_type):
+    """Raise ValueError if model_type string doesn't match task_type."""
+    mt = model_type.lower()
+    is_clf = 'classifier' in mt
+    is_reg = 'regressor' in mt
+    if is_clf and task_type != 'classification':
+        raise ValueError(
+            f"Model '{model_type}' is a classifier, "
+            f"cannot be used for task_type='{task_type}'."
+        )
+    if is_reg and task_type != 'regression':
+        raise ValueError(
+            f"Model '{model_type}' is a regressor, "
+            f"cannot be used for task_type='{task_type}'."
+        )
+
+
 def _cross_validate_sklearn(model_type, input_dim, output_dim, X, y, task_type,
                              model_params, n_splits):
     """K-fold CV for sklearn-backed models — no epoch loop needed."""
+    _validate_sklearn_model_type(model_type, task_type)
+
     from sklearn.model_selection import KFold
     from sklearn.metrics import accuracy_score, r2_score
     import numpy as np

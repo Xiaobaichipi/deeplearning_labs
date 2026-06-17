@@ -74,7 +74,12 @@ class RandomForestClassifierWrapper(BaseModel, _ClassicalMLMixin):
 class XGBRegressorWrapper(BaseModel, _ClassicalMLMixin):
     def __init__(self, input_dim, output_dim, **kwargs):
         super().__init__(input_dim, output_dim, **kwargs)
-        import xgboost as xgb
+        try:
+            import xgboost as xgb
+        except ImportError:
+            raise ImportError(
+                "xgboost is not installed. Run: pip install xgboost"
+            )
         self._model = xgb.XGBRegressor(
             n_estimators=kwargs.get("n_estimators", 100),
             max_depth=kwargs.get("max_depth", None),
@@ -96,7 +101,12 @@ class XGBRegressorWrapper(BaseModel, _ClassicalMLMixin):
 class XGBClassifierWrapper(BaseModel, _ClassicalMLMixin):
     def __init__(self, input_dim, output_dim, **kwargs):
         super().__init__(input_dim, output_dim, **kwargs)
-        import xgboost as xgb
+        try:
+            import xgboost as xgb
+        except ImportError:
+            raise ImportError(
+                "xgboost is not installed. Run: pip install xgboost"
+            )
         self._model = xgb.XGBClassifier(
             n_estimators=kwargs.get("n_estimators", 100),
             max_depth=kwargs.get("max_depth", None),
@@ -123,7 +133,12 @@ class XGBClassifierWrapper(BaseModel, _ClassicalMLMixin):
 class LGBMRegressorWrapper(BaseModel, _ClassicalMLMixin):
     def __init__(self, input_dim, output_dim, **kwargs):
         super().__init__(input_dim, output_dim, **kwargs)
-        import lightgbm as lgb
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            raise ImportError(
+                "lightgbm is not installed. Run: pip install lightgbm"
+            )
         self._model = lgb.LGBMRegressor(
             n_estimators=kwargs.get("n_estimators", 100),
             max_depth=kwargs.get("max_depth", None),
@@ -145,7 +160,12 @@ class LGBMRegressorWrapper(BaseModel, _ClassicalMLMixin):
 class LGBMClassifierWrapper(BaseModel, _ClassicalMLMixin):
     def __init__(self, input_dim, output_dim, **kwargs):
         super().__init__(input_dim, output_dim, **kwargs)
-        import lightgbm as lgb
+        try:
+            import lightgbm as lgb
+        except ImportError:
+            raise ImportError(
+                "lightgbm is not installed. Run: pip install lightgbm"
+            )
         self._model = lgb.LGBMClassifier(
             n_estimators=kwargs.get("n_estimators", 100),
             max_depth=kwargs.get("max_depth", None),

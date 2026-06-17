@@ -1978,6 +1978,35 @@ JS:     66 passed
 
 ---
 
+## Classical ML Bugfix — task_type 校验 + deferred imports（2026-06-17）
+
+修复 8 个 sklearn-backed 模型的 3 个问题：模型/任务类型不匹配时无声失败、字符串标签未编码、可选依赖缺失时服务器崩溃。
+
+### 修复内容
+
+- **task_type 校验** — `_train_sklearn_model`、`_evaluate_sklearn`、`_cross_validate_sklearn` 新增 `_validate_sklearn_task` / `_validate_sklearn_model_type`，regressor 用于 classification 或 classifier 用于 regression 时抛出清晰的 `ValueError`
+- **字符串标签编码** — `_train_sklearn_model` 新增 `target_encoder` 参数，分类任务通过 `target_encoder.transform()` 编码；`_evaluate_sklearn` 同理编码 `y_test`
+- **`train_model`** — 新增 `target_encoder` 透传参数
+- **路由层** — `_run_and_persist` 传递 `split_result.get("target_encoder")`
+- **延迟导入** — XGBoost/LightGBM 的 4 个 wrapper 类的 `ImportError` 捕获，给出 "pip install xgboost" / "pip install lightgbm" 提示
+- **依赖安装** — 服务器环境 `/data/wj/envs/deeplearning_labs/` 补装 xgboost/lightgbm
+
+### 涉及文件
+
+- `utils/model_utils.py` — 新增 `_sklearn_model_kind`、`_validate_sklearn_task`、`_validate_sklearn_model_type`；修改 `_train_sklearn_model`、`train_model`、`_evaluate_sklearn`、`_cross_validate_sklearn`
+- `utils/models/classical_ml.py` — 4 个 wrapper 的 `ImportError` 友好提示
+- `routes/training.py` — `_run_and_persist` 传递 target_encoder
+- `tests/test_classical_ml.py` — 新增 `TestTaskTypeValidation`（6 个测试）、`TestStringLabelEncoding`（2 个测试）
+
+### 验证
+
+```
+Python: 224 passed（原 216 + 8 新增）
+JS:     66 passed
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

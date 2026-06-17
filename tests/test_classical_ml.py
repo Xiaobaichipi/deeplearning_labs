@@ -177,3 +177,126 @@ class TestEvaluation:
         assert "precision" in result
         assert "f1_score" in result
         assert result["task_type"] == "classification"
+
+
+# ── Task-type mismatch validation ─────────────────────────────────────────
+
+class TestTaskTypeValidation:
+    """train_model / evaluate should reject regressor↔classification mismatches."""
+
+    def test_regressor_with_classification_raises(self, regression_data):
+        """Regressor trained with task_type='classification' should raise."""
+        model = create_model("random_forest_regressor", 4, 1, n_estimators=10)
+        with pytest.raises(ValueError, match="regressor.*classification"):
+            train_model(
+                model,
+                regression_data["X_train"], regression_data["y_train"],
+                regression_data["X_test"], regression_data["y_test"],
+                task_type="classification",
+            )
+
+    def test_classifier_with_regression_raises(self, classification_data):
+        """Classifier trained with task_type='regression' should raise."""
+        model = create_model("random_forest_classifier", 4, 2, n_estimators=10)
+        with pytest.raises(ValueError, match="classifier.*regression"):
+            train_model(
+                model,
+                classification_data["X_train"], classification_data["y_train"],
+                classification_data["X_test"], classification_data["y_test"],
+                task_type="regression",
+            )
+
+    def test_evaluate_regressor_classification_raises(self, regression_data):
+        """evaluate on regressor with task_type='classification' should raise."""
+        model = create_model("random_forest_regressor", 4, 1, n_estimators=10)
+        trained, _ = train_model(
+            model,
+            regression_data["X_train"], regression_data["y_train"],
+            regression_data["X_test"], regression_data["y_test"],
+            task_type="regression",
+        )
+        with pytest.raises(ValueError, match="regressor.*classification"):
+            evaluate(trained, regression_data["X_test"],
+                     regression_data["y_test"], task_type="classification")
+
+    def test_evaluate_classifier_regression_raises(self, classification_data):
+        """evaluate on classifier with task_type='regression' should raise."""
+        model = create_model("random_forest_classifier", 4, 2, n_estimators=10)
+        trained, _ = train_model(
+            model,
+            classification_data["X_train"], classification_data["y_train"],
+            classification_data["X_test"], classification_data["y_test"],
+            task_type="classification",
+        )
+        with pytest.raises(ValueError, match="classifier.*regression"):
+            evaluate(trained, classification_data["X_test"],
+                     classification_data["y_test"], task_type="regression")
+
+    def test_cross_val_regressor_classification_raises(self):
+        """cross_validate_model with regressor and classification should raise."""
+        from utils.model_utils import cross_validate_model
+        with pytest.raises(ValueError, match="regressor.*classification"):
+            cross_validate_model(
+                "random_forest_regressor", 4, 1,
+                np.random.randn(20, 4).astype(np.float32),
+                np.random.randn(20),
+                task_type="classification",
+                n_splits=2,
+            )
+
+    def test_cross_val_classifier_regression_raises(self):
+        """cross_validate_model with classifier and regression should raise."""
+        from utils.model_utils import cross_validate_model
+        with pytest.raises(ValueError, match="classifier.*regression"):
+            cross_validate_model(
+                "random_forest_classifier", 4, 2,
+                np.random.randn(20, 4).astype(np.float32),
+                np.random.randint(0, 2, 20),
+                task_type="regression",
+                n_splits=2,
+            )
+
+
+# ── String label encoding ─────────────────────────────────────────────────
+
+class TestStringLabelEncoding:
+    """Classification with string labels should work via target_encoder."""
+
+    def test_train_with_string_labels(self):
+        """train_model with string classification labels should succeed."""
+        from sklearn.preprocessing import LabelEncoder
+        X = np.random.randn(20, 2).astype(np.float32)
+        y = np.array(["cat", "dog"] * 10)
+
+        le = LabelEncoder()
+        le.fit(y)
+
+        model = create_model("random_forest_classifier", 2, 2, n_estimators=10)
+        trained, history = train_model(
+            model, X[:15], y[:15], X[15:], y[15:],
+            task_type="classification",
+            target_encoder=le,
+        )
+        assert trained is not None
+        assert "train_loss" in history
+        assert history["sklearn_backend"] is True
+
+    def test_evaluate_with_string_labels(self):
+        """evaluate with string classification labels should succeed."""
+        from sklearn.preprocessing import LabelEncoder
+        X = np.random.randn(20, 2).astype(np.float32)
+        y = np.array(["cat", "dog"] * 10)
+
+        le = LabelEncoder()
+        le.fit(y)
+
+        model = create_model("random_forest_classifier", 2, 2, n_estimators=10)
+        trained, _ = train_model(
+            model, X[:15], y[:15], X[15:], y[15:],
+            task_type="classification",
+            target_encoder=le,
+        )
+        result = evaluate(trained, X[15:], y[15:],
+                          task_type="classification", target_encoder=le)
+        assert "accuracy" in result
+        assert result["task_type"] == "classification"
