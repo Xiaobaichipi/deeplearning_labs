@@ -1,6 +1,6 @@
 # DeepLearning Labs
 
-> A browser-based deep learning experiment platform for tabular data. Upload, explore, clean, train, evaluate, and predict — all from your browser, powered by PyTorch.
+> A browser-based deep learning experiment platform for tabular and time-series data. Upload, explore, clean, train, evaluate, and predict — all from your browser, powered by PyTorch.
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c)](https://pytorch.org/)
@@ -13,16 +13,18 @@
 
 - **📤 Upload & Explore** — Drag-and-drop CSV/Excel import with auto encoding detection, data preview, statistics, distribution histograms, and correlation heatmaps
 - **🧹 Clean & Fill** — Remove duplicates, handle outliers (IQR), fill missing values with multiple strategies (mean, median, mode, ffill, bfill, constant)
-- **🧠 Multi-Architecture Models** — MLP, CNN (1D), RNN, LSTM, GRU, Transformer — all with configurable hyperparameters
+- **🧠 Multi-Architecture Models** — 14 architectures covering general tabular (MLP, CNN, RNN, LSTM, GRU, Tabular Transformer) and time-series forecasting (Autoformer, Informer, Crossformer, DLinear, ETSformer, FEDformer, FiLM, Vanilla Transformer) — all with configurable hyperparameters
 - **📊 Real-Time Training** — SSE-streamed per-epoch progress with live Loss/Metric curves (Chart.js), early stopping, and LR scheduling
 - **📈 Evaluation & Visualization** — Regression metrics (MSE/RMSE/MAE/R²), classification metrics (accuracy/precision/recall/F1), confusion matrix, ROC curve, residual plots
-- **🔁 Cross-Validation** — K-fold CV using the same PyTorch model architecture as training
+- **🔁 Cross-Validation** — K-fold CV using the same model architecture as training
 - **🔮 Predict & Export** — Scatter + line comparison charts; download results as CSV or Excel
 - **🔁 Multi-Model Comparison** — Select multiple trained models and compare predictions side-by-side
+- **⏱ Time Series Support** — Configurable sequence/prediction/label lengths, time column selection, granularity detection, time feature encoding
 - **💾 Project System** — Persistent project storage with dataset/model versioning across sessions
 - **⚡ Device Selection** — CPU / GPU / multi-GPU DataParallel training, selectable from the UI
 - **🧩 Model Export** — Download trained model state dicts for external use
 - **🔌 Extensible** — Simple model registry — add new architectures by dropping in a file and one registry entry
+- **Small/Large Pipeline** — Dual pipeline system: "small" for 2-argument models, "large" for 4-argument models with time-mark encoding
 
 ---
 
@@ -70,15 +72,15 @@ The app will be available at **http://localhost:5000**.
 
 ## Usage Walkthrough
 
-The interface is organized as a 6-step wizard:
+The interface is organized as a 6-step wizard with an initial project setup:
 
 | Step | What You Do | What You Get |
 |---|---|---|
 | **0. Projects** | Create or activate a project | Persistent dataset/model storage across sessions |
-| **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded into project |
+| **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded |
 | **2. Explore** | Browse tabs | Data preview, column info, statistics, distribution plots, correlation heatmap |
 | **3. Clean & Fill** | Toggle options | Duplicate removal, outlier clipping (IQR), missing value imputation |
-| **4. Model Config** | Select model, device & params | Architecture choice (MLP/CNN/RNN/LSTM/GRU/Transformer), CPU/GPU selection, hyperparameters, normalization |
+| **4. Model Config** | Select task type (General / Time Series), model, device & params | Architecture choice from 14 models, CPU/GPU selection, hyperparameters, normalization |
 | **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, LR scheduling |
 | **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, multi-model comparison, charts, CSV/XLSX download |
 
@@ -86,14 +88,22 @@ The interface is organized as a 6-step wizard:
 
 ## Model Support
 
-| Model | Description | Key Parameters |
-|---|---|---|
-| **MLP** | Fully connected feedforward network | Hidden layers, dropout |
-| **CNN 1D** | 1D convolutional network for tabular data | Channels, kernel size, dropout |
-| **RNN** | Vanilla recurrent neural network | Hidden size, layers, bidirection, dropout |
-| **LSTM** | Long short-term memory network | Hidden size, layers, bidirection, dropout |
-| **GRU** | Gated recurrent unit network | Hidden size, layers, bidirection, dropout |
-| **Transformer** | Transformer encoder for tabular data | d_model, nhead, feedforward dim, layers, dropout |
+| Model | Type | Pipeline | Description | Key Parameters |
+|---|---|---|---|---|
+| **MLP** | General | small | Fully connected feedforward network | Hidden layers, dropout |
+| **CNN 1D** | General | small | 1D convolutional network for tabular data | Channels, kernel size, dropout |
+| **RNN** | Both | small | Vanilla recurrent neural network | Hidden size, layers, bidirection, dropout |
+| **LSTM** | Both | small | Long short-term memory network | Hidden size, layers, bidirection, dropout |
+| **GRU** | Both | small | Gated recurrent unit network | Hidden size, layers, bidirection, dropout |
+| **Transformer (Tabular)** | General | small | Transformer encoder-only for tabular data | d_model, nhead, layers, dropout |
+| **Vanilla Transformer** | Time Series | large | Full Encoder-Decoder Transformer with DataEmbedding | d_model, n_heads, e_layers, d_layers, d_ff, dropout, activation |
+| **Autoformer** | Time Series | large | Decomposition architecture with Auto-Correlation | d_model, n_heads, e_layers, d_layers, d_ff, moving_avg, factor, dropout, activation |
+| **Informer** | Time Series | large | ProbSparse self-attention for long sequence forecasting | d_model, n_heads, e_layers, d_layers, d_ff, factor, distil, dropout, activation |
+| **Crossformer** | Time Series | large | Two-stage attention (DSW + DMS) with segment embedding | d_model, n_heads, e_layers, d_ff, factor, seg_len, win_size, dropout, activation |
+| **ETSformer** | Time Series | large | Exponential smoothing with Fourier frequency attention | d_model, n_heads, e_layers, d_ff, top_k, dropout, activation |
+| **FEDformer** | Time Series | large | Frequency enhanced decomposed Transformer (Fourier/Wavelets) | d_model, n_heads, e_layers, d_layers, d_ff, moving_avg, modes, version, mode_select, dropout, activation |
+| **FiLM** | Time Series | large | Frequency-enhanced Legendre Memory with HiPPO-LegT + SpectralConv1d | window_size, multiscale, dropout |
+| **DLinear** | Time Series | small | Decomposition linear model with series decomposition | moving_avg, individual |
 
 To add a new model, see the [Model Extension Guide](templates/models_guide.html).
 
@@ -114,23 +124,52 @@ deeplearning_labs/
 │   ├── data_utils.py           # Load, split, normalize, clean, fill
 │   ├── plot_utils.py           # Matplotlib → base64 PNG
 │   ├── session.py              # SessionManager (state cache)
+│   ├── project_manager.py      # Project persistence (disk I/O)
+│   ├── pipeline_strategy.py    # Small/Large pipeline dispatcher
 │   ├── config.py               # Centralized defaults
 │   ├── fonts.py                # Chinese font detection
-│   └── models/                 # Model registry (MLP, CNN, RNN, etc.)
+│   └── models/                 # Model registry (14 architectures)
+│       ├── base.py             # Abstract BaseModel
+│       ├── mlp.py, cnn.py, rnn.py, lstm.py, gru.py, transformer.py
+│       ├── vanilla_transformer.py, autoformer.py, informer.py
+│       ├── crossformer.py, dlinear.py, etsformer.py
+│       ├── fedformer.py, film.py
+│       ├── shared_layers/      # Shared components (Embed, EncDec, Attention)
+│       ├── autoformer_layers/  # Autoformer internal package
+│       ├── informer_layers/    # Informer internal package
+│       ├── crossformer_layers/ # Crossformer internal package
+│       ├── etsformer_layers/   # ETSformer internal package
+│       ├── fedformer_layers/   # FEDformer internal package
+│       └── film_layers/        # FiLM internal package
 ├── static/
 │   ├── js/app.js               # Event bindings & init
 │   ├── js/api.js               # API call functions
 │   ├── js/ui.js                # DOM rendering & Chart.js
-│   └── css/style.css           # Global styles
+│   ├── js/__tests__/           # Vitest frontend tests
+│   ├── css/style.css           # Global styles
+│   └── dependency_graph.html   # Code dependency visualization (Mermaid)
 ├── templates/
 │   ├── index.html              # Main application UI
 │   └── models_guide.html       # Model extension documentation
+├── tests/                      # Python test suite (pytest)
+│   ├── test_routes.py
+│   ├── test_model_utils.py
+│   ├── test_data_utils.py
+│   ├── test_session.py
+│   ├── test_plot_utils.py
+│   ├── test_pipeline_strategy.py
+│   ├── test_project_manager.py
+│   └── test_split_result.py
 ├── uploads/                    # Uploaded data (per-session)
 ├── outputs/                    # Generated outputs
+├── projects/                   # Persistent project storage
 ├── docs/
-│   └── PRD.md                  # Product requirements document
+│   ├── PRD.md                  # Product requirements document
+│   └── adr/                    # Architecture Decision Records
 ├── start.sh                    # Startup/shutdown script
-└── requirements.txt            # Python dependencies
+├── requirements.txt            # Python dependencies
+├── vitest.config.js            # Vitest configuration
+└── vitest.setup.js             # Vitest jsdom setup
 ```
 
 ### Docker Deployment
@@ -146,10 +185,12 @@ For GPU support with nvidia-docker, uncomment the `deploy` section in `docker-co
 
 ### Key Design Decisions
 
-- **Flask Blueprints** for route organization — data, training, evaluation are separate modules
+- **Flask Blueprints** for route organization — data, training, evaluation, projects are separate modules
 - **Server-Sent Events** (SSE) for real-time training progress — simpler than WebSocket, native Flask support
 - **SessionManager** in-memory cache with disk fallback — survives Flask debug reloads
 - **Model Registry pattern** — adding a model = one file + one registry entry, no other code changes
+- **Dual Pipeline** — small (2-arg forward) for simple models, large (4-arg forward) for time-series models with time-mark encoding
+- **Shared Layers** — common Transformer components in `shared_layers/`, reused across large-pipeline models
 - **Chart.js** for live charts — `animation: false` prevents flicker during rapid SSE updates
 - **matplotlib Agg backend** — server-side rendering to base64 PNG, embedded inline
 
@@ -167,9 +208,10 @@ TRAINING = {
     "normalization": "none",
 }
 
-MODEL = { ... }  # Per-architecture defaults
+MODEL = { ... }  # Per-architecture defaults (14 models)
+TIME_SERIES = {"seq_len": 10, "pred_len": 1, "label_len": 0}
 CV = {"default_folds": 5, "max_epochs_per_fold": 20}
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # + get_available_devices() for UI dropdown
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 ```
 
 ---
@@ -179,19 +221,23 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # + get_available_devic
 ```bash
 # Install dev dependencies (optional)
 pip install pytest pytest-cov
+npm install          # Vitest for JS tests
 
-# Run tests (152 tests covering routes, models, data utils, session, plots)
+# Run Python tests (202 tests)
 pytest tests/
 
-# Enable Flask debug mode (default: on)
-python main.py  # reloads on code changes
+# Run JS tests (54 tests)
+npx vitest run
+
+# Start server (Flask debug mode, reloads on code changes)
+python main.py
 ```
 
 ---
 
 ## Project Status
 
-Stable and ready for use. 152 tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, and project management. See [ISSUES.md](ISSUES.md) for the change log.
+Active development on `feat/informer-integration` branch. 202 Python tests + 54 Vitest JS tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, project management, and frontend logic. See [ISSUES.md](ISSUES.md) for the change log.
 
 ---
 
