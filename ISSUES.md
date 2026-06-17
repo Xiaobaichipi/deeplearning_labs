@@ -60,6 +60,87 @@ Total: 246 passed
 
 ---
 
+## 2026-06-17: 新增模型 — ETSformer (Exp Smoothing Transformer) (feat/informer-integration 分支)
+
+### 概述
+
+从 `time_series_models_labs` 移植 ETSformer 模型。ETSformer 使用指数平滑 + FFT 傅里叶分解替代标准自注意力机制，通过 Level/Growth/Season 三路分解进行时序预测（`pipeline="large"`）。
+
+### 核心架构
+
+| 组件 | 作用 |
+|------|------|
+| **GrowthLayer** | 对差分序列做可学习的指数平滑 → 趋势分量 |
+| **FourierLayer** | FFT 频域 top-k 分量选择 + 外推到 pred_len → 季节分量 |
+| **LevelLayer** | 对去除季节后的序列做指数平滑，以趋势为辅助 → 水平分量 |
+| **Decoder** | DampingLayer 对趋势做阻尼衰减 + 直接取季节的水平窗口 |
+| **Transform** | 训练时数据增强（jitter + scale + shift） |
+
+最终预测 = `level[:,-1:] + growth + season`。
+
+### 自包含层包
+
+与 Crossformer 一致，ETSformer 拥有自己的 `etsformer_layers/` 自包含包，不依赖 `shared_layers/`：
+
+| 文件 | 内容 |
+|------|------|
+| `etsformer_layers/__init__.py` | 包导出 (Encoder/Decoder/DataEmbedding/Transform 等) |
+| `etsformer_layers/Embed.py` | PositionalEmbedding + TokenEmbedding + DataEmbedding（含位置编码） |
+| `etsformer_layers/ETSformer_EncDec.py` | 全部 12 个类：Transform、conv1d_fft、ExponentialSmoothing、Feedforward、GrowthLayer、FourierLayer、LevelLayer、EncoderLayer、Encoder、DampingLayer、DecoderLayer、Decoder |
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| Pipeline | large | 需 x_mark_enc/dec_inp/y_mark，4 参数 forward 签名 |
+| d_layers | 隐藏，自动等于 e_layers | ETSformer 硬约束 `e_layers == d_layers` |
+| activation 默认 | sigmoid | ETSformer 原始论文 Feedforward 默认激活函数 |
+| activation 选项 | sigmoid / gelu / relu | 兼容项目已有模型 + 保留 ETSformer 原始设计 |
+| c_out 内部 | input_dim | LevelLayer.view 需 c_out == level 维度，额外 output_proj 投影到 1 |
+| Embedding | 自包含 DataEmbedding（含位置编码） | 与 Crossformer/Autoformer 一致，不依赖 shared_layers |
+| scipy 依赖 | `scipy>=1.0` 加入 requirements.txt | conv1d_fft 使用 scipy.fft.next_fast_len |
+| Transform 增强 | 包含（sigma=0.2） | ETSformer 论文组成部分 |
+| top_k 参数命名 | 独立于 factor | ETSformer 的 top-k 是频域选择，语义不同于 Autoformer 的 attention factor |
+
+### 暴露参数
+
+| 参数 | 默认 | 范围 |
+|------|------|------|
+| d_model | 256 | 16~512 |
+| n_heads | 8 | 1~16 |
+| e_layers | 2 | 1~8 |
+| d_ff | 32 | 8~1024 |
+| top_k | 5 | 1~20 |
+| dropout | 0.1 | 0.0~0.9 |
+| activation | sigmoid | sigmoid / gelu / relu |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/etsformer_layers/` (3 files) | **新建** — 自包含层包 |
+| `utils/models/etsformer.py` | **新建** — ETSformerWrapper (pipeline="large") + _RawETSformer + output_proj |
+| `utils/models/__init__.py` | **修改** — 注册 ETSformerWrapper |
+| `utils/config.py` | **修改** — MODEL 字典新增 etsformer 默认值 |
+| `requirements.txt` | **修改** — 新增 scipy>=1.0 |
+| `templates/index.html` | **修改** — modelType 选项 + etsformerParams 面板 |
+| `static/js/app.js` | **修改** — allOptions + tsModels + startTraining 参数收集 |
+| `static/js/ui.js` | **修改** — toggleModelParams 切换 |
+| `static/dependency_graph.html` | **修改** — 新增 ETSformer 节点和边 |
+| `vitest.setup.js` | **修改** — DOM 骨架 + 默认值 |
+| `static/js/__tests__/ui.test.js` | **修改** — 新增 toggleModelParams('etsformer') 测试 |
+| `static/js/__tests__/app.test.js` | **修改** — 新增 startTraining ETSformer 参数收集测试 |
+
+### 验证
+
+```
+Python: 200 passed (100.89s)
+JS:      48 passed (1.52s)
+Total:  248 passed
+```
+
+---
+
 ## 2026-06-16: 引入 JS 单元测试 — Vitest + filterUtils 提取 (feat/informer-integration 分支)
 
 ### 概述

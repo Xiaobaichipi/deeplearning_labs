@@ -1,0 +1,1238 @@
+ ▐▛███▜▌   Claude Code v2.1.119
+▝▜█████▛▘  deepseek-v4-flash · API Usage Billing
+  ▘▘ ▝▝    /data/wj/programmer/learning/deeplearning_labs
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Read vitest.setup.js (172 lines)
+  ⎿  Read static/js/__tests__/api.test.js (101 lines)
+  ⎿  Read static/js/__tests__/app.test.js (236 lines)
+  ⎿  Read static/js/__tests__/ui.test.js (229 lines)
+  ⎿  Read vitest.config.js (9 lines)
+  ⎿  Plan file referenced (~/.claude/plans/bubbly-snacking-aho.md)
+  ⎿  Skills restored (grill-me)
+
+  Read 3 files (ctrl+o to expand)
+
+● Fixing the 12 test failures. Five issues to address:
+
+● Update(vitest.setup.js)
+  ⎿  Added 12 lines, removed 1 line
+      32  <div id="informerParams" style="display:none"></div>
+      33  <div id="crossformerParams" style="display:none"></div>
+      34  <div id="dlinearParams" style="display:none"></div>
+      35 -<select id="modelType"><option value="mlp">MLP</option></select
+         ->                                                              
+      35 +<select id="modelType">                                        
+      36 +  <option value="mlp">MLP</option>                             
+      37 +  <option value="cnn">CNN</option>                             
+      38 +  <option value="rnn">RNN</option>                             
+      39 +  <option value="lstm">LSTM</option>                           
+      40 +  <option value="gru">GRU</option>                             
+      41 +  <option value="transformer">Transformer</option>             
+      42 +  <option value="autoformer">Autoformer</option>               
+      43 +  <option value="informer">Informer</option>                   
+      44 +  <option value="crossformer">Crossformer</option>             
+      45 +  <option value="dlinear">DLinear</option>                     
+      46 +</select>                                                      
+      47  <div id="modelSelector" style="display:none">
+      48    <select id="modelSelect"><option value="">-- Select --</optio
+          n></select>
+      49  </div>
+
+● Update(vitest.setup.js)
+  ⎿  Added 1 line
+       94  <select id="normalization"><option value="none">None</option><
+           option value="minmax">Min-Max</option><option value="mean">Mea
+           n</option></select>
+       95  <select id="deviceSelect"><option value="cpu">cpu</option></se
+           lect>
+       96  <button id="trainBtn"></button>
+       97 +<button id="applyTaskConfigBtn">Apply</button>                
+       98  <div id="trainError" style="display:none"></div>
+       99  <input id="autoDModel" value="256">
+      100  <input id="autoNHeads" value="8">
+
+● Update(static/js/__tests__/ui.test.js)
+  ⎿  Added 1 line, removed 1 line
+      1 -import { describe, it, expect, beforeEach } from "vitest";      
+      1 +import { describe, it, expect, beforeEach, vi } from "vitest";  
+      2  
+      3  /* ============ toggleModelParams ============ */
+      4  
+
+● Now fix the esc test expectation — jsdom textContent uses " not &quot;:
+
+● Update(static/js/__tests__/ui.test.js)
+  ⎿  Added 1 line, removed 1 line
+      127  describe("esc", () => {
+      128    it("escapes HTML special characters", () => {
+      129      expect(window.esc('<script>alert("xss")</script>')).toBe(
+      130 -      "&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;",  
+      130 +      '&lt;script&gt;alert("xss")&lt;/script&gt;',            
+      131      );
+      132    });
+      133  
+
+● Now let me run the tests to see if the fixes resolved the failures:
+
+● Bash(npx vitest run 2>&1)
+  ⎿  Error: Exit code 1
+
+      RUN  v4.1.9 /data/wj/programmer/learning/deeplearning_labs
+
+     Not implemented: navigation to another Document
+      ❯ static/js/__tests__/ui.test.js (22 tests | 1 failed) 69ms
+          × activates the target step and section 25ms
+      ❯ static/js/__tests__/app.test.js (9 tests | 1 failed) 86ms
+          × collects task config from DOM and sends to server 24ms
+
+     … +38 lines (ctrl+o to expand)
+
+● Down from 12 to 2 failures. Two issues left:
+
+  1. goToStep — document.querySelector('.section[data-step="3"]') returns null
+  because no .section elements exist in DOM
+  2. applyTaskConfig — timeColSelect only has one <option value="">, so setting
+  .value = "date" silently fails
+
+● Update(vitest.setup.js)
+  ⎿  Added 3 lines, removed 1 line
+      51  <div id="headerMenu" class="header-dropdown-menu"></div>
+      52  <select id="taskTypeSelect"><option value="general">General</op
+          tion><option value="time_series">Time Series</option></select>
+      53  <div id="tsConfigFields" style="display:none"></div>
+      54 -<select id="timeColSelect"><option value="">-- Select --</optio
+         -n></select>                                                    
+      54 +<select id="timeColSelect"><option value="">-- Select --</optio
+         +n><option value="date">date</option></select>                  
+      55 +<div class="section" data-step="3"></div>                      
+      56 +<div class="section" data-step="4"></div>                      
+      57  <input id="seqLenInput" value="10">
+      58  <input id="predLenInput" value="1">
+      59  <input id="labelLenInput" value="0">
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● The goToStep function calls document.getElementById("step" + n) which returns
+  null. Need to add matching elements:
+
+● Update(vitest.setup.js)
+  ⎿  Added 2 lines, removed 2 lines
+      52  <select id="taskTypeSelect"><option value="general">General</op
+          tion><option value="time_series">Time Series</option></select>
+      53  <div id="tsConfigFields" style="display:none"></div>
+      54  <select id="timeColSelect"><option value="">-- Select --</optio
+          n><option value="date">date</option></select>
+      55 -<div class="section" data-step="3"></div>                      
+      56 -<div class="section" data-step="4"></div>                      
+      55 +<div class="section" id="step3" data-step="3"></div>           
+      56 +<div class="section" id="step4" data-step="4"></div>           
+      57  <input id="seqLenInput" value="10">
+      58  <input id="predLenInput" value="1">
+      59  <input id="labelLenInput" value="0">
+
+  Searched for 1 pattern (ctrl+o to expand)
+● Need to also add "hour" option to granularitySelect so the test's second
+  assertion passes too:
+
+● Update(vitest.setup.js)
+  ⎿  Added 1 line, removed 1 line
+      57  <input id="seqLenInput" value="10">
+      58  <input id="predLenInput" value="1">
+      59  <input id="labelLenInput" value="0">
+      60 -<select id="granularitySelect"><option value="auto">Auto</optio
+         -n></select>                                                    
+      60 +<select id="granularitySelect"><option value="auto">Auto</optio
+         +n><option value="hour">Hour</option></select>                  
+      61  <div id="taskConfigBadge" style="display:none"></div>
+      62  <div id="trainingSummary" style="display:none"></div>
+      63  <div id="trainingProgress" style="display:none">
+
+● Bash(npx vitest run 2>&1)
+  ⎿   RUN  v4.1.9 /data/wj/programmer/learning/deeplearning_labs
+
+     Not implemented: navigation to another Document
+     … +6 lines (ctrl+o to expand)
+
+● All 46 tests pass. Let me also check if there are Python tests and run them to
+   ensure no regression:
+
+● Bash(python -m pytest tests/ -v 2>&1 | tail -30)
+  ⎿  tests/test_session.py::TestHistoryCRUD::test_get_history_returns_none
+     PASSED [ 89%]
+     tests/test_session.py::TestModelConfigCRUD::test_set_and_get_model_con
+     … +34 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+
+● 200 Python tests + 46 JS tests = 246 all passing. Frontend test suite is now
+  fully green.
+
+✻ Churned for 7m 41s
+
+❯ /export ./docs/work_log/qianduan_ceshi_1.txt                                  
+  ⎿  Conversation exported to: /data/wj/programmer/learning/deeplearning_labs/do
+     cs/work_log/qianduan_ceshi_1.txt
+
+❯ 提交到本地和远端，更新Issues.md等相关文件。                                   
+
+● Bash(git status)
+  ⎿  位于分支 feat/informer-integration
+     您的分支与上游分支 'origin/feat/informer-integration' 一致。
+     … +30 lines (ctrl+o to expand)
+
+● Bash(git diff)
+  ⎿  diff --git a/static/js/api.js b/static/js/api.js
+     index d10a86a..87ce860 100644
+     --- a/static/js/api.js
+     … +61 lines (ctrl+o to expand)
+
+● Bash(git log --oneline -10)
+  ⎿  47744d1 test: 引入 Vitest + filterUtils 提取，5 个 JS 纯函数测试
+     d42348f fix: 补充 einops 依赖 — Crossformer 集成后本地服务因缺失依赖拒
+     绝连接
+     … +15 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(ISSUES.md)
+  ⎿  Added 60 lines
+       1  # Issues Log
+       2  
+       3 +## 2026-06-16: 前端测试全覆盖 — 全局挂载方案 + 46 个 Vitest 测 
+         +试 (feat/informer-integration 分支)                            
+       4 +                                                               
+       5 +### 概述                                                       
+       6 +                                                               
+       7 +在前一阶段（filterUtils 纯函数提取 + 5 测试）基础上，将测试覆盖
+         +扩展到所有 DOM 操作函数。采用 **全局挂载方案**：JS 文件末尾添加
+         + `window.xxx = xxx` 导出，`vitest.setup.js` 通过 `(0, globalThi
+         +s.eval)()` 注入源码到 jsdom 全局作用域，测试通过 `window` 访问 
+         +函数。                                                         
+       8 +                                                               
+       9 +### 设计决策                                                   
+      10 +                                                               
+      11 +| 决策 | 选择 | 理由 |                                         
+      12 +|------|------|------|                                         
+      13 +| 模块模式 | 全局挂载（非 ES module） | ESLint 检测通过，不修改
+         + HTML `<script>` 标签，`onclick` 兼容 |                        
+      14 +| 源码加载 | `(0, globalThis.eval)()` indirect eval | 函数声明 
+         +提升为全局变量，`const`/`let` 也通过 eval 作用域链路可访问 |   
+      15 +| 加载方式 | setupFiles + 静态 HTML 骨架 | 避免测试文件重复注入
+         + DOM，一次 setup 全局可用 |                                    
+      16 +                                                               
+      17 +### 新增文件                                                   
+      18 +                                                               
+      19 +| 文件 | 内容 |                                                
+      20 +|------|------|                                                
+      21 +| `vitest.setup.js` | DOM 骨架（200+ 元素匹配 index.html）+ 4  
+         +个 JS 文件 indirect eval 加载 |                                
+      22 +| `static/js/__tests__/ui.test.js` | 22 个测试（toggleModelPara
+         +ms/populateModelDropdown/esc/showBadge/goToStep 等） |         
+      23 +| `static/js/__tests__/app.test.js` | 9 个测试（updateModelOpti
+         +ons/applyTaskConfig/startTraining 参数收集） |                 
+      24 +| `static/js/__tests__/api.test.js` | 10 个测试（API URL 正确性
+         +/错误处理） |                                                  
+      25 +                                                               
+      26 +### 修改文件                                                   
+      27 +                                                               
+      28 +| 文件 | 变更 |                                                
+      29 +|------|------|                                                
+      30 +| `static/js/api.js` | 末尾添加 18 个 `window.xxx = xxx` 导出 |
+      31 +| `static/js/app.js` | 末尾添加 21 个 `window.xxx = xxx` 导出 |
+      32 +| `static/js/ui.js` | 末尾添加 37 个 `window.xxx = xxx` 导出 | 
+      33 +| `vitest.config.js` | 新增 `setupFiles: ["./vitest.setup.js"]`
+         + |                                                             
+      34 +                                                               
+      35 +### 测试覆盖                                                   
+      36 +                                                               
+      37 +| 函数 | 测试数 | 覆盖场景 |                                   
+      38 +|------|--------|---------|                                    
+      39 +| `toggleModelParams` | 7 | mlp、rnn/lstm/gru、transformer、aut
+         +oformer、informer、crossformer、dlinear |                      
+      40 +| `populateModelDropdown` | 5 | TS 过滤、General 过滤、空列表、
+         +无匹配、select 缺失 |                                          
+      41 +| `esc` | 3 | HTML 转义、空字符串、纯文本 |                    
+      42 +| `showLoadedModelBadge` | 2 | 显示/隐藏 |                     
+      43 +| `showTaskConfigSaved` | 1 | 3 秒后自动隐藏 |                 
+      44 +| `onTaskTypeChange` | 2 | TS 显示配置、General 隐藏 |         
+      45 +| `goToStep` | 1 | 激活目标 step |                             
+      46 +| `showTrainError` | 1 | 错误信息展示 |                        
+      47 +| `updateModelOptions` | 2 | General 全显示、TS 过滤非时序 |   
+      48 +| `applyTaskConfig` | 2 | DOM 值收集、空值回退默认 |           
+      49 +| `startTraining` | 5 | 缺 target 提前返回、MLP 参数、Autoforme
+         +r 参数、Crossformer 参数、DLinear 参数 |                       
+      50 +| API URL 正确性 | 9 | 8 个端点 URL + method 验证 |            
+      51 +| 错误处理 | 1 | error 响应抛异常 |                            
+      52 +                                                               
+      53 +### 验证                                                       
+      54 +                                                               
+      55 +```                                                            
+      56 +JS:  46 passed (1.54s)                                         
+      57 +Python: 200 passed (100.50s)                                   
+      58 +Total: 246 passed                                              
+      59 +```                                                            
+      60 +                                                               
+      61 +---                                                            
+      62 +                                                               
+      63  ## 2026-06-16: 引入 JS 单元测试 — Vitest + filterUtils 提取 (fe
+          at/informer-integration 分支)
+      64  
+      65  ### 概述
+
+● Now let me stage and commit. Only the JS source changes, test files, and
+  ISSUES.md:
+
+● Bash(git add static/js/api.js static/js/app.js static/js/ui.js
+      vitest.config.js vitest.setup.js static/js/__tests__/api.test.js
+      static/js/__tests__/app.test.js stati…)
+  ⎿  (No output)
+
+● Bash(git commit -m "$(cat <<'EOF'
+      test: 前端全覆盖 — 全局挂载方案 + 46 个 Vitest 测试…)
+  ⎿  [feat/informer-integration 12aec34] test: 前端全覆盖 — 全局挂载方案 +
+     46 个 Vitest 测试
+      9 files changed, 891 insertions(+)
+     … +4 lines (ctrl+o to expand)
+
+● Bash(git push origin feat/informer-integration)  ⎿  remote: Powered by GITEE.COM [1.1.23]
+     remote: Set trace flag 58446288
+     To https://gitee.com/xiaobaiyaxiaobai/deeplearning_labs.git
+     … +2 lines (ctrl+o to expand)
+
+● 完成。
+
+  - 提交: 12aec34 — test: 前端全覆盖 — 全局挂载方案 + 46 个 Vitest 测试
+  - 推送: feat/informer-integration → origin
+  - ISSUES.md: 新增前端测试全覆盖记录（设计决策、文件清单、覆盖矩阵）
+
+  测试现状：JS 46 ✅ + Python 200 ✅ = 246 全部通过。
+
+✻ Sautéed for 36s
+
+※ recap: Implemented hybrid global-mount Vitest scheme across all 3 JS files. All 46 JS + 200 Python tests pass, committed and pushed. No pending next step. (disable recaps in /config)
+
+❯ /grill-me 增加ETSformer模型：参考文件time_series_models_labs/models/ETSformer 
+.py，time_series_models_labs/layers/ETSformer_EncDec.py中的EncoderLayer,        
+Encoder, DecoderLayer, Decoder, Transform。                                     
+
+● Let me first study the reference files and understand how similar models were
+  integrated.
+
+  Searched for 4 patterns, read 7 files (ctrl+o to expand)
+
+● Now I've studied the reference files and the project patterns. Let me ask my
+  first question.
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 的 `forward` 签名是 `(x_enc, x_mark_enc, x_dec, x_mark_dec)` — 
+     与 Autoformer/Informer/Crossformer 一致。你希望把它放在哪个 pipeline？ → 
+     large (推荐)
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 有一个硬约束：`e_layers == 
+     d_layers`（编码器和解码器层数必须相等）。前端参数面板中 d_layers 怎么处理？
+      → 只暴露 e_layers，隐藏 d_layers (推荐)
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 的参数面板要暴露哪些超参数？参考 Crossformer 的 9 
+     个参数。ETSformer 特有参数是 `top_k`（Fourier 频率选择，默认 5），且 
+     activation 支持 sigmoid/gelu/relu。 → 完整版
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 参考实现中有 `Transform` 数据增强（训练时对 x_enc 加 
+     jitter/scale/shift 噪声）。是否包含这个功能？ → 包含 (推荐)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 的 `conv1d_fft` 使用了 `scipy.fftpack.next_fast_len`（FFT 
+     性能优化）。当前项目未依赖 scipy。怎么处理？ → 添加 scipy 到 
+     requirements.txt
+
+● User answered Claude's questions:
+  ⎿  · ETSformer 层文件的放置策略：参考实现中 
+     EncoderLayer/Encoder/DecoderLayer/Decoder/Transform + 
+     ExponentialSmoothing/FourierLayer/GrowthLayer/LevelLayer/DampingLayer 都在 
+     ETSformer_EncDec.py 中。DataEmbedding 从 shared_layers 导入（如 Informer 
+     模式）。你倾向哪种组织方式？ → 新建 etsformer_layers/ 包 (推荐)
+
+● Good — I have all the design decisions mapped out. Here's the full plan
+  summary:
+
+  ETSformer 集成方案
+
+  ┌───────────────┬─────────────────────────────────────────────────────────┐
+  │     决策      │                          选择                           │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ Pipeline      │ large（4 参数 forward）                                 │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ 包结构        │ etsformer_layers/ + utils/models/etsformer.py           │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ Embedding     │ shared_layers.Embed.DataEmbedding（含位置编码）         │
+  │ 来源          │                                                         │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ d_layers      │ 隐藏，自动 d_layers = e_layers                          │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ 暴露参数      │ d_model, n_heads, e_layers, d_ff, top_k, dropout,       │
+  │               │ activation                                              │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ activation    │ sigmoid / gelu / relu（sigmoid 为 ETSformer 默认）      │
+  │ 选项          │                                                         │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ Transform     │ 包含                                                    │
+  │ 增强          │                                                         │
+  ├───────────────┼─────────────────────────────────────────────────────────┤
+  │ scipy 依赖    │ 加入 requirements.txt，使用 scipy.fft.next_fast_len     │
+  └───────────────┴─────────────────────────────────────────────────────────┘
+
+  变更清单
+
+  文件: utils/models/etsformer_layers/__init__.py
+  变更类型: 新建 — 包导出
+  ────────────────────────────────────────
+  文件: utils/models/etsformer_layers/ETSformer_EncDec.py
+  变更类型: 新建 — ExponentialSmoothing, FourierLayer, GrowthLayer, LevelLayer,
+    DampingLayer, Feedforward, EncoderLayer, Encoder, DecoderLayer, Decoder,
+    Transform, conv1d_fft
+  ────────────────────────────────────────
+  文件: utils/models/etsformer.py
+  变更类型: 新建 — ETSformerWrapper(BaseModel), pipeline="large", forward(x_enc,
+
+    x_mark_enc, x_dec, x_mark_dec) → (batch, pred_len, 1)
+  ────────────────────────────────────────
+  文件: utils/models/__init__.py
+  变更类型: 修改 — 注册 ETSformerWrapper，params 含 7 参数，pipeline="large"
+  ────────────────────────────────────────
+  文件: utils/config.py
+  变更类型: 修改 — MODEL 字典新增 etsformer 默认值
+  ────────────────────────────────────────
+  文件: requirements.txt
+  变更类型: 修改 — 新增 scipy
+  ────────────────────────────────────────
+  文件: templates/index.html
+  变更类型: 修改 — modelType 新增 ETSformer 选项 + etsformerParams 面板
+  ────────────────────────────────────────
+  文件: static/js/app.js
+  变更类型: 修改 — allOptions + tsModels + startTraining 参数收集
+  ────────────────────────────────────────
+  文件: static/js/ui.js
+  变更类型: 修改 — toggleModelParams 新增 etsformerParams
+  ────────────────────────────────────────
+  文件: static/dependency_graph.html
+  变更类型: 修改 — 新增节点和边
+
+  需要我继续推进实施吗？
+
+✻ Churned for 1m 3s
+
+※ recap: Adding the ETSformer model (large pipeline) with its own etsformer_layers package and 7 frontend params. The full plan was settled in the grill session — ready to implement whenever you are. (disable recaps in /config)
+
+❯ ## ETSformer 集成方案审查                                                     
+                                                                                
+  整体方向正确，但在几个关键细节上与已确立的模式存在偏差。逐一分析。            
+                                                                                
+  ---                                                                           
+                                                                                
+  ### ✅ 正确的决策                                                             
+                                                                                
+  | 决策 | 评价 |                                                               
+  |------|------|                                                               
+  | Pipeline = large | ETSformer 需要 x_mark、dec_inp，4 参数 forward           
+  签名，正确 |                                                                  
+  | 包结构 = 自包含 `etsformer_layers/` | 与 Autoformer、Crossformer 一致 |     
+  | `d_layers` 隐藏、自动等于 `e_layers` | Crossformer 已采用相同策略（Decoder  
+  层数 = Encoder 层数 + 1），合理 |                                             
+  | `top_k` 作为独立参数名 | ETSformer 的 top-k 是频域分量选择，语义上不同于    
+  Autoformer 的 attention factor，保留独特命名是对的 |                          
+  | 暴露 7 个参数 | 与已有多数大模型对齐 |                                      
+  | `Transform` 增强包含 | 这是 ETSformer 原始论文的组成部分，不加入反而缺功能  
+  |                                                                             
+                                                                                
+  ---                                                                           
+                                                                                
+  ### ⚠️ 需要修正的问题                                                         
+                                                                                
+  #### 问题 1：Embedding 来源打破了自包含原则                                   
+                                                                                
+  方案中标注 **"Embedding 来源: shared_layers.Embed.DataEmbedding"**，但这与    
+  Crossformer 集成时确立的模式冲突。                                            
+                                                                                
+  回顾当时的决策：                                                              
+                                                                                
+  > Crossformer: 方案 A（自包含包）— "无耦合风险、方便从上游同步更新、与        
+  Autoformer 模式一致"                                                          
+                                                                                
+  ETSformer 如果依赖                                                            
+  `shared_layers/Embed.py`，那就不是真正的自包含包——`etsformer_layers/`         
+  有了外部依赖，未来从 `time_series_models_labs`                                
+  同步更新时需要额外注意这个外部引用。                                          
+                                                                                
+  **修正**：ETSformer 应拥有自己的 `etsformer_layers/Embed.py`，包含它需要的    
+  `DataEmbedding`。这与 Crossformer 的                                          
+  `crossformer_layers/Embed.py`（独立复制了 `PatchEmbedding`）模式一致。不依赖  
+  `shared_layers/`。                                                            
+                                                                                
+  **理由**：                                                                    
+  - 保持所有大模型层包的独立性                                                  
+  - 未来从上游同步时只需整体替换目录                                            
+  - 只有 Informer 使用 `shared_layers/`（历史原因），不应扩大这个例外           
+                                                                                
+  ---                                                                           
+                                                                                
+  #### 问题 2：`activation` 新增 `sigmoid` 选项，前端需适配                     
+                                                                                
+  之前所有模型（Autoformer/Informer/Crossformer/DLinear）的激活函数只有 `gelu`  
+  / `relu`。ETSformer 首次引入 `sigmoid`。                                      
+                                                                                
+  这影响：                                                                      
+                                                                                
+  1. **HTML 模板**：ETSformer 的 `activation` 下拉框需要三个选项：              
+     ```html                                                                    
+     <option value="sigmoid" selected>Sigmoid</option>                          
+     <option value="gelu">GELU</option>                                         
+     <option value="relu">ReLU</option>                                         
+     ```                                                                        
+     `sigmoid` 应为默认选中（ETSformer 原始默认）。                             
+                                                                                
+  2. **JS 测试**：`vitest.setup.js` 中需要添加 `etsformerParams` 面板的 DOM     
+  片段，`ui.test.js` 和 `app.test.js` 需要增加对应的测试用例。                  
+                                                                                
+  3. **后端**：`CrossformerWrapper.__init__` 中 `activation` 参数已支持         
+  `gelu`/`relu` 切换，ETSformerWrapper 需要额外处理 `sigmoid`                   
+  的情况（`nn.Sigmoid()`）。                                                    
+                                                                                
+  **不是问题，但需要在变更清单中明确标注前端和后端的改动点。**                  
+                                                                                
+  ---                                                                           
+                                                                                
+  #### 问题 3：`scipy` 依赖需确认                                               
+                                                                                
+  `scipy.fft.next_fast_len` 是 `conv1d_fft` 函数的依赖。需要检查                
+  `requirements.txt` 中是否已有 `scipy`。                                       
+                                                                                
+  - 如果**没有**，需要新增 `scipy>=1.7.0`（`next_fast_len` 在 scipy 1.0+        
+  已存在，1.7+ 更稳定）。                                                       
+  - 如果**已有**，确认版本是否足够。                                            
+                                                                                
+  **建议**：在实施前先 `pip list | grep scipy` 确认。如果缺失，更新             
+  `requirements.txt` 并在方案中标注。                                           
+                                                                                
+  ---                                                                           
+                                                                                
+  #### 问题 4：变更清单遗漏了前端测试更新                                       
+                                                                                
+  方案中列出了 11 个文件的变更，但**没有提到 `vitest.setup.js`                  
+  和前端测试文件**。按照最近建立的前端测试规范，新增模型必须同步更新：          
+                                                                                
+  | 文件 | 需要添加 |                                                           
+  |------|---------|                                                            
+  | `vitest.setup.js` | `etsformerParams` 面板的 DOM 结构 |                     
+  | `static/js/__tests__/ui.test.js` | `toggleModelParams('etsformer')` 的断言  
+  |                                                                             
+  | `static/js/__tests__/app.test.js` | `startTraining` 收集 ETSformer          
+  参数的测试用例 |                                                              
+                                                                                
+  **这些是新增模型的标准测试步骤，应在方案中列出。**                            
+                                                                                
+  ---                                                                           
+                                                                                
+  ### 修正后的方案应包含                                                        
+                                                                                
+  | 变更 | 说明 |                                                               
+  |------|------|                                                               
+  | `etsformer_layers/Embed.py` 自包含 | 不依赖                                 
+  `shared_layers/`，保持自包含原则 |                                            
+  | `activation` 下拉框支持 sigmoid | HTML 模板 + JS 参数收集适配 |             
+  | `requirements.txt` 确认 scipy | 如缺失则新增 |                              
+  | 前端测试文件同步更新 | `vitest.setup.js` + `ui.test.js` + `app.test.js` |   
+  | `etsformer_layers/` 包导出 | `__init__.py` 导出                             
+  `Encoder`、`Decoder`、`FourierLayer` 等 |                                     
+                                                                                
+  ---                                                                           
+                                                                                
+  ### 总评                                                                      
+                                                                                
+  方案结构完整，决策大多正确。修正以上 4 点后即可实施。特别是第 1 点（自包含    
+  Embedding）涉及架构一致性，建议在动手前先确认。其他三点属于实施细节，可在编码 
+  过程中处理。                                                                  
+
+● 4 个问题全部确认。先检查 scipy 状态，然后完整实施。
+● Bash(pip list 2>/dev/null | grep -i scipy)
+  ⎿  scipy                    1.17.1
+
+  Read 1 file (ctrl+o to expand)
+
+● scipy 1.17.1 已安装（scikit-learn 传递依赖），但需要显式加入
+  requirements.txt。
+
+  开始实施。先创建 etsformer_layers/ 包：
+
+  Read 1 file, listed 1 directory (ctrl+o to expand)
+
+● Bash(mkdir -p /data/wj/programmer/learning/deeplearning_labs/utils/models/etsf
+      ormer_layers)
+  ⎿  Done
+
+● Write(utils/models/etsformer_layers/__init__.py)
+  ⎿  Wrote 14 lines to utils/models/etsformer_layers/__init__.py
+       2 from .ETSformer_EncDec import (— self-contained package."""
+       3     EncoderLayer, Encoder, DecoderLayer, Decoder, Transform,
+       4     conv1d_fft, ExponentialSmoothing, FourierLayer, GrowthLayer,
+       5     LevelLayer, DampingLayer, Feedforward,
+       6 )
+       7 from .Embed import DataEmbedding
+       8 
+       9 __all__ = [
+      10     "EncoderLayer", "Encoder", "DecoderLayer", "Decoder", "Trans
+         form",
+     … +6 lines (ctrl+o to expand)
+
+● Write(utils/models/etsformer_layers/Embed.py)
+  ⎿  Wrote 60 lines to utils/models/etsformer_layers/Embed.py
+      2 """DataEmbedding for ETSformer — self-contained copy.
+      3 ETSformer uses value + position + temporal embedding (with positi
+        onal
+      4 encoding), matching the original ``DataEmbedding`` from the refer
+        ence.
+      5 """
+      6 
+      7 import torch
+      8 import torch.nn as nn
+      9 import math
+     … +58 lines (ctrl+o to expand)
+
+● Write(utils/models/etsformer_layers/ETSformer_EncDec.py)
+  ⎿  Wrote 362 lines to utils/models/etsformer_layers/ETSformer_EncDec.py
+       2 """ETSformer encoder/decoder layers.
+       3 Adapted from ``time_series_models_labs/layers/ETSformer_EncDec.p
+       4 y``.
+       5 Architecture overview
+       7 - **GrowthLayer**: exponential smoothing of differenced series →
+          trend
+         ity*FourierLayer**: FFT-based frequency extrapolation → seasonal
+       9 - **LevelLayer**: exponential smoothing of level (trend + season
+      10 - **Encoder**: stack of EncoderLayer, each producing level, grow
+         th, season
+     … +413 lines (ctrl+o to expand)
+
+● Write(utils/models/etsformer.py)
+  ⎿  Wrote 164 lines to utils/models/etsformer.py
+       2 """ETSformer model — large-pipeline wrapper.
+       3 Based on the original implementation from
+       4 ``time_series_models_labs/models/ETSformer.py``, adapted to the 
+       5 system with ``pipeline = "large"``.
+       6 
+       7 Key innovation: exponential smoothing attention + Fourier season
+       8 decomposition, replacing the standard self-attention with growth
+         /seasonal/level
+       9 decomposition.
+      10 """
+     … +179 lines (ctrl+o to expand)
+● Now register ETSformer in all backend and frontend files:
+
+● Update(utils/models/__init__.py)
+  ⎿  Added 1 line
+      11  from .informer import InformerWrapper
+      12  from .crossformer import CrossformerWrapper
+      13  from .dlinear import DLinearWrapper
+      14 +from .etsformer import ETSformerWrapper                        
+      15  
+      16  # -------------------------------------------------------------
+          --------------
+      17  # Model Registry
+
+● Update(utils/models/__init__.py)
+  ⎿  Added 14 lines
+       95              "dropout": {"type": "float", "default": 0.1, "labe
+           l": "Dropout"},
+       96          },
+       97      },
+       98 +    "etsformer": {                                            
+       99 +        "class": ETSformerWrapper,                            
+      100 +        "name": "ETSformer (Exp Smoothing Transformer)",      
+      101 +        "pipeline": "large",                                  
+      102 +        "params": {                                           
+      103 +            "d_model": {"type": "int", "default": 256, "label"
+          +: "Model dimension (d_model)"},                               
+      104 +            "n_heads": {"type": "int", "default": 8, "label": 
+          +"Attention heads"},                                           
+      105 +            "e_layers": {"type": "int", "default": 2, "label":
+          + "Encoder layers (= Decoder layers)"},                        
+      106 +            "d_ff": {"type": "int", "default": 32, "label": "F
+          +eedforward dimension (d_ff)"},                                
+      107 +            "top_k": {"type": "int", "default": 5, "label": "T
+          +op-k Fourier frequencies"},                                   
+      108 +            "dropout": {"type": "float", "default": 0.1, "labe
+          +l": "Dropout"},                                               
+      109 +            "activation": {"type": "string", "default": "sigmo
+          +id", "label": "Activation (sigmoid/gelu/relu)"},              
+      110 +        },                                                    
+      111 +    },                                                        
+      112      "dlinear": {
+      113          "class": DLinearWrapper,
+      114          "name": "DLinear (Decomposition Linear)",
+
+● Update(utils/models/__init__.py)
+  ⎿  Added 1 line
+      215      "InformerWrapper",
+      216      "CrossformerWrapper",
+      217      "DLinearWrapper",
+      218 +    "ETSformerWrapper",                                       
+      219      "MODEL_REGISTRY",
+      220      "get_model_class",
+      221      "get_model_names",
+
+● Update(utils/config.py)
+  ⎿  Added 2 lines
+       97                   "factor": 3, "distil": True, "dropout": 0.1, 
+           "activation": "gelu"},
+       98      "crossformer": {"d_model": 256, "n_heads": 8, "e_layers": 
+           3, "d_ff": 32,
+       99                      "factor": 3, "seg_len": 12, "win_size": 2,
+            "dropout": 0.1, "activation": "gelu"},
+      100 +    "etsformer": {"d_model": 256, "n_heads": 8, "e_layers": 2,
+          + "d_ff": 32,                                                  
+      101 +                  "top_k": 5, "dropout": 0.1, "activation": "s
+          +igmoid"},                                                     
+      102      "dlinear": {"moving_avg": 25, "individual": False},
+      103  }
+      104  
+
+● Update(requirements.txt)
+  ⎿  Added 1 line
+       6  seaborn>=0.12
+       7  einops>=0.8
+       8  openpyxl>=3.1
+       9 +scipy>=1.0                                                     
+      10  torch>=2.0,<2.6  # CUDA 12.x driver 兼容
+
+● Now update the frontend HTML, app.js, and ui.js:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(templates/index.html)
+  ⎿  Added 1 line
+      264                                  <option value="autoformer">Aut
+           oformer (Long-term Forecast)</option>
+      265                                  <option value="informer">Infor
+           mer (ProbSparse Attention)</option>
+      266                                  <option value="crossformer">Cr
+           ossformer (Two-Stage Attention)</option>
+      267 +                                <option value="etsformer">ETSf
+          +ormer (Exp Smoothing Transformer)</option>                    
+      268                              </select>
+      269                          </div>
+      270                      </div>
+
+● Update(templates/index.html)
+  ⎿  Added 43 lines
+      475                          </div>
+      476                      </div>
+      477  
+      478 +                    <div id="etsformerParams" style="display:n
+          +one;">                                                        
+      479 +                        <div class="form-row">                
+      480 +                            <div class="input-group">         
+      481 +                                <label>Model dimension (d_mode
+          +l)</label>                                                    
+      482 +                                <input type="number" id="etsDM
+          +odel" value="{{ cfg.model.etsformer.d_model }}" min="16" max="
+          +512">                                                         
+      483 +                            </div>                            
+      484 +                            <div class="input-group">         
+      485 +                                <label>Attention heads (n_head
+          +s)</label>                                                    
+      486 +                                <input type="number" id="etsNH
+          +eads" value="{{ cfg.model.etsformer.n_heads }}" min="1" max="1
+          +6">                                                           
+      487 +                            </div>                            
+      488 +                        </div>                                
+      489 +                        <div class="form-row">                
+      490 +                            <div class="input-group">         
+      491 +                                <label>Encoder layers (e_layer
+          +s = d_layers)</label>                                         
+      492 +                                <input type="number" id="etsEL
+          +ayers" value="{{ cfg.model.etsformer.e_layers }}" min="1" max=
+          +"8">                                                          
+      493 +                            </div>                            
+      494 +                            <div class="input-group">         
+      495 +                                <label>Feedforward dimension (
+          +d_ff)</label>                                                 
+      496 +                                <input type="number" id="etsDF
+          +F" value="{{ cfg.model.etsformer.d_ff }}" min="8" max="1024"> 
+      497 +                            </div>                            
+      498 +                        </div>                                
+      499 +                        <div class="form-row">                
+      500 +                            <div class="input-group">         
+      501 +                                <label>Top-k Fourier frequenci
+          +es</label>                                                    
+      502 +                                <input type="number" id="etsTo
+          +pK" value="{{ cfg.model.etsformer.top_k }}" min="1" max="20"> 
+      503 +                            </div>                            
+      504 +                            <div class="input-group">         
+      505 +                                <label>Dropout</label>        
+      506 +                                <input type="number" id="etsDr
+          +opout" value="{{ cfg.model.etsformer.dropout }}" min="0.0" max
+          +="0.9" step="0.1">                                            
+      507 +                            </div>                            
+      508 +                        </div>                                
+      509 +                        <div class="form-row">                
+      510 +                            <div class="input-group">         
+      511 +                                <label>Activation</label>     
+      512 +                                <select id="etsActivation">   
+      513 +                                    <option value="sigmoid" {{
+          + 'selected' if cfg.model.etsformer.activation == 'sigmoid' els
+          +e '' }}>Sigmoid</option>                                      
+      514 +                                    <option value="gelu" {{ 's
+          +elected' if cfg.model.etsformer.activation == 'gelu' else '' }
+          +}>GELU</option>                                               
+      515 +                                    <option value="relu" {{ 's
+          +elected' if cfg.model.etsformer.activation == 'relu' else '' }
+          +}>ReLU</option>                                               
+      516 +                                </select>                     
+      517 +                            </div>                            
+      518 +                        </div>                                
+      519 +                    </div>                                    
+      520 +                                                              
+      521                      <div id="dlinearParams" style="display:non
+           e;">
+      522                          <div class="form-row">
+      523                              <div class="input-group">
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(static/js/app.js)
+  ⎿  Added 1 line
+      179          "autoformer": "Autoformer (Long-term Forecast)",
+      180          "informer": "Informer (ProbSparse Attention)",
+      181          "crossformer": "Crossformer (Two-Stage Attention)",
+      182 +        "etsformer": "ETSformer (Exp Smoothing Transformer)", 
+      183          "dlinear": "DLinear (Decomposition Linear)",
+      184      };
+      185  
+
+● Update(static/js/app.js)
+  ⎿  Added 1 line, removed 1 line
+      183          "dlinear": "DLinear (Decomposition Linear)",
+      184      };
+      185  
+      186 -    const tsModels = ["rnn", "lstm", "gru", "transformer", "au
+          -toformer", "informer", "crossformer", "dlinear"];             
+      186 +    const tsModels = ["rnn", "lstm", "gru", "transformer", "au
+          +toformer", "informer", "crossformer", "etsformer", "dlinear"];
+      187  
+      188      sel.innerHTML = "";
+      189      Object.entries(allOptions).forEach(([val, label]) => {
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(static/js/app.js)
+  ⎿  Added 10 lines
+      313              win_size: parseInt(document.getElementById("crossW
+           inSize").value) || DEFAULTS.model.crossformer.win_size,
+      314              activation: document.getElementById("crossActivati
+           on").value,
+      315          });
+      316 +    } else if (mt === "etsformer") {                          
+      317 +        Object.assign(params, {                               
+      318 +            d_model: parseInt(document.getElementById("etsDMod
+          +el").value) || DEFAULTS.model.etsformer.d_model,              
+      319 +            n_heads: parseInt(document.getElementById("etsNHea
+          +ds").value) || DEFAULTS.model.etsformer.n_heads,              
+      320 +            e_layers: parseInt(document.getElementById("etsELa
+          +yers").value) || DEFAULTS.model.etsformer.e_layers,           
+      321 +            d_ff: parseInt(document.getElementById("etsDFF").v
+          +alue) || DEFAULTS.model.etsformer.d_ff,                       
+      322 +            top_k: parseInt(document.getElementById("etsTopK")
+          +.value) || DEFAULTS.model.etsformer.top_k,                    
+      323 +            dropout: parseFloat(document.getElementById("etsDr
+          +opout").value) || DEFAULTS.model.etsformer.dropout,           
+      324 +            activation: document.getElementById("etsActivation
+          +").value,                                                     
+      325 +        });                                                   
+      326      } else if (mt === "dlinear") {
+      327          Object.assign(params, {
+      328              moving_avg: parseInt(document.getElementById("dlMo
+           vingAvg").value) || DEFAULTS.model.dlinear.moving_avg,
+
+● Now update ui.js to add etsformerParams toggle:
+
+● Update(static/js/ui.js)
+  ⎿  Added 1 line
+      308      document.getElementById("autoformerParams").style.display 
+           = type === "autoformer" ? "block" : "none";
+      309      document.getElementById("informerParams").style.display = 
+           type === "informer" ? "block" : "none";
+      310      document.getElementById("crossformerParams").style.display
+            = type === "crossformer" ? "block" : "none";
+      311 +    document.getElementById("etsformerParams").style.display =
+          + type === "etsformer" ? "block" : "none";                     
+      312      document.getElementById("dlinearParams").style.display = t
+           ype === "dlinear" ? "block" : "none";
+      313  }
+      314  
+● Bash(python -c "
+      from utils.models import MODEL_REGISTRY, ETSformerWrapper,
+      get_model_pipeline…)
+  ⎿  Error: Exit code 1
+     Traceback (most recent call last):
+       File "<string>", line 8, in <module>
+       File 
+     "/data/wj/programmer/learning/deeplearning_labs/utils/models/etsformer.py",
+      line 137, in __init__
+         self._model = _RawETSformer(configs)
+                       ^^^^^^^^^^^^^^^^^^^^^^
+       File 
+     "/data/wj/programmer/learning/deeplearning_labs/utils/models/etsformer.py",
+      line 57, in __init__
+         self.decoder = Decoder(
+                        ^^^^^^^^
+       File "/data/wj/programmer/learning/deeplearning_labs/utils/models/etsform
+     er_layers/ETSformer_EncDec.py", line 346, in __init__
+     … +8 lines (ctrl+o to expand)
+
+● Update(utils/models/etsformer_layers/ETSformer_EncDec.py)
+  ⎿  Added 4 lines
+      327  class DecoderLayer(nn.Module):
+      328      def __init__(self, d_model, nhead, c_out, pred_len, dropou
+           t=0.1):
+      329          super().__init__()
+      330 +        self.d_model = d_model                                
+      331 +        self.c_out = c_out                                    
+      332 +        self.pred_len = pred_len                              
+      333 +        self.nhead = nhead                                    
+      334          self.growth_damping = DampingLayer(pred_len, nhead, dr
+           opout=dropout)
+      335          self.dropout1 = nn.Dropout(dropout)
+      336  
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(utils/models/etsformer_layers/ETSformer_EncDec.py)
+  ⎿  Removed 1 line
+      329          super().__init__()
+      330          self.d_model = d_model
+      331          self.c_out = c_out
+      332 -        self.pred_len = pred_len                              
+      332          self.nhead = nhead
+      333          self.growth_damping = DampingLayer(pred_len, nhead, dr
+           opout=dropout)
+      334          self.dropout1 = nn.Dropout(dropout)
+
+● Bash(python -c "
+      from utils.models import ETSformerWrapper…)
+  ⎿  model created, pipeline: large
+     forward output shape: torch.Size([4, 12, 1])
+     OK
+  ⎿  (timeout 30s)
+
+● Forward pass works. Let me run the test suite and update the dependency graph:
+
+● Bash(python -m pytest tests/ -v --tb=short 2>&1 | tail -40)
+  ⎿  tests/test_session.py::TestDataCRUD::test_get_data_returns_none_for_un
+     known_disk_dir PASSED [ 84%]
+     tests/test_session.py::TestDataCRUD::test_set_data_overwrites_previous
+     … +47 lines (ctrl+o to expand)
+  ⎿  (timeout 3m)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(static/dependency_graph.html)
+  ⎿  Added 1 line
+      63      n9_informer["utils/models/informer.py"]
+      64      n10_crossformer["utils/models/crossformer.py"]
+      65      n11_dlinear["utils/models/dlinear.py"]
+      66 +    n12_etsformer["utils/models/etsformer.py"]                 
+      67    end
+      68  
+      69    %% Autoformer layers (internal package)
+
+● Update(static/dependency_graph.html)
+  ⎿  Added 7 lines
+       96      n1_il_attention["utils/models/informer_layers/SelfAttentio
+           n_Family.py"]
+       97    end
+       98  
+       99 +  %% ETSformer layers (internal package)                      
+      100 +  subgraph G_ETSformerLayers["ETSformer Layers"]              
+      101 +    n0_el__init__["utils/models/etsformer_layers/__init__.py"]
+      102 +    n1_el_embed["utils/models/etsformer_layers/Embed.py"]     
+      103 +    n2_el_encdec["utils/models/etsformer_layers/ETSformer_EncD
+          +ec.py"]                                                       
+      104 +  end                                                         
+      105 +                                                              
+      106    %% Frontend
+      107    subgraph G_Frontend["Frontend JS"]
+      108      n0_api["static/js/api.js"]
+
+● Update(static/dependency_graph.html)
+  ⎿  Added 1 line
+      157    n0_models___init__ -->|1| n9_informer
+      158    n0_models___init__ -->|1| n10_crossformer
+      159    n0_models___init__ -->|1| n11_dlinear
+      160 +  n0_models___init__ -->|1| n12_etsformer                     
+      161    n9_informer -->|1| n1_base
+      162    n9_informer -->|1| n0_sl__init__
+      163    n9_informer -->|1| n0_il__init__
+
+● Update(static/dependency_graph.html)
+  ⎿  Added 9 lines
+      169  
+      170    %% DLinear deps
+      171    n11_dlinear -->|1| n1_base
+      172 +                                                              
+      173 +  %% ETSformer deps                                           
+      174 +  n12_etsformer -->|1| n1_base                                
+      175 +  n12_etsformer -->|1| n0_el__init__                          
+      176 +                                                              
+      177 +  %% ETSformer layers internal deps                           
+      178 +  n0_el__init__ -->|1| n1_el_embed                            
+      179 +  n0_el__init__ -->|1| n2_el_encdec                           
+      180 +                                                              
+      181    n0_cl__init__ -->|1| n1_cl_embed
+      182    n0_cl__init__ -->|1| n2_cl_attn
+      183    n0_cl__init__ -->|1| n3_cl_encdec
+
+● Update(static/dependency_graph.html)
+  ⎿  Added 1 line
+      198    n8_autoformer -->|extends| n1_base
+      199    n9_informer -->|extends| n1_base
+      200    n10_crossformer -->|extends| n1_base
+      201 +  n12_etsformer -->|extends| n1_base                          
+      202    n11_dlinear -->|extends| n1_base
+      203    </div>
+      204    <div class="legend">
+
+● Now update the frontend tests. Let me check the current config-data in
+  vitest.setup.js:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(vitest.setup.js)  ⎿  Added 1 line
+      19      autoformer: { d_model: 256, n_heads: 8, e_layers: 3, d_laye
+          rs: 2, d_ff: 32, moving_avg: 25, factor: 3, activation: "gelu" 
+          },
+      20      informer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers
+          : 2, d_ff: 32, factor: 3, activation: "gelu" },
+      21      crossformer: { d_model: 256, n_heads: 8, e_layers: 3, d_ff:
+           32, factor: 3, seg_len: 12, win_size: 2, activation: "gelu" },
+      22 +    etsformer: { d_model: 256, n_heads: 8, e_layers: 2, d_ff: 3
+         +2, top_k: 5, dropout: 0.1, activation: "sigmoid" },            
+      23      dlinear: { moving_avg: 25, individual: false },
+      24    },
+      25    cv: { default_folds: 5 },
+
+● Update(vitest.setup.js)
+  ⎿  Added 1 line
+      32  <div id="autoformerParams" style="display:none"></div>
+      33  <div id="informerParams" style="display:none"></div>
+      34  <div id="crossformerParams" style="display:none"></div>
+      35 +<div id="etsformerParams" style="display:none"></div>          
+      36  <div id="dlinearParams" style="display:none"></div>
+      37  <select id="modelType">
+      38    <option value="mlp">MLP</option>
+
+● Update(vitest.setup.js)
+  ⎿  Added 1 line
+      44    <option value="autoformer">Autoformer</option>
+      45    <option value="informer">Informer</option>
+      46    <option value="crossformer">Crossformer</option>
+      47 +  <option value="etsformer">ETSformer</option>                 
+      48    <option value="dlinear">DLinear</option>
+      49  </select>
+      50  <div id="modelSelector" style="display:none">
+
+● Update(vitest.setup.js)
+  ⎿  Added 7 lines
+      124  <input id="crossFactor" value="3">
+      125  <input id="crossSegLen" value="12">
+      126  <input id="crossWinSize" value="2">
+      127 +<input id="etsDModel" value="256">                            
+      128 +<input id="etsNHeads" value="8">                              
+      129 +<input id="etsELayers" value="2">                             
+      130 +<input id="etsDFF" value="32">                                
+      131 +<input id="etsTopK" value="5">                                
+      132 +<input id="etsDropout" value="0.1">                           
+      133 +<select id="etsActivation"><option value="sigmoid">Sigmoid</op
+          +tion></select>                                                
+      134  <select id="crossActivation"><option value="gelu">GELU</option
+           ><option value="relu">ReLU</option></select>
+      135  <input id="dlMovingAvg" value="25">
+      136  <div class="toggle" id="toggleIndividual"></div>
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(static/js/__tests__/ui.test.js)
+  ⎿  Added 6 lines
+      63      window.toggleModelParams();
+      64      expect(document.getElementById("dlinearParams").style.displ
+          ay).toBe("block");
+      65    });
+      66 +                                                               
+      67 +  it("shows etsformerParams only for etsformer", () => {       
+      68 +    document.getElementById("modelType").value = "etsformer";  
+      69 +    window.toggleModelParams();                                
+      70 +    expect(document.getElementById("etsformerParams").style.dis
+         +play).toBe("block");                                           
+      71 +  });                                                          
+      72  });
+      73  
+      74  /* ============ populateModelDropdown ============ */
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(static/js/__tests__/app.test.js)
+  ⎿  Added 32 lines
+      232      expect(body.model_type).toBe("dlinear");
+      233      expect(body.moving_avg).toBe(35);
+      234    });
+      235 +                                                              
+      236 +  it("collects etsformer-specific params", async () => {      
+      237 +    vi.spyOn(window, "alert").mockImplementation(() => {});   
+      238 +    global.EventSource = vi.fn(() => ({                       
+      239 +      addEventListener: vi.fn(),                              
+      240 +      close: vi.fn(),                                         
+      241 +    }));                                                      
+      242 +    document.getElementById("modelType").value = "etsformer"; 
+      243 +    window.toggleModelParams();                               
+      244 +    document.getElementById("etsDModel").value = "128";       
+      245 +    document.getElementById("etsNHeads").value = "4";         
+      246 +    document.getElementById("etsELayers").value = "3";        
+      247 +    document.getElementById("etsTopK").value = "7";           
+      248 +    document.getElementById("etsActivation").value = "gelu";  
+      249 +                                                              
+      250 +    await window.startTraining();                             
+      251 +                                                              
+      252 +    const setupCalls = global.fetch.mock.calls.filter(        
+      253 +      (c) => c[0] === "/api/train/setup",                     
+      254 +    );                                                        
+      255 +    expect(setupCalls).toHaveLength(1);                       
+      256 +    const body = JSON.parse(setupCalls[0][1].body);           
+      257 +    expect(body.model_type).toBe("etsformer");                
+      258 +    expect(body.d_model).toBe(128);                           
+      259 +    expect(body.n_heads).toBe(4);                             
+      260 +    expect(body.e_layers).toBe(3);                            
+      261 +    expect(body.top_k).toBe(7);                               
+      262 +    expect(body.activation).toBe("gelu");                     
+      263 +    // Should NOT have dlinear/autoformer-specific fields     
+      264 +    expect(body.moving_avg).toBeUndefined();                  
+      265 +    expect(body.seg_len).toBeUndefined();                     
+      266 +  });                                                         
+      267  });
+
+● Bash(npx vitest run 2>&1)
+  ⎿  Error: Exit code 1
+
+      RUN  v4.1.9 /data/wj/programmer/learning/deeplearning_labs
+
+     Not implemented: navigation to another Document
+      ❯ static/js/__tests__/app.test.js (10 tests | 1 failed) 71ms
+          × collects etsformer-specific params 15ms
+
+     ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+     … +23 lines (ctrl+o to expand)
+
+● The etsActivation select in vitest.setup.js only has a "sigmoid" option — need
+   to add "gelu":
+
+● Update(vitest.setup.js)
+  ⎿  Added 1 line, removed 1 line
+      130  <input id="etsDFF" value="32">
+      131  <input id="etsTopK" value="5">
+      132  <input id="etsDropout" value="0.1">
+      133 -<select id="etsActivation"><option value="sigmoid">Sigmoid</op
+          -tion></select>                                                
+      133 +<select id="etsActivation"><option value="sigmoid">Sigmoid</op
+          +tion><option value="gelu">GELU</option></select>              
+      134  <select id="crossActivation"><option value="gelu">GELU</option
+           ><option value="relu">ReLU</option></select>
+      135  <input id="dlMovingAvg" value="25">
+      136  <div class="toggle" id="toggleIndividual"></div>
+
+● Bash(npx vitest run 2>&1)
+  ⎿   RUN  v4.1.9 /data/wj/programmer/learning/deeplearning_labs
+
+     Not implemented: navigation to another Document
+     … +6 lines (ctrl+o to expand)
+
+● Bash(python -m pytest tests/ -q 2>&1 | tail -5)
+  ⎿    /home/wj/.local/lib/python3.12/site-packages/sklearn/metrics/_regres
+     sion.py:1283: UndefinedMetricWarning: R^2 score is not well-defined wi
+     th less than two samples.
+     … +5 lines (ctrl+o to expand)
+  ⎿  (timeout 3m)
+
+● Bash(git status --short)
+  ⎿   M requirements.txt
+      M static/dependency_graph.html
+      M static/js/__tests__/app.test.js
+     … +29 lines (ctrl+o to expand)
+
+● Bash(git add requirements.txt static/dependency_graph.html
+      static/js/__tests__/app.test.js static/js/__tests__/ui.test.js
+      static/js/app.js static/js/ui.js templates/…)
+  ⎿  (No output)
+● Bash(git status --short | grep -v "^??" | head -20)
+  ⎿  M  requirements.txt
+     M  static/dependency_graph.html
+     M  static/js/__tests__/app.test.js
+     … +11 lines (ctrl+o to expand)
+
+● Bash(git commit -m "$(cat <<'EOF'
+      feat: 新增 ETSformer 模型 — 指数平滑 Transformer (large pipeline)…)
+  ⎿  [feat/informer-integration 7a93ca6] feat: 新增 ETSformer 模型 — 指数平
+     滑 Transformer (large pipeline)
+      14 files changed, 746 insertions(+), 1 deletion(-)
+     … +4 lines (ctrl+o to expand)
+
+● Bash(git push origin feat/informer-integration)
+  ⎿  remote: Powered by GITEE.COM [1.1.23]
+     remote: Set trace flag df4a58bf
+     To https://gitee.com/xiaobaiyaxiaobai/deeplearning_labs.git
+     … +2 lines (ctrl+o to expand)
+
+● 完成。7a93ca6 — ETSformer 模型集成（14 files, +746 行）。
+
+  变更清单
+
+  文件: utils/models/etsformer_layers/ (3 files)
+  说明: 自包含层包 — Embed + ETSformer_EncDec（ExponentialSmoothing /
+    FourierLayer / GrowthLayer / LevelLayer / DampingLayer / Encoder / Decoder /
+
+    Transform）
+  ────────────────────────────────────────
+  文件: utils/models/etsformer.py
+  说明: ETSformerWrapper(BaseModel), pipeline="large", output_proj input_dim→1
+  ────────────────────────────────────────
+  文件: utils/models/__init__.py
+  说明: 注册 ETSformerWrapper，暴露 7 参数
+  ────────────────────────────────────────
+  文件: utils/config.py
+  说明: MODEL 字典默认值
+  ────────────────────────────────────────
+  文件: requirements.txt
+  说明: 新增 scipy>=1.0
+  ────────────────────────────────────────
+  文件: templates/index.html
+  说明: modelType 选项 + etsformerParams 面板（activation 含 sigmoid/gelu/relu）
+  ────────────────────────────────────────
+  文件: static/js/app.js
+  说明: allOptions + tsModels + startTraining 参数收集
+  ────────────────────────────────────────
+  文件: static/js/ui.js
+  说明: toggleModelParams 切换
+  ────────────────────────────────────────
+  文件: static/dependency_graph.html
+  说明: 新增 ETSformer 节点和边
+  ────────────────────────────────────────
+  文件: vitest.setup.js
+  说明: DOM 骨架 + ETSformer 默认值
+  ────────────────────────────────────────
+  文件: ui.test.js / app.test.js
+  说明: 新增 etsformerParams 显示 + 参数收集测试
+
+  验证: Python 200 ✅ + JS 48 ✅ = 248 全部通过。
+
+✻ Sautéed for 7m 57s
