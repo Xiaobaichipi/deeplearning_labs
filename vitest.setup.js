@@ -22,6 +22,7 @@ document.body.innerHTML = `
     etsformer: { d_model: 256, n_heads: 8, e_layers: 2, d_ff: 32, top_k: 5, dropout: 0.1, activation: "sigmoid" },
     fedformer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 3, d_ff: 32, moving_avg: 25, dropout: 0.1, modes: 32, version: "Fourier", mode_select: "random", activation: "gelu" },
     film: { window_size: "256", multiscale: "1,2,4", dropout: 0.1 },
+    vanilla_transformer: { d_model: 256, n_heads: 8, e_layers: 3, d_layers: 3, d_ff: 32, dropout: 0.1, activation: "gelu" },
     dlinear: { moving_avg: 25, individual: false },
   },
   cv: { default_folds: 5 },
@@ -37,6 +38,15 @@ document.body.innerHTML = `
 <div id="etsformerParams" style="display:none"></div>
 <div id="fedformerParams" style="display:none"></div>
 <div id="filmParams" style="display:none"></div>
+<div id="vanillaTransformerParams" style="display:none">
+  <input id="vanillaDModel" value="256">
+  <input id="vanillaNHeads" value="8">
+  <input id="vanillaELayers" value="3">
+  <input id="vanillaDLayers" value="3">
+  <input id="vanillaDFF" value="32">
+  <input id="vanillaDropout" value="0.1">
+  <select id="vanillaActivation"><option value="gelu">GELU</option><option value="relu">ReLU</option></select>
+</div>
 <div id="dlinearParams" style="display:none"></div>
 <select id="modelType">
   <option value="mlp">MLP</option>
@@ -51,6 +61,7 @@ document.body.innerHTML = `
   <option value="etsformer">ETSformer</option>
   <option value="fedformer">FEDformer</option>
   <option value="film">FiLM</option>
+  <option value="vanilla_transformer">Vanilla Transformer</option>
   <option value="dlinear">DLinear</option>
 </select>
 <div id="modelSelector" style="display:none">

@@ -66,6 +66,7 @@ graph TB
     n12_etsformer["utils/models/etsformer.py"]
     n13_fedformer["utils/models/fedformer.py"]
     n14_film["utils/models/film.py"]
+    n15_vanilla["utils/models/vanilla_transformer.py"]
   end
 
   %% Autoformer layers (internal package)
@@ -90,6 +91,7 @@ graph TB
     n1_sl_embed["utils/models/shared_layers/Embed.py"]
     n2_sl_encdec["utils/models/shared_layers/Transformer_EncDec.py"]
     n3_sl_mask["utils/models/shared_layers/masking.py"]
+    n4_sl_attn["utils/models/shared_layers/SelfAttention_Family.py"]
   end
 
   %% Informer Layers (internal package)
@@ -176,11 +178,16 @@ graph TB
   n0_models___init__ -->|1| n12_etsformer
   n0_models___init__ -->|1| n13_fedformer
   n0_models___init__ -->|1| n14_film
+  n0_models___init__ -->|1| n15_vanilla
   n9_informer -->|1| n1_base
 
   %% FiLM deps
   n14_film -->|1| n1_base
   n14_film -->|1| n0_flm__init__
+
+  %% Vanilla Transformer deps
+  n15_vanilla -->|1| n1_base
+  n15_vanilla -->|1| n0_sl__init__
 
   %% FiLM layers internal deps
   n0_flm__init__ -->|1| n1_flm_hippo
@@ -221,6 +228,7 @@ graph TB
   n0_sl__init__ -->|1| n1_sl_embed
   n0_sl__init__ -->|1| n2_sl_encdec
   n0_sl__init__ -->|1| n3_sl_mask
+  n0_sl__init__ -->|1| n4_sl_attn
 
   %% Model inheritance
   n2_cnn -->|extends| n1_base
@@ -235,6 +243,7 @@ graph TB
   n12_etsformer -->|extends| n1_base
   n13_fedformer -->|extends| n1_base
   n14_film -->|extends| n1_base
+  n15_vanilla -->|extends| n1_base
   n11_dlinear -->|extends| n1_base
   </div>
   <div class="legend">

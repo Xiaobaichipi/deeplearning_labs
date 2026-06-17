@@ -18,6 +18,7 @@ describe("updateModelOptions", () => {
     expect(values).not.toContain("fedformer");
     expect(values).not.toContain("dlinear");
     expect(values).not.toContain("rnn");
+    expect(values).not.toContain("vanilla_transformer");
   });
 
   it("filters to TS models for time_series", () => {
@@ -29,6 +30,7 @@ describe("updateModelOptions", () => {
     expect(values).toContain("autoformer");
     expect(values).toContain("fedformer");
     expect(values).toContain("dlinear");
+    expect(values).toContain("vanilla_transformer");
     expect(values).not.toContain("cnn");
   });
 });
@@ -117,6 +119,7 @@ describe("startTraining — parameter collection", () => {
       <option value="etsformer">ETSformer</option>
       <option value="fedformer">FEDformer</option>
       <option value="film">FiLM</option>
+      <option value="vanilla_transformer">Vanilla Transformer</option>
       <option value="dlinear">DLinear</option>
     `;
 
@@ -350,6 +353,41 @@ describe("startTraining — parameter collection", () => {
     expect(body.window_size).toBe("128");
     expect(body.multiscale).toBe("1,2");
     expect(body.dropout).toBe(0.2);
+    // Should NOT have fedformer-specific fields
+    expect(body.modes).toBeUndefined();
+  });
+
+  it("collects vanilla_transformer-specific params", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.EventSource = vi.fn(() => ({
+      addEventListener: vi.fn(),
+      close: vi.fn(),
+    }));
+    document.getElementById("modelType").value = "vanilla_transformer";
+    window.toggleModelParams();
+    document.getElementById("vanillaDModel").value = "128";
+    document.getElementById("vanillaNHeads").value = "4";
+    document.getElementById("vanillaELayers").value = "2";
+    document.getElementById("vanillaDLayers").value = "2";
+    document.getElementById("vanillaDFF").value = "64";
+    document.getElementById("vanillaDropout").value = "0.2";
+    document.getElementById("vanillaActivation").value = "relu";
+
+    await window.startTraining();
+
+    const setupCalls = global.fetch.mock.calls.filter(
+      (c) => c[0] === "/api/train/setup",
+    );
+    expect(setupCalls).toHaveLength(1);
+    const body = JSON.parse(setupCalls[0][1].body);
+    expect(body.model_type).toBe("vanilla_transformer");
+    expect(body.d_model).toBe(128);
+    expect(body.n_heads).toBe(4);
+    expect(body.e_layers).toBe(2);
+    expect(body.d_layers).toBe(2);
+    expect(body.d_ff).toBe(64);
+    expect(body.dropout).toBe(0.2);
+    expect(body.activation).toBe("relu");
     // Should NOT have fedformer-specific fields
     expect(body.modes).toBeUndefined();
   });

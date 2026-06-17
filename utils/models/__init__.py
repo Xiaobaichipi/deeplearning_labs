@@ -7,6 +7,7 @@ from .rnn import RNNModel
 from .lstm import LSTMModel
 from .gru import GRUModel
 from .transformer import TransformerTabularModel
+from .vanilla_transformer import VanillaTransformerWrapper
 from .autoformer import AutoformerWrapper
 from .informer import InformerWrapper
 from .crossformer import CrossformerWrapper
@@ -87,7 +88,7 @@ MODEL_REGISTRY = {
     },
     "transformer": {
         "class": TransformerTabularModel,
-        "name": "Transformer (Encoder)",
+        "name": "Transformer (Tabular)",
         "pipeline": "small",
         "params": {
             "d_model": {"type": "int", "default": 64, "label": "Model dimension (d_model)"},
@@ -95,6 +96,20 @@ MODEL_REGISTRY = {
             "num_layers": {"type": "int", "default": 2, "label": "Encoder layers"},
             "dim_feedforward": {"type": "int", "default": 256, "label": "Feedforward dimension"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "vanilla_transformer": {
+        "class": VanillaTransformerWrapper,
+        "name": "Vanilla Transformer",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension (d_model)"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_layers": {"type": "int", "default": 3, "label": "Decoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (gelu/relu)"},
         },
     },
     "etsformer": {
@@ -241,6 +256,7 @@ __all__ = [
     "LSTMModel",
     "GRUModel",
     "TransformerTabularModel",
+    "VanillaTransformerWrapper",
     "AutoformerWrapper",
     "InformerWrapper",
     "CrossformerWrapper",

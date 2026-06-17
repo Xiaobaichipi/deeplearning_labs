@@ -174,7 +174,8 @@ function updateModelOptions(taskType) {
         "rnn": "RNN (Vanilla RNN)",
         "lstm": "LSTM (Long Short-Term Memory)",
         "gru": "GRU (Gated Recurrent Unit)",
-        "transformer": "Transformer (Encoder)",
+        "transformer": "Transformer (Tabular)",
+        "vanilla_transformer": "Vanilla Transformer",
         "autoformer": "Autoformer (Long-term Forecast)",
         "informer": "Informer (ProbSparse Attention)",
         "crossformer": "Crossformer (Two-Stage Attention)",
@@ -184,8 +185,8 @@ function updateModelOptions(taskType) {
         "dlinear": "DLinear (Decomposition Linear)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "dlinear"];
-    const generalModels = ["mlp", "cnn"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "vanilla_transformer", "dlinear"];
+    const generalModels = ["mlp", "cnn", "transformer"];
 
     sel.innerHTML = "";
     const visible = isTimeSeries ? tsModels : generalModels;
@@ -344,6 +345,16 @@ async function startTraining() {
             window_size: document.getElementById("filmWindowSize").value || DEFAULTS.model.film.window_size,
             multiscale: document.getElementById("filmMultiscale").value || DEFAULTS.model.film.multiscale,
             dropout: parseFloat(document.getElementById("filmDropout").value) || DEFAULTS.model.film.dropout,
+        });
+    } else if (mt === "vanilla_transformer") {
+        Object.assign(params, {
+            d_model: parseInt(document.getElementById("vanillaDModel").value) || DEFAULTS.model.vanilla_transformer.d_model,
+            n_heads: parseInt(document.getElementById("vanillaNHeads").value) || DEFAULTS.model.vanilla_transformer.n_heads,
+            e_layers: parseInt(document.getElementById("vanillaELayers").value) || DEFAULTS.model.vanilla_transformer.e_layers,
+            d_layers: parseInt(document.getElementById("vanillaDLayers").value) || DEFAULTS.model.vanilla_transformer.d_layers,
+            d_ff: parseInt(document.getElementById("vanillaDFF").value) || DEFAULTS.model.vanilla_transformer.d_ff,
+            dropout: parseFloat(document.getElementById("vanillaDropout").value) || DEFAULTS.model.vanilla_transformer.dropout,
+            activation: document.getElementById("vanillaActivation").value,
         });
     } else if (mt === "dlinear") {
         Object.assign(params, {

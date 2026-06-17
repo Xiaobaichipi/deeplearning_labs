@@ -104,6 +104,8 @@ MODEL = {
                   "moving_avg": 25, "dropout": 0.1, "activation": "gelu",
                   "version": "Fourier", "mode_select": "random", "modes": 32},
     "film": {"window_size": "256", "multiscale": "1,2,4", "dropout": 0.1},
+    "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
+                            "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
 }
 
 TIME_SERIES = {

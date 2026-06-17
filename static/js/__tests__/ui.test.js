@@ -13,6 +13,9 @@ describe("toggleModelParams", () => {
     document.getElementById("informerParams").style.display = "none";
     document.getElementById("crossformerParams").style.display = "none";
     document.getElementById("etsformerParams").style.display = "none";
+    document.getElementById("fedformerParams").style.display = "none";
+    document.getElementById("filmParams").style.display = "none";
+    document.getElementById("vanillaTransformerParams").style.display = "none";
     document.getElementById("dlinearParams").style.display = "none";
   });
 
@@ -81,6 +84,12 @@ describe("toggleModelParams", () => {
     document.getElementById("modelType").value = "film";
     window.toggleModelParams();
     expect(document.getElementById("filmParams").style.display).toBe("block");
+  });
+
+  it("shows vanillaTransformerParams only for vanilla_transformer", () => {
+    document.getElementById("modelType").value = "vanilla_transformer";
+    window.toggleModelParams();
+    expect(document.getElementById("vanillaTransformerParams").style.display).toBe("block");
   });
 });
 

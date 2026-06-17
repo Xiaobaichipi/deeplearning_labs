@@ -1877,6 +1877,59 @@ Python: 202 passed (100.75s)
 
 ---
 
+## 2026-06-17: 新增模型 — Vanilla Transformer (Full Encoder-Decoder) (feat/informer-integration 分支)
+
+### 概述
+
+新增 Vanilla Transformer，一个完整的 Encoder-Decoder 架构 Transformer，面向时序预测场景。与已有的 `transformer`（纯 Encoder 分类/回归用 Tabular Transformer）不同，Vanilla Transformer 使用 DataEmbedding（带时间特征编码）、FullAttention、Encoder-Decoder 交叉注意力，输出 `(batch, pred_len, 1)` 形状。
+
+### 核心架构
+
+- **Encoder**: `DataEmbedding` → N× `EncoderLayer(FullAttention)` → `LayerNorm`
+- **Decoder**: `DataEmbedding` → N× `DecoderLayer(FullAttention + CrossAttention)` → `LayerNorm` → `Linear(d_model, 1)`
+- **Pipeline**: `large`（4-arg forward: batch_x, batch_x_mark, batch_dec_inp, batch_y_mark）
+
+### 共享层策略
+
+Vanilla Transformer 复用了 `shared_layers` 包中已提取的通用组件：
+- `DataEmbedding` — 来自 `shared_layers/Embed.py`
+- `Encoder`, `EncoderLayer`, `Decoder`, `DecoderLayer` — 来自 `shared_layers/Transformer_EncDec.py`
+- `FullAttention`, `AttentionLayer` — 来自新增的 `shared_layers/SelfAttention_Family.py`
+
+新增 `shared_layers/SelfAttention_Family.py`，包含 `FullAttention`（标准点积注意力 + 因果掩码）和 `AttentionLayer`（QKV 投影 → 注意力 → 输出投影）。该文件从 `crossformer_layers/SelfAttention_Family.py` 同源提取，供所有需要标准注意力的模型共享。
+
+### 命名澄清
+
+| 注册 Key | 显示名 | Pipeline | 用途 |
+|----------|--------|----------|------|
+| `transformer` | Transformer (Tabular) | small | 纯 Encoder，分类/回归 |
+| `vanilla_transformer` | Vanilla Transformer | large | Encoder-Decoder，时序预测 |
+
+### 参数
+
+- `d_model(256)`, `n_heads(8)`, `e_layers(3)`, `d_layers(3)`, `d_ff(32)`, `dropout(0.1)`, `activation(gelu/relu)`
+
+### 涉及文件
+
+- `utils/models/vanilla_transformer.py` — **新建** `VanillaTransformerWrapper` + `_RawVanillaTransformer`
+- `utils/models/shared_layers/SelfAttention_Family.py` — **新建** `FullAttention` + `AttentionLayer`
+- `utils/models/shared_layers/__init__.py` — 导出新增组件
+- `utils/models/__init__.py` — 注册 VanillaTransformerWrapper
+- `utils/config.py` — 添加默认参数
+- `templates/index.html` — 添加下拉选项 + 参数面板
+- `static/js/ui.js` — 添加 `vanillaTransformerParams` toggle
+- `static/js/app.js` — 添加 `allOptions`/`tsModels` 条目 + 参数采集分支
+- `vitest.setup.js` — 添加 DOM 和默认配置
+
+### 验证
+
+```
+Python: 202 passed (100.75s)
+JS:     55 passed (4.2s)
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
