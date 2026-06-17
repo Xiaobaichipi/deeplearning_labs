@@ -1614,6 +1614,36 @@ class SplitResult:
 
 ---
 
+## 2026-06-17: Fix — ETSformer max_freq 验证公式修正 (feat/informer-integration 分支)
+
+### 问题
+
+ETSformer top_k 校验中 `max_freq` 使用分奇偶的分支公式，错误地低估了可用频率分量数，导致 seq_len=10, top_k=5 等合法配置被拒绝。
+
+### 修复
+
+`routes/training.py` — 将：
+
+```python
+max_freq = (seq_len // 2 - 1) if seq_len % 2 == 0 else ((seq_len + 1) // 2 - 1)
+```
+
+改为：
+
+```python
+max_freq = seq_len // 2  # rfft → 去除直流分量后的频率分量数
+```
+
+运行时 `topk_freq` 中的 `k = min(self.k, x_freq.shape[1])` 动态调整已提供正确保障，RouteError 仅作为友好提示。简化公式使其匹配实际校验目的。
+
+### 验证
+
+```
+202 passed, 1 warning in 99.37s
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

@@ -338,7 +338,7 @@ def _setup_training(sm, data_id, df, params):
             # freq_len after rfft + low_freq=1 slicing:
             #   even: seq_len//2 - 1   (e.g. 10→4)
             #   odd:  (seq_len+1)//2 - 1  (e.g. 11→5)
-            max_freq = (seq_len // 2 - 1) if seq_len % 2 == 0 else ((seq_len + 1) // 2 - 1)
+            max_freq = seq_len // 2  # rfft → 去除直流分量后的频率分量数
             if top_k > max_freq:
                 raise RouteError(
                     f"top_k ({top_k}) exceeds available frequency components "
