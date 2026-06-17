@@ -168,7 +168,6 @@ function updateModelOptions(taskType) {
     const sel = document.getElementById("modelType");
     const isTimeSeries = taskType === "time_series";
 
-    // In time series mode, only show RNN/LSTM/GRU/Transformer
     const allOptions = {
         "mlp": "MLP (Fully Connected)",
         "cnn": "CNN (1D Convolutional)",
@@ -186,10 +185,12 @@ function updateModelOptions(taskType) {
     };
 
     const tsModels = ["rnn", "lstm", "gru", "transformer", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "dlinear"];
+    const generalModels = ["mlp", "cnn"];
 
     sel.innerHTML = "";
+    const visible = isTimeSeries ? tsModels : generalModels;
     Object.entries(allOptions).forEach(([val, label]) => {
-        if (!isTimeSeries || tsModels.includes(val)) {
+        if (visible.includes(val)) {
             const opt = document.createElement("option");
             opt.value = val;
             opt.textContent = label;
@@ -197,7 +198,6 @@ function updateModelOptions(taskType) {
         }
     });
 
-    // If current model type is hidden, switch to first available
     toggleModelParams();
 }
 

@@ -197,6 +197,11 @@ function onTaskTypeChange() {
     if (type !== "time_series") {
         document.getElementById("taskConfigBadge").style.display = "none";
     }
+    // Refresh model options and saved model list when task type changes
+    updateModelOptions(type);
+    if (typeof refreshModelDropdown === "function") {
+        refreshModelDropdown();
+    }
 }
 
 function populateTimeColSelect(columns) {

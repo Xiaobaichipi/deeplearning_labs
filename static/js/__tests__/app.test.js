@@ -8,15 +8,16 @@ describe("updateModelOptions", () => {
     sel.innerHTML = "";
   });
 
-  it("includes all models for general task", () => {
+  it("shows only general models for general task", () => {
     window.updateModelOptions("general");
     const sel = document.getElementById("modelType");
     const values = Array.from(sel.options).map((o) => o.value);
     expect(values).toContain("mlp");
     expect(values).toContain("cnn");
-    expect(values).toContain("autoformer");
-    expect(values).toContain("fedformer");
-    expect(values).toContain("dlinear");
+    expect(values).not.toContain("autoformer");
+    expect(values).not.toContain("fedformer");
+    expect(values).not.toContain("dlinear");
+    expect(values).not.toContain("rnn");
   });
 
   it("filters to TS models for time_series", () => {
@@ -101,6 +102,23 @@ describe("startTraining — parameter collection", () => {
         json: () => Promise.resolve({ task_config: {}, error: null }),
       });
     });
+
+    // Restore full modelType options (may have been filtered by updateModelOptions tests)
+    document.getElementById("modelType").innerHTML = `
+      <option value="mlp">MLP</option>
+      <option value="cnn">CNN</option>
+      <option value="rnn">RNN</option>
+      <option value="lstm">LSTM</option>
+      <option value="gru">GRU</option>
+      <option value="transformer">Transformer</option>
+      <option value="autoformer">Autoformer</option>
+      <option value="informer">Informer</option>
+      <option value="crossformer">Crossformer</option>
+      <option value="etsformer">ETSformer</option>
+      <option value="fedformer">FEDformer</option>
+      <option value="film">FiLM</option>
+      <option value="dlinear">DLinear</option>
+    `;
 
     // Reset standard input values
     document.getElementById("testSize").value = "0.2";
