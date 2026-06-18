@@ -2007,6 +2007,28 @@ JS:     66 passed
 
 ---
 
+## Vanilla Transformer Bugfix — pred_len 切片缺失（2026-06-18）
+
+修复 Vanilla Transformer 输出形状不匹配问题。当 `label_len > 0` 时，模型返回 `(batch, label_len+pred_len, c_out)` 而非 `(batch, pred_len, c_out)`，导致 loss 计算时 pred (6) 与 target (5) 形状不匹配。
+
+### 根因
+
+`_RawVanillaTransformer.forward` 直接返回 `dec_out`（完整解码器输出），缺少 `[:, -self.pred_len:, :]` 切片。其他 large-pipeline 模型（Autoformer、Informer、ETSformer、FEDformer、FiLM）均已有此切片。
+
+### 修复内容
+
+- `utils/models/vanilla_transformer.py` — `forward` 方法：`return dec_out` → `return dec_out[:, -self.pred_len:, :]`  
+- `tests/test_pipeline_strategy.py` — 新增 `TestLargeModelOutputShapes`（7 个参数化测试，覆盖 vanilla_transformer / autoformer / informer 在 label_len=0 和 label_len>0 时的输出形状）
+
+### 验证
+
+```
+Python: 231 passed（原 224 + 7 新增）
+JS:     66 passed
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

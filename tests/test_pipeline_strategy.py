@@ -239,3 +239,51 @@ class TestLargePipelineStrategy:
     def test_extra_model_kwargs_without_pd(self):
         kw = self.strategy.extra_model_kwargs(None)
         assert kw == {}
+
+
+# ── Large-model output shape validation ───────────────────────────────────
+
+class TestLargeModelOutputShapes:
+    """All large-pipeline models must return (batch, pred_len, 1), not
+    (batch, label_len+pred_len, 1).  This validates the forward output shape
+    for each registered large model across several pred_len values."""
+
+    BATCH = 4
+    INPUT_DIM = 8
+    N_TIME_FEATURES = 4
+
+    @pytest.mark.parametrize("model_type,label_len,pred_len,seq_len", [
+        ("vanilla_transformer", 0, 5, 10),
+        ("vanilla_transformer", 2, 5, 10),
+        ("vanilla_transformer", 5, 12, 24),
+        ("autoformer",           0, 5, 10),
+        ("autoformer",           2, 5, 10),
+        ("informer",             0, 5, 10),
+        ("informer",             2, 5, 10),
+    ])
+    def test_output_shape(self, model_type, label_len, pred_len, seq_len):
+        from utils.models import get_model_class
+        from utils.pipeline_strategy import LargePipelineStrategy
+
+        model_cls = get_model_class(model_type)
+        model = model_cls(
+            input_dim=self.INPUT_DIM,
+            output_dim=pred_len,
+            seq_len=seq_len,
+            label_len=label_len,
+            pred_len=pred_len,
+            n_time_features=self.N_TIME_FEATURES,
+        )
+
+        batch_x = torch.randn(self.BATCH, seq_len, self.INPUT_DIM)
+        batch_x_mark = torch.randn(self.BATCH, seq_len, self.N_TIME_FEATURES)
+        batch_dec_inp = torch.randn(self.BATCH, label_len + pred_len, self.INPUT_DIM)
+        batch_y_mark = torch.randn(self.BATCH, label_len + pred_len, self.N_TIME_FEATURES)
+
+        output = model(batch_x, batch_x_mark, batch_dec_inp, batch_y_mark)
+
+        expected = (self.BATCH, pred_len, 1)
+        assert output.shape == expected, (
+            f"{model_type}(pred_len={pred_len}, label_len={label_len}): "
+            f"expected {expected}, got {output.shape}"
+        )

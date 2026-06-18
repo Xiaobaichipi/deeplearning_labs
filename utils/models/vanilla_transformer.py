@@ -85,7 +85,7 @@ class _RawVanillaTransformer(nn.Module):
         dec_out = self.dec_embedding(batch_dec_inp, batch_y_mark)
         dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None)
 
-        return dec_out  # (batch, label_len+pred_len, c_out)
+        return dec_out[:, -self.pred_len:, :]  # (batch, pred_len, c_out)
 
 
 class VanillaTransformerWrapper(BaseModel):
