@@ -1,19 +1,21 @@
 services:
   deeplearning-labs:
-    build: .
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple/}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.org}
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
+    environment:
+      - HOST=127.0.0.1
     volumes:
-      - ./uploads:/app/uploads
-      - ./outputs:/app/outputs
-      - ./projects:/app/projects
+      - deeplearning-labs-uploads:/app/uploads
+      - deeplearning-labs-outputs:/app/outputs
+      - deeplearning-labs-projects:/app/projects
     restart: unless-stopped
 
-    # GPU support (uncomment if nvidia-container-toolkit is installed):
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+volumes:
+  deeplearning-labs-uploads:
+  deeplearning-labs-outputs:
+  deeplearning-labs-projects:

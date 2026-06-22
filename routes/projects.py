@@ -117,6 +117,31 @@ def delete_project(project_id):
     return json_ok({"success": True})
 
 
+@projects_bp.route("/api/projects/<project_id>/canvas/save", methods=["POST"])
+def save_canvas(project_id):
+    """Save canvas JSON for a project."""
+    pm = _pm()
+    project = pm.get_project(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+    canvas = request.get_json()
+    if canvas is None:
+        return jsonify({"error": "No canvas data provided"}), 400
+    pm.save_canvas(project_id, canvas)
+    return json_ok({"success": True})
+
+
+@projects_bp.route("/api/projects/<project_id>/canvas/load", methods=["POST"])
+def load_canvas(project_id):
+    """Load canvas JSON for a project. Returns null if no canvas exists."""
+    pm = _pm()
+    project = pm.get_project(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+    canvas = pm.load_canvas(project_id)
+    return json_ok({"canvas": canvas})
+
+
 @projects_bp.route("/api/projects/<project_id>/models", methods=["GET"])
 def list_project_models(project_id):
     """List trained models with full metadata for a project."""
@@ -384,6 +409,7 @@ def activate_project(project_id):
     info["distribution_images"] = dist_images
     info["correlation_image"] = corr_img
     info["project"] = project
+    info["canvas"] = pm.load_canvas(project_id)
     info["models"] = [
         {"id": m["id"], "model_type": m.get("model_type"),
          "created_at": m.get("created_at"),

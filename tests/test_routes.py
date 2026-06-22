@@ -190,6 +190,23 @@ class TestTraining:
         resp = client.post("/api/train", json={})
         assert resp.status_code == 500  # KeyError on "target_col"
 
+    def test_large_pipeline_requires_time_col(self, client, csv_data):
+        """Large-pipeline model without time_col in task_config yields clear error."""
+        with open(csv_data, "rb") as f:
+            resp = client.post("/api/upload", data={"file": f}, content_type="multipart/form-data")
+        # Set task_config with time_series mode but NO time_col
+        sm = app.config.get("session_manager")
+        data_id = list(sm._splits.keys())[0] if sm._splits else None
+        # Instead of relying on session manager internals, set via the API
+        # endpoint — which should now reject missing time_col.
+        resp = client.post("/api/data/task-config", json={
+            "task_type": "time_series",
+            "seq_len": 10,
+            "pred_len": 3,
+        })
+        assert resp.status_code == 400
+        assert "select a time column" in resp.get_json()["error"].lower()
+
 
 # =============================================================================
 # Train setup + SSE stream

@@ -309,6 +309,12 @@ def _setup_training(sm, data_id, df, params):
         )
 
     if task_config.get("task_type") == "time_series":
+        time_col = task_config.get("time_col") or ""
+        if not time_col:
+            raise RouteError(
+                "Time column not set. Please select a time column in Step 2 "
+                "(Task Config) and click Apply & Refresh."
+            )
         seq_len = int(task_config.get("seq_len", config.TIME_SERIES["seq_len"]))
         pred_len = int(task_config.get("pred_len", config.TIME_SERIES["pred_len"]))
         label_len = int(task_config.get("label_len", config.TIME_SERIES["label_len"]))

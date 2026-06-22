@@ -230,6 +230,26 @@ class ProjectManager:
         state_dict = torch.load(state_path, map_location="cpu", weights_only=True)
         return state_dict, meta
 
+    # ── canvas ────────────────────────────────────────────────────────────────
+
+    def save_canvas(self, project_id: str, canvas_dict: dict):
+        """Save canvas JSON to projects/<id>/canvas.json."""
+        path = self._pp(project_id, "canvas.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(canvas_dict, f, ensure_ascii=False, indent=2)
+
+    def load_canvas(self, project_id: str) -> dict | None:
+        """Load canvas JSON from projects/<id>/canvas.json.
+        Returns None if no canvas exists (backward compat).
+        """
+        path = self._pp(project_id, "canvas.json")
+        if not os.path.isfile(path):
+            return None
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    # ── model ─────────────────────────────────────────────────────────────────
+
     def list_models(self, project_id: str) -> list[dict]:
         models_dir = self._pp(project_id, "models")
         if not os.path.isdir(models_dir):

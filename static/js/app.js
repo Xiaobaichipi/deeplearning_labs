@@ -544,6 +544,10 @@ async function activateProject(projectId) {
             document.getElementById("modelSelector").style.display = "none";
         }
 
+        // Init canvas with project data
+        document.getElementById("canvasToggleBtn").style.display = "inline-flex";
+        initCanvasForProject(projectId, data.canvas);
+
         goToStep(2);
     } catch (err) {
         alert("Error: " + err.message);
@@ -642,6 +646,9 @@ async function resetAll() {
 
 function backToProjects() {
     _activeProjectId = null;
+    _canvasProjectId = null;
+    document.getElementById("canvasToggleBtn").style.display = "none";
+    toggleCanvasView(false);
     showProjectList();
     loadProjects();
 }

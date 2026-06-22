@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeepLearning Labs</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow@1.0.6/dist/drawflow.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
@@ -17,6 +18,7 @@
             </a>
             <div class="header-actions">
                 <button class="btn btn-secondary btn-sm" id="backToProjectsBtn" style="display:none;" onclick="backToProjects()">&larr; Projects</button>
+                <button class="btn btn-secondary btn-sm" id="canvasToggleBtn" style="display:none;" onclick="toggleCanvasView(true)">Canvas</button>
                 <div class="header-dropdown">
                     <button class="header-dropdown-btn" id="headerMenuBtn" onclick="toggleHeaderMenu()">&#8942;</button>
                     <div class="header-dropdown-menu" id="headerMenu">
@@ -853,6 +855,31 @@
         </div>
     </div>
 
+    <!-- Canvas Section -->
+    <div id="canvas-section" style="display:none;">
+        <div class="canvas-layout">
+            <div class="canvas-sidebar" id="component-panel">
+                <div style="padding:12px 16px;font-size:14px;font-weight:600;border-bottom:1px solid var(--hairline);">组件面板</div>
+            </div>
+            <div class="canvas-main">
+                <div class="canvas-toolbar">
+                    <span class="canvas-toolbar-title">模型架构设计</span>
+                    <div class="canvas-toolbar-actions">
+                        <button class="btn btn-primary btn-sm" id="canvas-save-btn" onclick="saveCanvas()">保存</button>
+                        <button class="btn btn-secondary btn-sm" onclick="loadCanvas(_canvasProjectId)">加载</button>
+                        <button class="btn btn-secondary btn-sm" onclick="clearCanvas()">清空</button>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleCanvasView(false)">返回 Training</button>
+                    </div>
+                </div>
+                <div id="drawflow-container" class="drawflow-container"></div>
+            </div>
+            <div class="canvas-config" id="config-panel" style="display:none;">
+                <div class="config-panel-header">节点配置</div>
+                <div class="config-panel-body" style="padding:16px;font-size:13px;color:var(--mute);">点击节点查看配置</div>
+            </div>
+        </div>
+    </div>
+
     <!-- New Project Modal -->
     <div class="modal-overlay" id="newProjectModal" onclick="if(event.target===this)hideNewProjectModal()">
         <div class="modal-content">
@@ -880,9 +907,12 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/drawflow@1.0.6/dist/drawflow.min.js"></script>
     <script src="/static/js/filterUtils.js"></script>
     <script src="/static/js/ui.js"></script>
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/canvas_registry.js"></script>
+    <script src="/static/js/canvas.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

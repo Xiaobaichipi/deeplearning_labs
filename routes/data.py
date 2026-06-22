@@ -136,6 +136,8 @@ def set_task_config():
 
     # Validate time-series parameters
     if task_type == "time_series":
+        if not params.get("time_col"):
+            raise RouteError("Please select a time column for time series mode.")
         if seq_len < 2:
             raise RouteError(f"seq_len must be at least 2, got {seq_len}")
         if pred_len < 1:

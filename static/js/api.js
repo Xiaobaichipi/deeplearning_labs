@@ -159,6 +159,30 @@ async function _compareModels(projectId, modelIds) {
     return data;
 }
 
+// ── Canvas ───────────────────────────────────────────────────────
+
+async function _saveCanvas(projectId, canvas) {
+    const res = await fetch(`/api/projects/${projectId}/canvas/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(canvas),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
+
+async function _loadCanvas(projectId) {
+    const res = await fetch(`/api/projects/${projectId}/canvas/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.canvas;
+}
+
 /* =============== Window Exports (for Vitest) =============== */
 window._uploadFile = _uploadFile;
 window._cleanData = _cleanData;

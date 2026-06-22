@@ -1,0 +1,418 @@
+/* Canvas — Drawflow-based model architecture editor */
+
+let canvasEditor = null;
+let canvasInitialized = false;
+let _canvasProjectId = null;
+let _selectedNodeId = null;
+
+/* =============== Initialization =============== */
+
+function initCanvas() {
+  if (canvasInitialized) return;
+
+  const container = document.getElementById("drawflow-container");
+  if (!container) return;
+
+  canvasEditor = new Drawflow(container);
+  canvasEditor.start();
+  canvasInitialized = true;
+
+  // Remove default module tab — we only use "Home"
+  const moduleTabs = container.querySelector(".drawflow-delete");
+  if (moduleTabs) moduleTabs.style.display = "none";
+
+  // Node selected → show config panel
+  container.addEventListener("click", (e) => {
+    const nodeEl = e.target.closest(".drawflow-node");
+    if (nodeEl) {
+      const nodeId = nodeEl.id.replace("node-", "");
+      selectNode(nodeId);
+    } else {
+      deselectNode();
+    }
+  });
+
+  // Keyboard: Delete key to remove selected node
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (_selectedNodeId && canvasEditor) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
+        canvasEditor.removeNodeId(_selectedNodeId);
+        deselectNode();
+        markCanvasDirty();
+      }
+    }
+  });
+}
+
+function buildNodeHtml(nodeType, label, comp) {
+  const color = comp.color;
+  return `
+    <div style="padding:10px 16px;border-left:4px solid ${color};min-width:140px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+      <div style="font-size:13px;font-weight:600;color:#333;">${label}</div>
+      <div style="font-size:11px;color:#999;margin-top:2px;">${nodeType}</div>
+    </div>
+  `;
+}
+
+/* =============== Component Panel =============== */
+
+function renderComponentPanel() {
+  const panel = document.getElementById("component-panel");
+  if (!panel) return;
+
+  panel.innerHTML = "";
+
+  // Group by category
+  const groups = {};
+  Object.entries(COMPONENT_TYPES).forEach(([type, def]) => {
+    const cat = def.category || "其他";
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push({ type, ...def });
+  });
+
+  Object.entries(groups).forEach(([category, items]) => {
+    const section = document.createElement("div");
+    section.className = "component-group";
+
+    const header = document.createElement("div");
+    header.className = "component-group-header";
+    header.textContent = category;
+    section.appendChild(header);
+
+    items.forEach((item) => {
+      const el = document.createElement("div");
+      el.className = "component-item";
+      el.draggable = true;
+      el.dataset.type = item.type;
+      el.innerHTML = `
+        <span class="component-color" style="background:${item.color}"></span>
+        <span class="component-label">${item.label}</span>
+      `;
+
+      el.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", item.type);
+        e.dataTransfer.effectAllowed = "copy";
+      });
+
+      section.appendChild(el);
+    });
+
+    panel.appendChild(section);
+  });
+}
+
+/* =============== Drag & Drop onto Canvas =============== */
+
+function setupCanvasDropZone() {
+  const container = document.getElementById("drawflow-container");
+  if (!container) return;
+
+  container.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+
+  container.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData("text/plain");
+    if (!type || !COMPONENT_TYPES[type]) return;
+
+    const rect = container.getBoundingClientRect();
+    const posX = e.clientX - rect.left - 80;
+    const posY = e.clientY - rect.top - 30;
+
+    addCanvasNode(type, posX, posY);
+    markCanvasDirty();
+  });
+}
+
+function addCanvasNode(type, posX, posY) {
+  const comp = COMPONENT_TYPES[type];
+  const label = comp.label;
+
+  const nodeId = canvasEditor.addNode(
+    type,
+    comp.inputs,
+    comp.outputs,
+    posX,
+    posY,
+    `node-${type}`,
+    { label, config: { ...comp.defaults }, ports: JSON.parse(JSON.stringify(comp.ports)) },
+    buildNodeHtml(type, label, comp),
+  );
+
+  return nodeId;
+}
+
+/* =============== Node Selection & Config Panel =============== */
+
+function selectNode(nodeId) {
+  _selectedNodeId = nodeId;
+
+  // Get node data from Drawflow
+  const nodeInfo = getNodeData(nodeId);
+  if (!nodeInfo) return;
+
+  // Highlight selected node
+  document.querySelectorAll(".drawflow-node.selected").forEach((el) => el.classList.remove("selected"));
+  const nodeEl = document.getElementById(`node-${nodeId}`);
+  if (nodeEl) nodeEl.classList.add("selected");
+
+  // Show config panel
+  const panel = document.getElementById("config-panel");
+  if (!panel) return;
+  panel.style.display = "block";
+
+  const comp = COMPONENT_TYPES[nodeInfo.name];
+  const config = nodeInfo.data.config || {};
+
+  let html = `<div class="config-panel-header">
+    <span class="config-panel-title" style="border-left:3px solid ${comp ? comp.color : '#999'};padding-left:8px;">${nodeInfo.data.label}</span>
+    <span class="config-panel-close" onclick="deselectNode()">&times;</span>
+  </div>`;
+
+  html += `<div class="config-panel-body">`;
+  html += `<div class="config-field">
+    <label>节点名称</label>
+    <input type="text" value="${nodeInfo.data.label}" data-key="label" onchange="updateNodeConfig(${nodeId}, this)">
+  </div>`;
+
+  Object.keys(config).forEach((key) => {
+    const val = config[key];
+    const isNum = typeof val === "number";
+    html += `<div class="config-field">
+      <label>${key}</label>
+      <input type="${isNum ? "number" : "text"}" value="${val}" data-key="${key}" step="${isNum && Number.isInteger(val) ? "1" : "0.01"}" onchange="updateNodeConfig(${nodeId}, this)">
+    </div>`;
+  });
+
+  html += `</div>`;
+  panel.innerHTML = html;
+}
+
+function deselectNode() {
+  _selectedNodeId = null;
+  document.querySelectorAll(".drawflow-node.selected").forEach((el) => el.classList.remove("selected"));
+  const panel = document.getElementById("config-panel");
+  if (panel) panel.style.display = "none";
+}
+
+function updateNodeConfig(nodeId, input) {
+  const key = input.dataset.key;
+  const val = input.type === "number" ? parseFloat(input.value) : input.value;
+
+  if (key === "label") {
+    // Update label in node data and HTML
+    const info = getNodeData(nodeId);
+    if (info) {
+      info.data.label = val;
+      canvasEditor.updateNodeDataFromId(nodeId, info.data);
+      const comp = COMPONENT_TYPES[info.name];
+      if (comp) {
+        canvasEditor.updateNodeHtmlFromId(nodeId, buildNodeHtml(info.name, val, comp));
+      }
+    }
+  } else {
+    canvasEditor.updateNodeDataFromId(nodeId, {});
+    // Use internal Drawflow data update
+    const info = getNodeData(nodeId);
+    if (info) {
+      info.data.config[key] = val;
+      // Re-set the data
+      canvasEditor.updateNodeDataFromId(nodeId, info.data);
+    }
+  }
+
+  markCanvasDirty();
+}
+
+function getNodeData(nodeId) {
+  try {
+    const exported = canvasEditor.export();
+    const node = exported.drawflow.Home.data[nodeId];
+    return node || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/* =============== Canvas Save / Load =============== */
+
+function markCanvasDirty() {
+  // Visual indicator that canvas has unsaved changes
+  const saveBtn = document.getElementById("canvas-save-btn");
+  if (saveBtn) saveBtn.textContent = "● 保存";
+}
+
+function collectCanvasData() {
+  const exported = canvasEditor.export();
+  const dfData = exported.drawflow.Home.data;
+
+  const nodes = [];
+  const edges = [];
+  const edgeSet = new Set();
+
+  Object.keys(dfData).forEach((nodeId) => {
+    const n = dfData[nodeId];
+    nodes.push({
+      id: nodeId,
+      type: n.name,
+      label: n.data.label || n.name,
+      config: n.data.config || {},
+      ports: n.data.ports || {},
+      position: { x: n.pos_x, y: n.pos_y },
+    });
+
+    Object.keys(n.inputs).forEach((inputKey) => {
+      (n.inputs[inputKey].connections || []).forEach((conn) => {
+        const edgeId = `e-${conn.node}-${nodeId}`;
+        if (!edgeSet.has(edgeId)) {
+          edgeSet.add(edgeId);
+          edges.push({
+            id: edgeId,
+            from: conn.node,
+            from_port: conn.output,
+            to: nodeId,
+            to_port: inputKey,
+          });
+        }
+      });
+    });
+  });
+
+  return {
+    nodes,
+    edges,
+    metadata: { version: "0.1", description: "", created_at: new Date().toISOString() },
+  };
+}
+
+function renderCanvasFromData(canvasData) {
+  if (!canvasData || !canvasData.nodes || !canvasData.nodes.length) return;
+
+  const drawflowData = { drawflow: { Home: { data: {} } } };
+  const dfData = drawflowData.drawflow.Home.data;
+
+  canvasData.nodes.forEach((node) => {
+    const comp = COMPONENT_TYPES[node.type];
+    const inputs = {};
+    const outputs = {};
+
+    if (comp) {
+      for (let i = 0; i < comp.inputs; i++) inputs[`input_${i + 1}`] = { connections: [] };
+      for (let i = 0; i < comp.outputs; i++) outputs[`output_${i + 1}`] = { connections: [] };
+    } else {
+      inputs["input_1"] = { connections: [] };
+      outputs["output_1"] = { connections: [] };
+    }
+
+    dfData[node.id] = {
+      id: node.id,
+      name: node.type,
+      data: { label: node.label, config: node.config, ports: node.ports },
+      class: `node-${node.type}`,
+      html: buildNodeHtml(node.type, node.label, comp || { color: "#999", label: node.type }),
+      typenode: false,
+      inputs,
+      outputs,
+      pos_x: node.position.x,
+      pos_y: node.position.y,
+    };
+  });
+
+  // Add edges
+  canvasData.edges.forEach((edge) => {
+    const toNode = dfData[edge.to];
+    if (toNode) {
+      const inputKey = Object.keys(toNode.inputs)[0];
+      if (inputKey) {
+        toNode.inputs[inputKey].connections.push({
+          node: edge.from,
+          output: edge.from_port || "output_1",
+        });
+      }
+    }
+  });
+
+  canvasEditor.import(drawflowData);
+}
+
+/* =============== API Integration =============== */
+
+async function saveCanvas() {
+  if (!_canvasProjectId) return;
+  const saveBtn = document.getElementById("canvas-save-btn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "保存中...";
+
+  try {
+    const canvasData = collectCanvasData();
+    await _saveCanvas(_canvasProjectId, canvasData);
+    saveBtn.textContent = "✓ 已保存";
+    setTimeout(() => { saveBtn.textContent = "保存"; saveBtn.disabled = false; }, 2000);
+  } catch (err) {
+    saveBtn.textContent = "✗ 保存失败";
+    saveBtn.disabled = false;
+    console.error("saveCanvas error:", err);
+  }
+}
+
+async function loadCanvas(projectId) {
+  try {
+    const canvas = await _loadCanvas(projectId);
+    if (canvas && canvas.nodes && canvas.nodes.length) {
+      renderCanvasFromData(canvas);
+    }
+  } catch (err) {
+    console.error("loadCanvas error:", err);
+  }
+}
+
+function clearCanvas() {
+  if (!canvasEditor) return;
+  if (canvasEditor.export().drawflow.Home.data && Object.keys(canvasEditor.export().drawflow.Home.data).length > 0) {
+    if (!confirm("清空画布？")) return;
+  }
+  canvasEditor.import({ drawflow: { Home: { data: {} } } });
+  deselectNode();
+  markCanvasDirty();
+}
+
+/* =============== View Toggle =============== */
+
+function toggleCanvasView(show) {
+  const canvasSection = document.getElementById("canvas-section");
+  const trainingFlow = document.getElementById("trainingFlow");
+  const stepsNav = document.getElementById("stepsNav");
+  const canvasToggle = document.getElementById("canvasToggleBtn");
+
+  if (show) {
+    canvasSection.style.display = "block";
+    trainingFlow.style.display = "none";
+    stepsNav.style.display = "none";
+    if (canvasToggle) canvasToggle.textContent = "Training";
+    // Lazy init
+    initCanvas();
+    setupCanvasDropZone();
+    renderComponentPanel();
+  } else {
+    canvasSection.style.display = "none";
+    trainingFlow.style.display = "block";
+    stepsNav.style.display = "flex";
+    if (canvasToggle) canvasToggle.textContent = "Canvas";
+  }
+}
+
+/* =============== Init on project activate =============== */
+
+function initCanvasForProject(projectId, canvasData) {
+  _canvasProjectId = projectId;
+  initCanvas();
+  setupCanvasDropZone();
+  renderComponentPanel();
+  if (canvasData) {
+    renderCanvasFromData(canvasData);
+  }
+}
