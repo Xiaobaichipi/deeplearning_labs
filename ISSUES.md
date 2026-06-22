@@ -2029,7 +2029,141 @@ JS:     66 passed
 
 ---
 
-## Prior Issues (前序会话已解决)
+
+---
+
+## 2026-06-22: 画布编辑器 MVP — Drawflow 拖拽搭模块 (feat/canvas-editor 分支)
+
+### 概述
+
+新增拖拽式画布功能，支持用户在 Canvas 界面上通过拖拽组件、连线来设计深度学习模型架构。P0 聚焦"搭起来"——拖拽、连线、存 JSON、加载 JSON。画布绑定到项目，作为项目的一部分持久化。
+
+### 架构设计
+
+画布采用三层架构规划（P0 只做中间层）：
+
+| 层级 | 内容 | 计划 |
+|------|------|------|
+| 层1: 完整模型模板 | Informer / FEDformer / DLinear 等预置架构，可微调注意力 | P1 |
+| **层2: 标准模块** | **Encoder / Decoder / Embedding / Linear** — 本阶段实现 | **P0** |
+| 层3: 原子组件 | AttentionLayer / ConvLayer 等，完全随意搭建 | P2 |
+
+### 数据流
+
+```
+用户拖拽组件 → Drawflow 渲染
+     ↓ 点击"保存"
+collectCanvasData() → POST /canvas/save
+     ↓
+canvas.json 存到 projects/<id>/
+     ↓ 项目激活时
+activateProject → load_canvas() → 前端 renderCanvasFromData()
+```
+
+### JSON Schema
+
+```json
+{
+  "nodes": [{
+    "id": "enc_1",
+    "type": "encoder",
+    "label": "Encoder",
+    "config": { "d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1 },
+    "ports": { "input": {}, "output": {} },
+    "position": { "x": 100, "y": 200 }
+  }],
+  "edges": [{
+    "id": "e1-2",
+    "from": "emb_1", "from_port": "output",
+    "to": "enc_1", "to_port": "input"
+  }],
+  "metadata": { "version": "0.1", "description": "" }
+}
+```
+
+端口字段 `ports` 预留为空对象，P2 添加 AI 类型检查时填入 `shape` 和 `type`。
+
+### 组件注册表 (P0 硬编码前端)
+
+| 组件 | 分类 | 颜色 | 默认参数 |
+|------|------|------|---------|
+| Encoder | 基础模块 | #4CAF50 绿 | d_model=512, n_heads=8, d_ff=2048, dropout=0.1, activation=gelu |
+| Decoder | 基础模块 | #2196F3 蓝 | 同上 |
+| DataEmbedding | 输入模块 | #FF9800 橙 | d_model=512, dropout=0.1 |
+| Linear | 基础模块 | #9C27B0 紫 | in_features=512, out_features=1 |
+
+### API 设计
+
+全部使用 POST：
+
+| 端点 | 功能 |
+|------|------|
+| `POST /api/projects/<id>/canvas/save` | 保存画布 JSON |
+| `POST /api/projects/<id>/canvas/load` | 加载画布 JSON（无画布返回 null） |
+
+### 存储方式
+
+画布 JSON 存在项目目录下：`projects/<project_id>/canvas.json`，与 `config.json`、`models/` 并列。
+
+`ProjectManager` 新增方法：
+
+```python
+def save_canvas(self, project_id, canvas_dict)
+def load_canvas(self, project_id)  # dict | None
+```
+
+向后兼容：旧项目无 `canvas.json` 时 `load_canvas` 返回 `None`，前端显示空白画布。
+
+### UI 布局
+
+```
+┌──────────┬──────────────────────────────┬──────────────┐
+│ 组件面板  │       画布 (Drawflow)         │  配置面板     │
+│          │                              │              │
+│ Encoder  │   [Emb]──→[Encoder]──→[Lin]   │  d_model:512 │
+│ Decoder  │          ↓                   │  n_heads: 8  │
+│ Embedding│       (自由连线)              │  d_ff: 2048  │
+│ Linear   │                              │  dropout:0.1 │
+├──────────┴──────────────────────────────┴──────────────┤
+│  工具栏: [保存] [加载] [清空] [返回 Training]           │
+└────────────────────────────────────────────────────────┘
+```
+
+### 设计决策
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| 画布库 | Drawflow | 原生 JS 兼容，无需 React；P0 够用，P2 可迁移 React Flow |
+| 组件注册表位置 | 前端硬编码 `canvas_registry.js` | P0 快速搭起来；P1 可改为后端 API 提供 |
+| 端口类型 | 预留在 `ports` 字段，P0 为空对象 | 降低 P0 复杂度，预留未来 AI 类型校验 |
+| 画布绑定 | 绑定到项目 | 项目是平台原子单元，画布是模型设计环节 |
+| P0 训练集成 | 画布独立于训练流程 | 训练仍用现有模型选择器，画布是可视化设计工具 |
+| 视图切换 | 按钮切换 Canvas / Training | 不破坏现有训练流程 |
+| 自动保存时机 | 手动保存 | P0 不实现防抖自动保存 |
+| API method | 全 POST | 避免 GET 参数编码问题 |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/canvas.js` | **新建** — Drawflow 初始化、拖拽、连线、节点配置面板、保存/加载/清空 |
+| `static/js/canvas_registry.js` | **新建** — 4 个组件定义（type/label/color/defaults/ports） |
+| `utils/project_manager.py` | **修改** — 新增 save_canvas / load_canvas 方法 |
+| `routes/projects.py` | **修改** — 新增 2 个 canvas 端点 + activate 响应携带 canvas |
+| `static/js/api.js` | **修改** — 新增 _saveCanvas / _loadCanvas 函数 |
+| `static/js/app.js` | **修改** — activateProject 初始化画布，backToProjects 清理画布状态 |
+| `static/css/style.css` | **修改** — 画布三栏布局、节点、组件面板、配置面板样式 |
+| `templates/index.html` | **修改** — Drawflow CDN、画布 HTML 骨架、Canvas/Training 切换按钮 |
+
+### 验证
+
+```
+API save/load 端点: ✅ 保存→加载→修改→重新保存 完整链路通过
+activate 响应含 canvas: ✅ canvas.json 正确出现在 projects/<id>/
+232 Python 测试全部通过
+```
+
+
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
 - CSV 中文编码：增加 gbk/gb2312/gb18030 编码回退链
