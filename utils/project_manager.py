@@ -233,10 +233,12 @@ class ProjectManager:
     # ── canvas ────────────────────────────────────────────────────────────────
 
     def save_canvas(self, project_id: str, canvas_dict: dict):
-        """Save canvas JSON to projects/<id>/canvas.json."""
+        """Save canvas JSON to projects/<id>/canvas.json (atomic write)."""
         path = self._pp(project_id, "canvas.json")
-        with open(path, "w", encoding="utf-8") as f:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(canvas_dict, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)  # atomic replace
 
     def load_canvas(self, project_id: str) -> dict | None:
         """Load canvas JSON from projects/<id>/canvas.json.
