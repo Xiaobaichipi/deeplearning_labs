@@ -2163,9 +2163,52 @@ activate 响应含 canvas: ✅ canvas.json 正确出现在 projects/<id>/
 232 Python 测试全部通过
 ```
 
+## 2026-06-22: Bug 修复 — Drawflow CDN 版本号错误 (feat/canvas-editor 分支)
 
+### Bug: 点进项目显示 "Error: Drawflow is not defined"
 
-- NaN JSON 序列化：`clean_nan()` 递归转换
+**症状**: 点击项目（激活）时弹出错误 `Error: Drawflow is not defined`。
+
+**根因**: `templates/index.html` 中 Drawflow CDN URL 使用了不存在的版本号 `1.0.6`：
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/drawflow@1.0.6/dist/drawflow.min.js"></script>
+```
+
+CDN 返回 404，脚本从未加载。`canvas.js` 中 `initCanvas()` → `new Drawflow(container)` 时 `Drawflow` 未定义，ReferenceError 被 `activateProject` 的 try/catch 捕获后显示为 alert。
+
+npm 上 `drawflow` 的实际最新版本为 `0.0.60`（无 `1.x` 系列）：
+
+```
+Latest tag: 0.0.60
+Available: 0.0.1 ~ 0.0.60
+```
+
+**修复**: 两处 URL 版本号 `1.0.6` → `0.0.60`。
+
+| 资源 | 旧 URL | 新 URL |
+|------|--------|--------|
+| CSS | `drawflow@1.0.6/dist/drawflow.min.css` | `drawflow@0.0.60/dist/drawflow.min.css` |
+| JS | `drawflow@1.0.6/dist/drawflow.min.js` | `drawflow@0.0.60/dist/drawflow.min.js` |
+
+**教训**: CDN URL 版本号需验证后再写入模板。jsDelivr 的 `https://data.jsdelivr.com/v1/package/npm/drawflow` 可查询可用版本。
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | 2 个 `1.0.6` → `0.0.60` |
+
+### 验证
+
+```
+模板输出: drawflow@0.0.60  ✅
+CSS CDN 200:               ✅
+JS CDN 200 (UMD, window.Drawflow): ✅
+232 Python 测试全部通过:     ✅
+```
+
+---
 - CSV 中文编码：增加 gbk/gb2312/gb18030 编码回退链
 - ReduceLROnPlateau 参数：移除 `verbose`
 - 混淆矩阵 thresh：`max(cm)` → `max(max(row) for row in cm)`
