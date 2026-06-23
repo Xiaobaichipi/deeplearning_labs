@@ -2208,7 +2208,49 @@ JS CDN 200 (UMD, window.Drawflow): ✅
 232 Python 测试全部通过:     ✅
 ```
 
+## 2026-06-23: Bug 修复 — setupCanvasDropZone 重复注册 drop 监听器 (feat/canvas-editor 分支)
+
+### Bug: 拖拽一个节点到画布变成两个节点
+
+**症状**: 从组件面板拖拽任意模块到画布，画布上出现两个节点（一个在拖拽位置，另一个在下方偏移位置）。
+
+**根因**: `setupCanvasDropZone()` 无守卫标志，被调用两次：
+1. 项目激活时 `initCanvasForProject()` → `setupCanvasDropZone()`（注册第 1 对 dragover/drop）
+2. 点击 Canvas 按钮时 `toggleCanvasView(true)` → `setupCanvasDropZone()` （注册第 2 对 dragover/drop）
+
+旧监听器未被移除。拖拽组件时两个 `drop` 处理器都触发，`addCanvasNode()` 被调用两次，在两个位置创建节点。
+
+**修复**: 添加全局变量 `_dropZoneReady`，首次注册后置为 `true`，后续调用直接返回。
+
+```javascript
+let _dropZoneReady = false;
+
+function setupCanvasDropZone() {
+  if (_dropZoneReady) return;
+  // ... 注册 dragover/drop 监听器 ...
+  _dropZoneReady = true;
+}
+```
+
+**教训**: DOM 事件监听器注册函数必须防重入 — 要么使用守卫标志，要么在注册前 `removeEventListener`。
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/canvas.js` | 新增 `_dropZoneReady` 守卫 + 早返 |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
 ---
+
+## Prior Issues (前序会话已解决)
+
+- NaN JSON 序列化：`clean_nan()` 递归转换
 - CSV 中文编码：增加 gbk/gb2312/gb18030 编码回退链
 - ReduceLROnPlateau 参数：移除 `verbose`
 - 混淆矩阵 thresh：`max(cm)` → `max(max(row) for row in cm)`
