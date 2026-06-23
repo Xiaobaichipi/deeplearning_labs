@@ -344,6 +344,53 @@ function renderCanvasFromData(canvasData) {
   canvasEditor.import(drawflowData);
 }
 
+/* =============== Model Generation =============== */
+
+async function generateModel() {
+  if (!_canvasProjectId) return;
+  const btn = document.getElementById("canvas-generate-btn");
+  btn.disabled = true;
+  btn.textContent = "生成中...";
+
+  try {
+    // Auto-save canvas first
+    const canvasData = collectCanvasData();
+    await _saveCanvas(_canvasProjectId, canvasData);
+
+    // Call generation API
+    const result = await _generateCanvasModel(_canvasProjectId);
+    btn.textContent = "✓ 已生成";
+    btn.style.background = "#059669";
+
+    // Show success + redirect option
+    const msg = `模型「${result.model_type}」生成成功！\n现在可以前往 Step 4 训练此模型。`;
+    if (confirm(msg + "\n\n跳转到训练配置？")) {
+      toggleCanvasView(false);
+      goToStep(4);
+      // Refresh training model dropdown
+      if (typeof updateModelOptions === "function") {
+        const taskType = document.getElementById("taskTypeSelect").value;
+        updateModelOptions(taskType);
+      }
+    }
+
+    setTimeout(() => {
+      btn.textContent = "生成模型";
+      btn.style.background = "#7C3AED";
+      btn.disabled = false;
+    }, 5000);
+  } catch (err) {
+    btn.textContent = "✗ 失败";
+    btn.style.background = "#DC2626";
+    alert("模型生成失败: " + err.message);
+    setTimeout(() => {
+      btn.textContent = "生成模型";
+      btn.style.background = "#7C3AED";
+      btn.disabled = false;
+    }, 3000);
+  }
+}
+
 /* =============== API Integration =============== */
 
 async function saveCanvas() {

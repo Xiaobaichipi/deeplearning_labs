@@ -9,6 +9,10 @@ from utils.model_utils import create_model
 from utils.pipeline_strategy import PipelineData, PipelineStrategy
 from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
+from utils.canvas_generator import (
+    validate_canvas, generate_model_source,
+    write_model_file, register_model, CanvasError,
+)
 
 projects_bp = Blueprint("projects", __name__)
 
@@ -140,6 +144,66 @@ def load_canvas(project_id):
         return jsonify({"error": "Project not found"}), 404
     canvas = pm.load_canvas(project_id)
     return json_ok({"canvas": canvas})
+
+
+@projects_bp.route("/api/projects/<project_id>/canvas/generate", methods=["POST"])
+def generate_canvas_model(project_id):
+    """Validate canvas, generate PyTorch model code, register in MODEL_REGISTRY."""
+    pm = _pm()
+    project = pm.get_project(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    canvas = pm.load_canvas(project_id)
+    if not canvas or not canvas.get("nodes"):
+        return jsonify({"error": "画布为空，请先拖拽组件搭建模型"}), 400
+
+    # Determine next version
+    version = 1
+    generated_dir = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "utils", "models", "generated",
+    )
+    if os.path.isdir(generated_dir):
+        prefix = f"canvas_{project_id}_v"
+        for fname in os.listdir(generated_dir):
+            if fname.startswith(prefix) and fname.endswith(".py"):
+                try:
+                    v = int(fname[len(prefix):-3])
+                    version = max(version, v + 1)
+                except ValueError:
+                    pass
+
+    # Get input_dim / output_dim / n_time_features from project split
+    split_result = pm.load_split(project_id)
+    input_dim = split_result.input_dim if split_result else 1
+    output_dim = 1  # regression default
+    n_time_features = 4
+    if split_result:
+        output_dim = split_result.pred_len if split_result.is_time_series else (
+            split_result.n_classes if split_result.task_type == "classification" else 1
+        )
+        n_time_features = split_result.n_time_features
+
+    try:
+        source, model_type = generate_model_source(
+            canvas, project_id, version,
+            input_dim=input_dim, output_dim=output_dim,
+            n_time_features=n_time_features,
+        )
+        filepath = write_model_file(source, project_id, version)
+        model_class = register_model(filepath, model_type, project_id, version)
+    except CanvasError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"模型生成失败: {e}"}), 500
+
+    return json_ok({
+        "model_type": model_type,
+        "version": version,
+        "filepath": filepath,
+        "message": f"模型 {project['name']} v{version} 生成成功! 现在可以在 Step 4 训练中使用。",
+    })
 
 
 @projects_bp.route("/api/projects/<project_id>/models", methods=["GET"])

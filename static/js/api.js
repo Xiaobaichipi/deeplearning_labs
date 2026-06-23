@@ -161,6 +161,17 @@ async function _compareModels(projectId, modelIds) {
 
 // ── Canvas ───────────────────────────────────────────────────────
 
+async function _generateCanvasModel(projectId) {
+    const res = await fetch(`/api/projects/${projectId}/canvas/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
+
 async function _saveCanvas(projectId, canvas) {
     const res = await fetch(`/api/projects/${projectId}/canvas/save`, {
         method: "POST",
@@ -200,5 +211,6 @@ window._createProject = _createProject;
 window._activateProject = _activateProject;
 window._deleteProject = _deleteProject;
 window._loadProjectModels = _loadProjectModels;
+window._generateCanvasModel = _generateCanvasModel;
 window._loadModelToSession = _loadModelToSession;
 window._compareModels = _compareModels;
