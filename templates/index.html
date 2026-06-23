@@ -855,6 +855,34 @@
         </div>
     </div>
 
+    <!-- Template: model card for populateModelList -->
+    <template id="tpl-model-card">
+        <div class="model-export-card">
+            <label class="model-compare-cb" title="Select for comparison">
+                <input type="checkbox" class="model-cb">
+            </label>
+            <div class="model-export-info">
+                <div class="model-export-name"></div>
+                <div class="model-export-meta"></div>
+                <div class="model-export-metrics" style="display:none;">
+                    <span class="chip" data-key="epochs"></span>
+                    <span class="chip" data-key="trainLoss"></span>
+                    <span class="chip" data-key="valLoss"></span>
+                    <span class="chip" data-key="avgTime"></span>
+                </div>
+            </div>
+            <div class="model-export-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+                <button class="btn btn-secondary btn-sm btn-export">Export</button>
+                <button class="btn btn-danger btn-delete-canvas" style="font-size:16px;padding:4px 10px;min-width:36px;display:inline-flex;align-items:center;justify-content:center;">🗑 删除</button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Template: empty state -->
+    <template id="tpl-model-empty">
+        <div class="empty-state show" style="padding:40px 0;"><p>No models yet. Train a model to see it here.</p></div>
+    </template>
+
     <!-- Canvas Section -->
     <div id="canvas-section" style="display:none;">
         <div class="canvas-layout">

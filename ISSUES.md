@@ -2415,6 +2415,38 @@ Encoder → Decoder → Linear 验证通过 ✅
 
 ---
 
+## 2026-06-23: 前端架构优化 — HTML 模板提取 (populateModelList → `<template>`) (master)
+
+### 概述
+
+将 `ui.js:populateModelList` 中约 30 行的内联 HTML 字符串提取到 `index.html` 的 `<template>` 标签中。模板与 JS 分离后，HTML 结构可见、JS 逻辑简洁。
+
+### 改动
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | 新增 `#tpl-model-card` 和 `#tpl-model-empty` 两个 `<template>` 元素 |
+| `static/js/ui.js` | `populateModelList` 从模板字符串改为 `tpl.content.cloneNode(true)` + DOM API |
+| `static/js/ui.js` | 新增 `setChip()` 辅助函数（按 `data-key` 设置芯片文本） |
+
+### 设计模式
+
+- 模板包含完整的卡片结构，JS 通过 `querySelector` 定位子元素填充数据
+- 条件性内容（canvas_only 隐藏指标、canvas 模型显示删除按钮）通过 `style.display` 控制
+- 事件绑定从 `onclick` 属性改用 `btn.onclick = function`，避免 HTML 注入
+
+### 技术债务
+
+当前 `ui.js` 还有其他 `populate*` 函数使用内联 HTML 字符串（`populateProjectGrid`、`populateModelDropdown` 等），可在后续批次中逐步迁移。
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

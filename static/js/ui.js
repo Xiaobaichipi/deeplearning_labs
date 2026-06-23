@@ -81,50 +81,88 @@ function populateModelList(models) {
     const actionBar = document.getElementById("modelCompareAction");
 
     if (!models.length) {
-        container.innerHTML = `<div class="empty-state show" style="padding:40px 0;"><p>No models yet. Train a model to see it here.</p></div>`;
+        const tpl = document.getElementById("tpl-model-empty");
+        container.innerHTML = tpl ? tpl.innerHTML : '<div class="empty-state show" style="padding:40px 0;"><p>No models yet. Train a model to see it here.</p></div>';
         if (actionBar) actionBar.style.display = "none";
         return;
     }
 
-    const cards = models.map((m) => {
-        const mid = esc(m.id || "—");
-        const mtype = esc(m.model_type || "—");
+    const fragment = document.createDocumentFragment();
+
+    models.forEach((m) => {
         const isCanvas = m.model_type && m.model_type.startsWith('canvas_');
         const isCanvasOnly = m.canvas_only === true;
-        const date = m.created_at ? new Date(m.created_at).toLocaleString() : (isCanvasOnly ? "未训练" : "—");
-        const target = esc(m.target_name || (isCanvasOnly ? "画布生成" : "—"));
-        const fm = m.final_metrics || {};
-        const trainLoss = fm.train_loss != null ? fm.train_loss.toFixed(4) : (isCanvasOnly ? "—" : "—");
-        const valLoss = fm.val_loss != null ? fm.val_loss.toFixed(4) : "—";
-        const epochs = fm.epochs != null ? fm.epochs : (isCanvasOnly ? "—" : "—");
-        const avgTime = fm.avg_epoch_time != null ? fm.avg_epoch_time.toFixed(2) + "s" : (isCanvasOnly ? "—" : "—");
+        const mid = esc(m.id || "—");
+        const mtype = esc(m.model_type || "—");
 
-        return `
-            <div class="model-export-card">
-                <label class="model-compare-cb" title="Select for comparison">
-                    <input type="checkbox" class="model-cb" value="${mid}" ${isCanvasOnly ? 'disabled' : ''}>
-                </label>
-                <div class="model-export-info">
-                    <div class="model-export-name">${mtype} <span class="badge badge-soft">${isCanvasOnly ? '画布模型' : mid}</span></div>
-                    <div class="model-export-meta">${isCanvasOnly ? '画布生成，尚未训练' : `Target: ${target} &middot; Created: ${date}`}</div>
-                    ${isCanvasOnly ? '' : `<div class="model-export-metrics">
-                        <span class="chip">Epochs: ${epochs}</span>
-                        <span class="chip">Train Loss: ${trainLoss}</span>
-                        <span class="chip">Val Loss: ${valLoss}</span>
-                        <span class="chip">Time/Epoch: ${avgTime}</span>
-                    </div>`}
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-                    ${isCanvasOnly ? '' : `<button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>`}
-                    ${isCanvas ? `<button class="btn btn-danger" onclick="deleteCanvasModel('${esc(m.model_type)}')" title="删除画布模型" style="font-size:16px;padding:4px 10px;min-width:36px;display:inline-flex;align-items:center;justify-content:center;">🗑 删除</button>` : ''}
-                </div>
-            </div>
-        `;
+        // Clone template
+        const tpl = document.getElementById("tpl-model-card");
+        if (!tpl) return;
+        const card = tpl.content.cloneNode(true);
+        const root = card.firstElementChild;
+
+        // Checkbox
+        const cb = root.querySelector(".model-cb");
+        cb.value = mid;
+        if (isCanvasOnly) cb.disabled = true;
+
+        // Name row
+        const nameEl = root.querySelector(".model-export-name");
+        const badge = document.createElement("span");
+        badge.className = "badge badge-soft";
+        badge.textContent = isCanvasOnly ? "画布模型" : mid;
+        nameEl.innerHTML = mtype + " ";
+        nameEl.appendChild(badge);
+
+        // Meta row
+        const metaEl = root.querySelector(".model-export-meta");
+        if (isCanvasOnly) {
+            metaEl.textContent = "画布生成，尚未训练";
+        } else {
+            const date = m.created_at ? new Date(m.created_at).toLocaleString() : "—";
+            const target = esc(m.target_name || "—");
+            metaEl.textContent = `Target: ${target} · Created: ${date}`;
+        }
+
+        // Metrics (only for trained models)
+        const metricsEl = root.querySelector(".model-export-metrics");
+        if (!isCanvasOnly) {
+            const fm = m.final_metrics || {};
+            setChip(root, "epochs", fm.epochs != null ? fm.epochs : "—");
+            setChip(root, "trainLoss", fm.train_loss != null ? fm.train_loss.toFixed(4) : "—");
+            setChip(root, "valLoss", fm.val_loss != null ? fm.val_loss.toFixed(4) : "—");
+            setChip(root, "avgTime", fm.avg_epoch_time != null ? fm.avg_epoch_time.toFixed(2) + "s" : "—");
+            metricsEl.style.display = "";
+        }
+
+        // Actions
+        const actionsEl = root.querySelector(".model-export-actions");
+        const btnExport = root.querySelector(".btn-export");
+        const btnDelete = root.querySelector(".btn-delete-canvas");
+
+        if (!isCanvasOnly) {
+            btnExport.style.display = "";
+            btnExport.onclick = function() { exportModel(mid); };
+        }
+
+        if (isCanvas) {
+            btnDelete.style.display = "";
+            btnDelete.onclick = function() { deleteCanvasModel(m.model_type); };
+        }
+
+        fragment.appendChild(card);
     });
 
-    container.innerHTML = cards.join("");
+    container.innerHTML = "";
+    container.appendChild(fragment);
     if (actionBar) actionBar.style.display = "block";
     document.getElementById("modelCompareResult").style.display = "none";
+}
+
+/** Helper: set text content of a chip element by data-key attribute. */
+function setChip(root, key, text) {
+    const el = root.querySelector(`[data-key="${key}"]`);
+    if (el) el.textContent = text;
 }
 
 /* =============== Model Selector Dropdown =============== */
@@ -658,6 +696,7 @@ window.hideNewProjectModal = hideNewProjectModal;
 window.showProjectList = showProjectList;
 window.hideProjectList = hideProjectList;
 window.populateModelList = populateModelList;
+window.setChip = setChip;
 window.populateModelDropdown = populateModelDropdown;
 window.showLoadedModelBadge = showLoadedModelBadge;
 window.toggleHeaderMenu = toggleHeaderMenu;
