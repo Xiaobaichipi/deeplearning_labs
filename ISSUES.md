@@ -2387,6 +2387,34 @@ function initCanvasForProject(projectId, canvasData) {
 
 ---
 
+## 2026-06-23: Bug 修复 — 画布连线验证 + 加载恢复 (master)
+
+### Bug 1: 已连线却报"孤立节点"错误
+
+**症状**: Encoder → Decoder → Linear 正确连线后点击"生成模型"，后端返回"组件 'Decoder' 没有输入连接"。
+
+**根因**: `validate_canvas` 中 Kahn 拓扑排序直接修改 `in_degree` 字典，算法结束后所有已连节点 `in_degree` 均为 0。后续孤立节点检查 `if in_degree == 0` 将所有非起始节点误判为孤立。
+
+**修复**: Kahn 算法前用 `orig_in_degree = dict(in_degree)` 保存副本，孤立节点检查使用 `orig_in_degree`。
+
+### Bug 2: 加载后连线消失且无法重新连线
+
+**症状**: 点击画布"加载"按钮后所有连线消失，重新拖拽也无法连接。
+
+**根因**: `renderCanvasFromData` 只将连线注册到目标节点的 `inputs`，但 Drawflow `import()` 从源节点 `outputs` 读取连线来渲染。缺少 `outputs` 侧注册导致连线不可见且编辑器状态损坏。
+
+**修复**: 在源节点 `outputs` 和目标节点 `inputs` 双侧注册连线。
+
+### 验证
+
+```
+Encoder → Decoder → Linear 验证通过 ✅
+孤立节点仍被正确检测 ✅
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
