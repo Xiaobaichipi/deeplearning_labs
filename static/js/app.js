@@ -568,7 +568,9 @@ async function loadProjectModels() {
     if (!_activeProjectId) return;
     try {
         const models = await _loadProjectModels(_activeProjectId);
-        populateModelList(models);
+        const taskType = document.getElementById("taskTypeSelect").value;
+        const filtered = filterModelsByTask(models, taskType);
+        populateModelList(filtered);
     } catch (err) {
         console.error("loadProjectModels:", err.message);
     }
