@@ -22,11 +22,6 @@ function initCanvas() {
   const moduleTabs = container.querySelector(".drawflow-delete");
   if (moduleTabs) moduleTabs.style.display = "none";
 
-  setupCanvasClickHandlers(container);
-  setupCanvasKeyboardHandlers();
-}
-
-function setupCanvasClickHandlers(container) {
   // Node selected → show config panel
   container.addEventListener("click", (e) => {
     const nodeEl = e.target.closest(".drawflow-node");
@@ -37,9 +32,7 @@ function setupCanvasClickHandlers(container) {
       deselectNode();
     }
   });
-}
 
-function setupCanvasKeyboardHandlers() {
   // Keyboard: Delete key to remove selected node
   document.addEventListener("keydown", (e) => {
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -305,17 +298,6 @@ function collectCanvasData() {
 function renderCanvasFromData(canvasData) {
   if (!canvasData || !canvasData.nodes || !canvasData.nodes.length) return;
 
-  // Re-create Drawflow instance — import() can break connection rendering
-  // and input/output event handlers. A fresh instance ensures clean state.
-  const container = document.getElementById("drawflow-container");
-  if (container && canvasEditor) {
-    canvasEditor = new Drawflow(container);
-    canvasEditor.start();
-    // Remove module tab Drawflow adds each time
-    const moduleTabs = container.querySelector(".drawflow-delete");
-    if (moduleTabs) moduleTabs.style.display = "none";
-  }
-
   const drawflowData = { drawflow: { Home: { data: {} } } };
   const dfData = drawflowData.drawflow.Home.data;
 
@@ -347,6 +329,8 @@ function renderCanvasFromData(canvasData) {
   });
 
   // Add edges — register on BOTH source outputs and target inputs
+  // IMPORTANT: Drawflow's addNodeImport reads connections[i].input (not .output)
+  // when rendering SVG paths during load(). Use "input" key for the port name.
   canvasData.edges.forEach((edge) => {
     const fromNode = dfData[edge.from];
     const toNode = dfData[edge.to];
@@ -354,14 +338,12 @@ function renderCanvasFromData(canvasData) {
       const outputKey = Object.keys(fromNode.outputs)[0];
       const inputKey = Object.keys(toNode.inputs)[0];
       if (outputKey && inputKey) {
-        // Register on source node's output (Drawflow renders from outputs)
         fromNode.outputs[outputKey].connections.push({
           node: edge.to,
         });
-        // Register on target node's input
         toNode.inputs[inputKey].connections.push({
           node: edge.from,
-          output: edge.from_port || "output_1",
+          input: edge.from_port || "output_1",
         });
       }
     }
