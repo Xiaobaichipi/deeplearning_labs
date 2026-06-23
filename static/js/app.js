@@ -646,7 +646,7 @@ async function resetAll() {
 
 function backToProjects() {
     _activeProjectId = null;
-    _canvasProjectId = null;
+    resetCanvas();
     document.getElementById("canvasToggleBtn").style.display = "none";
     toggleCanvasView(false);
     showProjectList();

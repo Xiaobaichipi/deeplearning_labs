@@ -375,6 +375,16 @@ async function loadCanvas(projectId) {
   }
 }
 
+function resetCanvas() {
+  _dropZoneReady = false;
+  _selectedNodeId = null;
+  _canvasProjectId = null;
+  deselectNode();
+  if (canvasEditor) {
+    canvasEditor.import({ drawflow: { Home: { data: {} } } });
+  }
+}
+
 function clearCanvas() {
   if (!canvasEditor) return;
   if (canvasEditor.export().drawflow.Home.data && Object.keys(canvasEditor.export().drawflow.Home.data).length > 0) {
