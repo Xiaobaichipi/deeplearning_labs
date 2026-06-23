@@ -2246,6 +2246,91 @@ function setupCanvasDropZone() {
 232 Python 测试全部通过:     ✅
 ```
 
+## 2026-06-23: Bug 修复 — loadProjectModels 未按任务类型过滤 (feat/canvas-editor 分支)
+
+### Bug: "Trained Models" 标签页在 Time Series 下仍显示 General 模型
+
+**症状**: 选择 Time Series 任务后，点击 Step 6 → Models 标签页，仍显示 Decision Tree、Random Forest 等 General 模型。
+
+**根因**: `loadProjectModels()` 将 `_loadProjectModels()` 返回的全部模型直接传给 `populateModelList()`，后者不做任何过滤。而 `populateModelDropdown()`（下拉选择器）已有 `filterModelsByTask()` 过滤。
+
+**修复**: `loadProjectModels()` 中调用 `filterModelsByTask(models, taskType)` 过滤后再渲染。
+
+```javascript
+async function loadProjectModels() {
+    if (!_activeProjectId) return;
+    try {
+        const models = await _loadProjectModels(_activeProjectId);
+        const taskType = document.getElementById("taskTypeSelect").value;
+        const filtered = filterModelsByTask(models, taskType);
+        populateModelList(filtered);
+    } catch (err) { ... }
+}
+```
+
+**教训**: 同一页面中下拉选择器与列表视图的过滤逻辑必须保持一致。"一个过滤一个不过滤"的差异是 Bug 源头。
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/app.js` | `loadProjectModels()` 新增 `filterModelsByTask` 过滤步骤 |
+
+### 验证
+
+```python
+models = [
+    {'model_type': 'rnn',                    'is_time_series': True},
+    {'model_type': 'decision_tree_regressor', 'is_time_series': False},
+    {'model_type': 'mlp',                    'is_time_series': None},
+]
+filterModelsByTask(models, 'time_series')  # → [rnn]  ✅
+filterModelsByTask(models, 'general')      # → [dt, mlp]  ✅
+```
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
+## 2026-06-23: Bug 修复 — 切换项目时画布生命周期未重置 (feat/canvas-editor 分支)
+
+### Bug: 退出项目再激活新项目，画布拖拽失效或残留旧节点
+
+**症状**: 退出项目后进入另一个项目，画布拖拽功能不工作，或显示上一个项目的残留节点。
+
+**根因**: 前序修复添加的 `_dropZoneReady` 守卫在项目退出时未重置。重新激活项目时 `setupCanvasDropZone()` 直接返回（`_dropZoneReady` 仍为 `true`）。同时 `canvasEditor` 实例未被清空。
+
+**修复**: 新增 `resetCanvas()` 统一清理，在 `backToProjects()` 中调用。
+
+```javascript
+function resetCanvas() {
+  _dropZoneReady = false;
+  _selectedNodeId = null;
+  _canvasProjectId = null;
+  deselectNode();
+  if (canvasEditor) {
+    canvasEditor.import({ drawflow: { Home: { data: {} } } });
+  }
+}
+```
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/canvas.js` | 新增 `resetCanvas()`（重置标志 + 清空画布） |
+| `static/js/app.js` | `backToProjects()` 调用 `resetCanvas()` |
+
+### 验证
+
+```
+退出项目 → 进入新项目 → 拖拽节点正常（单节点） ✅
+旧项目节点不会在新项目中残留 ✅
+232 Python 测试全部通过:     ✅
+```
+
 ---
 
 ## Prior Issues (前序会话已解决)
