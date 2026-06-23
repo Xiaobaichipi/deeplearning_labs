@@ -4,6 +4,7 @@ let canvasEditor = null;
 let canvasInitialized = false;
 let _canvasProjectId = null;
 let _selectedNodeId = null;
+let _pendingCanvasData = null;  // canvas data stored during project activation, rendered when canvas first shows
 
 /* =============== Initialization =============== */
 
@@ -431,6 +432,7 @@ function resetCanvas() {
   _dropZoneReady = false;
   _selectedNodeId = null;
   _canvasProjectId = null;
+  _pendingCanvasData = null;
   deselectNode();
   if (canvasEditor) {
     canvasEditor.import({ drawflow: { Home: { data: {} } } });
@@ -460,10 +462,15 @@ function toggleCanvasView(show) {
     trainingFlow.style.display = "none";
     stepsNav.style.display = "none";
     if (canvasToggle) canvasToggle.textContent = "Training";
-    // Lazy init
+    // Lazy init — container is now visible (display:block), Drawflow can measure dimensions
     initCanvas();
     setupCanvasDropZone();
     renderComponentPanel();
+    // Render any canvas data stored during project activation
+    if (_pendingCanvasData) {
+      renderCanvasFromData(_pendingCanvasData);
+      _pendingCanvasData = null;
+    }
   } else {
     canvasSection.style.display = "none";
     trainingFlow.style.display = "block";
@@ -476,10 +483,7 @@ function toggleCanvasView(show) {
 
 function initCanvasForProject(projectId, canvasData) {
   _canvasProjectId = projectId;
-  initCanvas();
-  setupCanvasDropZone();
-  renderComponentPanel();
-  if (canvasData) {
-    renderCanvasFromData(canvasData);
-  }
+  _pendingCanvasData = canvasData || null;
+  // Defer Drawflow init to toggleCanvasView(true) — container is hidden during project activation
+  // initCanvas(), setupCanvasDropZone(), renderComponentPanel() are called there
 }
