@@ -41,10 +41,12 @@ class ComponentTemplate:
         self.forward_tpl = forward_tpl  # string template with {var} / {id} / {in_var}
         self.check_config = check_config or (lambda cfg: None)
 
-    def build_init(self, comp_id, var_name, cfg, global_params):
+    def build_init(self, comp_id, var_name, cfg, global_params, component_type=""):
         """Return Python code for the __init__ block of one component."""
-        # Merge component defaults with global pipeline params
-        ctx = dict(cfg)
+        # Merge saved config with component defaults to fill missing fields
+        defaults = COMPONENT_DEFAULTS.get(component_type, {})
+        merged = {**defaults, **cfg}
+        ctx = dict(merged)
         ctx["id"] = comp_id
         ctx["var"] = var_name
         ctx.update(global_params)
@@ -53,6 +55,17 @@ class ComponentTemplate:
     def build_forward(self, var_name, in_var):
         """Return Python code for the forward call of one component."""
         return self.forward_tpl.format(var=var_name, in_var=in_var)
+
+
+# ── Component default configs (mirrors canvas_registry.js defaults) ──
+# Used to fill missing fields when the saved canvas omits them.
+
+COMPONENT_DEFAULTS = {
+    "embedding": {"d_model": 512, "dropout": 0.1},
+    "encoder": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
+    "decoder": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
+    "linear": {"d_model": 512, "in_features": 512, "out_features": 1},
+}
 
 
 # ── Registered components ────────────────────────────────────────
@@ -263,12 +276,14 @@ def _resolve_global_params(ordered_nodes, input_dim, output_dim, n_time_features
 
     for node in ordered_nodes:
         cfg = node.get("config", {})
-        if d_model is None and cfg.get("d_model"):
-            d_model = cfg["d_model"]
-        if cfg.get("dropout") is not None:
-            dropout = cfg["dropout"]
+        defaults = COMPONENT_DEFAULTS.get(node["type"], {})
+        dm = cfg.get("d_model") or defaults.get("d_model")
+        if d_model is None and dm:
+            d_model = dm
+        dp = cfg.get("dropout") if cfg.get("dropout") is not None else defaults.get("dropout")
+        if dp is not None:
+            dropout = dp
 
-    # Default d_model if no component defines one
     if d_model is None:
         d_model = 256
 
@@ -319,7 +334,7 @@ def generate_model_source(canvas, project_id, version, input_dim, output_dim, n_
 
         # Build code blocks
         try:
-            init_code = tmpl.build_init(node["id"], var_name, cfg, global_params)
+            init_code = tmpl.build_init(node["id"], var_name, cfg, global_params, component_type=ntype)
             fwd_code = tmpl.build_forward(var_name, prev_var)
         except KeyError as e:
             raise CanvasError(

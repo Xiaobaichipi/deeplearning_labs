@@ -172,7 +172,10 @@ function selectNode(nodeId) {
   panel.style.display = "block";
 
   const comp = COMPONENT_TYPES[nodeInfo.name];
-  const config = nodeInfo.data.config || {};
+  // Merge saved config with defaults so missing fields never show as empty
+  const savedConfig = nodeInfo.data.config || {};
+  const defaultConfig = comp ? { ...comp.defaults } : {};
+  const config = { ...defaultConfig, ...savedConfig };
 
   let html = `<div class="config-panel-header">
     <span class="config-panel-title" style="border-left:3px solid ${comp ? comp.color : '#999'};padding-left:8px;">${nodeInfo.data.label}</span>
@@ -259,11 +262,17 @@ function collectCanvasData() {
 
   Object.keys(dfData).forEach((nodeId) => {
     const n = dfData[nodeId];
+    // Merge saved config with component defaults to fill any missing fields
+    const comp = COMPONENT_TYPES[n.name];
+    const savedConfig = n.data.config || {};
+    const defaultConfig = comp ? { ...comp.defaults } : {};
+    const mergedConfig = { ...defaultConfig, ...savedConfig };
+
     nodes.push({
       id: nodeId,
       type: n.name,
       label: n.data.label || n.name,
-      config: n.data.config || {},
+      config: mergedConfig,
       ports: n.data.ports || {},
       position: { x: n.pos_x, y: n.pos_y },
     });
