@@ -232,6 +232,16 @@ def list_project_models(project_id):
     if not project:
         return jsonify({"error": "Project not found"}), 404
     models = pm.list_models(project_id)
+    # Also include canvas-generated models (may not have been trained yet)
+    # so they appear in the UI with a delete button.
+    canvas_models = list_generated_for_project(project_id)
+    for cm in canvas_models:
+        models.append({
+            "id": cm["model_type"],
+            "model_type": cm["model_type"],
+            "created_at": "",
+            "canvas_only": True,
+        })
     return json_ok({"models": models})
 
 

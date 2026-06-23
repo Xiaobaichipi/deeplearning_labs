@@ -89,32 +89,34 @@ function populateModelList(models) {
     const cards = models.map((m) => {
         const mid = esc(m.id || "—");
         const mtype = esc(m.model_type || "—");
-        const date = m.created_at ? new Date(m.created_at).toLocaleString() : "—";
-        const target = esc(m.target_name || "—");
+        const isCanvas = m.model_type && m.model_type.startsWith('canvas_');
+        const isCanvasOnly = m.canvas_only === true;
+        const date = m.created_at ? new Date(m.created_at).toLocaleString() : (isCanvasOnly ? "未训练" : "—");
+        const target = esc(m.target_name || (isCanvasOnly ? "画布生成" : "—"));
         const fm = m.final_metrics || {};
-        const trainLoss = fm.train_loss != null ? fm.train_loss.toFixed(4) : "—";
+        const trainLoss = fm.train_loss != null ? fm.train_loss.toFixed(4) : (isCanvasOnly ? "—" : "—");
         const valLoss = fm.val_loss != null ? fm.val_loss.toFixed(4) : "—";
-        const epochs = fm.epochs != null ? fm.epochs : "—";
-        const avgTime = fm.avg_epoch_time != null ? fm.avg_epoch_time.toFixed(2) + "s" : "—";
+        const epochs = fm.epochs != null ? fm.epochs : (isCanvasOnly ? "—" : "—");
+        const avgTime = fm.avg_epoch_time != null ? fm.avg_epoch_time.toFixed(2) + "s" : (isCanvasOnly ? "—" : "—");
 
         return `
             <div class="model-export-card">
                 <label class="model-compare-cb" title="Select for comparison">
-                    <input type="checkbox" class="model-cb" value="${mid}">
+                    <input type="checkbox" class="model-cb" value="${mid}" ${isCanvasOnly ? 'disabled' : ''}>
                 </label>
                 <div class="model-export-info">
-                    <div class="model-export-name">${mtype} <span class="badge badge-soft">${mid}</span></div>
-                    <div class="model-export-meta">Target: ${target} &middot; Created: ${date}</div>
-                    <div class="model-export-metrics">
+                    <div class="model-export-name">${mtype} <span class="badge badge-soft">${isCanvasOnly ? '画布模型' : mid}</span></div>
+                    <div class="model-export-meta">${isCanvasOnly ? '画布生成，尚未训练' : `Target: ${target} &middot; Created: ${date}`}</div>
+                    ${isCanvasOnly ? '' : `<div class="model-export-metrics">
                         <span class="chip">Epochs: ${epochs}</span>
                         <span class="chip">Train Loss: ${trainLoss}</span>
                         <span class="chip">Val Loss: ${valLoss}</span>
                         <span class="chip">Time/Epoch: ${avgTime}</span>
-                    </div>
+                    </div>`}
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-                    <button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>
-                    ${m.model_type && m.model_type.startsWith('canvas_') ? `<button class="btn btn-danger" onclick="deleteCanvasModel('${esc(m.model_type)}')" title="删除画布模型" style="font-size:16px;padding:4px 10px;min-width:36px;display:inline-flex;align-items:center;justify-content:center;">🗑</button>` : ''}
+                    ${isCanvasOnly ? '' : `<button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>`}
+                    ${isCanvas ? `<button class="btn btn-danger" onclick="deleteCanvasModel('${esc(m.model_type)}')" title="删除画布模型" style="font-size:16px;padding:4px 10px;min-width:36px;display:inline-flex;align-items:center;justify-content:center;">🗑 删除</button>` : ''}
                 </div>
             </div>
         `;

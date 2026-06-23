@@ -590,9 +590,13 @@ async function loadProjectModels() {
     if (!_activeProjectId) return;
     try {
         const models = await _loadProjectModels(_activeProjectId);
+        // Separate canvas-only models (no training data) from trained models
+        const trained = models.filter(function(m) { return !m.canvas_only; });
+        const canvasOnly = models.filter(function(m) { return m.canvas_only; });
         const taskType = document.getElementById("taskTypeSelect").value;
-        const filtered = filterModelsByTask(models, taskType);
-        populateModelList(filtered);
+        const filtered = filterModelsByTask(trained, taskType);
+        // Always show canvas-only models regardless of task type
+        populateModelList(filtered.concat(canvasOnly));
     } catch (err) {
         console.error("loadProjectModels:", err.message);
     }
@@ -708,6 +712,7 @@ window.deleteProject = deleteProject;
 window.loadProjectModels = loadProjectModels;
 window.refreshModelDropdown = refreshModelDropdown;
 window.registerCanvasModel = registerCanvasModel;
+window.deleteCanvasModel = deleteCanvasModel;
 window.onModelSelect = onModelSelect;
 window.compareModels = compareModels;
 window.exportModel = exportModel;
