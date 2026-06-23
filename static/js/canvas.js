@@ -209,26 +209,23 @@ function updateNodeConfig(nodeId, input) {
   const key = input.dataset.key;
   const val = input.type === "number" ? parseFloat(input.value) : input.value;
 
+  // Read current node data, modify, write back.
+  // Do NOT call updateNodeDataFromId with {} — it REPLACES the entire data.
+  const info = getNodeData(nodeId);
+  if (!info) return;
+  info.data = info.data || {};
+
   if (key === "label") {
-    // Update label in node data and HTML
-    const info = getNodeData(nodeId);
-    if (info) {
-      info.data.label = val;
-      canvasEditor.updateNodeDataFromId(nodeId, info.data);
-      const comp = COMPONENT_TYPES[info.name];
-      if (comp) {
-        canvasEditor.updateNodeHtmlFromId(nodeId, buildNodeHtml(info.name, val, comp));
-      }
+    info.data.label = val;
+    canvasEditor.updateNodeDataFromId(nodeId, info.data);
+    const comp = COMPONENT_TYPES[info.name];
+    if (comp) {
+      canvasEditor.updateNodeHtmlFromId(nodeId, buildNodeHtml(info.name, val, comp));
     }
   } else {
-    canvasEditor.updateNodeDataFromId(nodeId, {});
-    // Use internal Drawflow data update
-    const info = getNodeData(nodeId);
-    if (info) {
-      info.data.config[key] = val;
-      // Re-set the data
-      canvasEditor.updateNodeDataFromId(nodeId, info.data);
-    }
+    info.data.config = info.data.config || {};
+    info.data.config[key] = val;
+    canvasEditor.updateNodeDataFromId(nodeId, info.data);
   }
 
   markCanvasDirty();
