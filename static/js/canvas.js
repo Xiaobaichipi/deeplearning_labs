@@ -362,6 +362,11 @@ async function generateModel() {
     btn.textContent = "✓ 已生成";
     btn.style.background = "#059669";
 
+    // Register in training dropdown
+    if (typeof registerCanvasModel === "function") {
+      registerCanvasModel(result.model_type, result.model_type);
+    }
+
     // Show success + redirect option
     const msg = `模型「${result.model_type}」生成成功！\n现在可以前往 Step 4 训练此模型。`;
     if (confirm(msg + "\n\n跳转到训练配置？")) {

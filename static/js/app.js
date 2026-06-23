@@ -164,6 +164,15 @@ async function applyTaskConfig() {
     }
 }
 
+let _canvasModelTypes = [];  // dynamically registered canvas models
+
+function registerCanvasModel(modelType, label) {
+    // Add to the dynamic list so updateModelOptions picks it up
+    if (!_canvasModelTypes.find(m => m.type === modelType)) {
+        _canvasModelTypes.push({type: modelType, label: label});
+    }
+}
+
 function updateModelOptions(taskType) {
     const sel = document.getElementById("modelType");
     const isTimeSeries = taskType === "time_series";
@@ -196,8 +205,15 @@ function updateModelOptions(taskType) {
     const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
+    // Canvas-generated models (large pipeline) always go to time-series list
+    const canvasTSTypes = [];
+    _canvasModelTypes.forEach(function(m) {
+        allOptions[m.type] = m.label;
+        canvasTSTypes.push(m.type);
+    });
+
     sel.innerHTML = "";
-    const visible = isTimeSeries ? tsModels : generalModels;
+    const visible = isTimeSeries ? tsModels.concat(canvasTSTypes) : generalModels;
     Object.entries(allOptions).forEach(([val, label]) => {
         if (visible.includes(val)) {
             const opt = document.createElement("option");
@@ -672,6 +688,7 @@ window.activateProject = activateProject;
 window.deleteProject = deleteProject;
 window.loadProjectModels = loadProjectModels;
 window.refreshModelDropdown = refreshModelDropdown;
+window.registerCanvasModel = registerCanvasModel;
 window.onModelSelect = onModelSelect;
 window.compareModels = compareModels;
 window.exportModel = exportModel;
