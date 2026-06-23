@@ -564,6 +564,12 @@ async function activateProject(projectId) {
         document.getElementById("canvasToggleBtn").style.display = "inline-flex";
         initCanvasForProject(projectId, data.canvas);
 
+        // Re-register canvas-generated models in training dropdown
+        const canvasModels = data.canvas_models || [];
+        canvasModels.forEach(function(m) {
+            registerCanvasModel(m.model_type, m.model_type);
+        });
+
         goToStep(2);
     } catch (err) {
         alert("Error: " + err.message);

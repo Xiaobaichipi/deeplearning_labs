@@ -319,6 +319,14 @@ MODEL_REGISTRY = {
 }
 
 
+# ── Auto-register canvas-generated models on startup ──────────────
+try:
+    from utils.canvas_generator import register_all_generated
+    register_all_generated()
+except Exception:
+    pass
+
+
 def get_model_class(model_type):
     """Return the model class for the given type string."""
     if model_type not in MODEL_REGISTRY:

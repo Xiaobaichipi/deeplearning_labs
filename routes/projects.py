@@ -11,7 +11,7 @@ from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
 from utils.canvas_generator import (
     validate_canvas, generate_model_source,
-    write_model_file, register_model, CanvasError,
+    write_model_file, register_model, list_generated_for_project, CanvasError,
 )
 
 projects_bp = Blueprint("projects", __name__)
@@ -177,12 +177,12 @@ def generate_canvas_model(project_id):
     # Get input_dim / output_dim / n_time_features from project split
     split_result = pm.load_split(project_id)
     input_dim = split_result.input_dim if split_result else 1
-    output_dim = 1  # regression default
+    output_dim = 1
     n_time_features = 4
     if split_result:
-        output_dim = split_result.pred_len if split_result.is_time_series else (
-            split_result.n_classes if split_result.task_type == "classification" else 1
-        )
+        if split_result.task_type == "classification":
+            return jsonify({"error": "画布生成模型暂不支持分类任务。"}), 400
+        output_dim = split_result.get("pred_len", 1) if split_result.is_time_series else 1
         n_time_features = split_result.n_time_features
 
     try:
@@ -474,6 +474,7 @@ def activate_project(project_id):
     info["correlation_image"] = corr_img
     info["project"] = project
     info["canvas"] = pm.load_canvas(project_id)
+    info["canvas_models"] = list_generated_for_project(project_id)
     info["models"] = [
         {"id": m["id"], "model_type": m.get("model_type"),
          "created_at": m.get("created_at"),

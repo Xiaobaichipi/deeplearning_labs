@@ -197,7 +197,15 @@ def validate_canvas(canvas):
     _assert(in_degree[ordered[0]] == 0,
             "画布第一个节点必须有一个输入端口（无输入连接）")
 
-    # ── 3. Validate d_model consistency ──────────────────────────
+    # ── 3. Check for isolated nodes (no incoming edges AND unused output) ──
+    for nid in ordered:
+        if in_degree.get(nid, 0) == 0 and nid != ordered[0]:
+            node = next(n for n in nodes if n["id"] == nid)
+            raise CanvasError(
+                f"组件 '{node.get('label', nid)}' 没有输入连接（孤立节点）。"
+                f"\n请将其连接到上游组件，或删除。")
+
+    # ── 4. Validate d_model consistency ──────────────────────────
     d_model = None
     for nid in ordered:
         node = next(n for n in nodes if n["id"] == nid)
@@ -367,16 +375,7 @@ def register_model(filepath, model_type, project_id="", version=1):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    # Find the model class (should be the only BaseModel subclass)
-    model_class = None
-    for attr_name in dir(module):
-        attr = getattr(module, attr_name)
-        if isinstance(attr, type) and issubclass(attr, object):
-            from utils.models.base import BaseModel
-            if issubclass(attr, BaseModel) and attr is not BaseModel:
-                model_class = attr
-                break
-
+    model_class = _find_model_class(module)
     if model_class is None:
         raise CanvasError("生成的模型文件中未找到有效的模型类")
 
@@ -389,3 +388,81 @@ def register_model(filepath, model_type, project_id="", version=1):
     }
 
     return model_class
+
+
+def _find_model_class(module):
+    """Find the BaseModel subclass in a generated module."""
+    from utils.models.base import BaseModel
+    for attr_name in dir(module):
+        attr = getattr(module, attr_name)
+        if isinstance(attr, type) and issubclass(attr, BaseModel) and attr is not BaseModel:
+            return attr
+    return None
+
+
+def list_generated_for_project(project_id):
+    """Return list of dicts [{model_type, version}, ...] for a project."""
+    if not os.path.isdir(GENERATED_DIR):
+        return []
+    result = []
+    prefix = f"canvas_{project_id}_v"
+    for fname in os.listdir(GENERATED_DIR):
+        if not fname.startswith(prefix) or not fname.endswith(".py"):
+            continue
+        stem = fname[:-3]
+        version_str = stem[len(f"canvas_{project_id}_v"):]
+        try:
+            version = int(version_str)
+        except ValueError:
+            version = 1
+        result.append({"model_type": stem, "version": version})
+    return sorted(result, key=lambda x: x["version"])
+
+
+def register_all_generated():
+    """Scan GENERATED_DIR and re-register all generated model files.
+    Called at startup so models survive server restarts.
+    """
+    if not os.path.isdir(GENERATED_DIR):
+        return []
+    registered = []
+    for fname in sorted(os.listdir(GENERATED_DIR)):
+        if not fname.startswith("canvas_") or not fname.endswith(".py"):
+            continue
+        # canvas_<project_id>_v<N>.py
+        stem = fname[:-3]  # remove .py
+        filepath = os.path.join(GENERATED_DIR, fname)
+
+        try:
+            module = importlib.import_module(f"utils.models.generated.{stem}")
+            # Need to reload since importlib caches
+            importlib.reload(module)
+        except ImportError:
+            spec = importlib.util.spec_from_file_location(f"utils.models.generated.{stem}", filepath)
+            if spec is None or spec.loader is None:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+        model_class = _find_model_class(module)
+        if model_class is None:
+            continue
+
+        # Parse project_id and version from filename
+        # canvas_<project_id>_v<N>.py
+        inner = stem[len("canvas_"):]  # <project_id>_v<N>
+        parts = inner.rsplit("_v", 1)
+        project_id = parts[0] if len(parts) == 2 else inner
+        version = int(parts[1]) if len(parts) == 2 and parts[1].isdigit() else 1
+
+        model_type = stem
+        pid_short = project_id[:8] if project_id else "unknown"
+        MODEL_REGISTRY.setdefault(model_type, {
+            "class": model_class,
+            "name": f"Canvas ({pid_short}... v{version})",
+            "pipeline": "large",
+            "params": {},
+        })
+        registered.append(model_type)
+
+    return registered
