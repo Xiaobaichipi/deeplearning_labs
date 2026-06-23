@@ -328,12 +328,19 @@ function renderCanvasFromData(canvasData) {
     };
   });
 
-  // Add edges
+  // Add edges — register on BOTH source outputs and target inputs
   canvasData.edges.forEach((edge) => {
+    const fromNode = dfData[edge.from];
     const toNode = dfData[edge.to];
-    if (toNode) {
+    if (fromNode && toNode) {
+      const outputKey = Object.keys(fromNode.outputs)[0];
       const inputKey = Object.keys(toNode.inputs)[0];
-      if (inputKey) {
+      if (outputKey && inputKey) {
+        // Register on source node's output (Drawflow renders from outputs)
+        fromNode.outputs[outputKey].connections.push({
+          node: edge.to,
+        });
+        // Register on target node's input
         toNode.inputs[inputKey].connections.push({
           node: edge.from,
           output: edge.from_port || "output_1",

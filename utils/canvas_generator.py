@@ -181,6 +181,9 @@ def validate_canvas(canvas):
     _assert(all(d <= 1 for d in out_degree.values()),
             "当前只支持单链拓扑（每个节点最多一个输出连接）— 分支留到 P2")
 
+    # Save a copy of initial in_degree before Kahn's algorithm mutates it
+    orig_in_degree = dict(in_degree)
+
     # ── 2. Topological sort (Kahn) ───────────────────────────────
     q = [nid for nid, d in in_degree.items() if d == 0]
     ordered = []
@@ -194,12 +197,12 @@ def validate_canvas(canvas):
 
     _assert(len(ordered) == len(nodes),
             "画布中存在循环连接，请检查连线是否成环")
-    _assert(in_degree[ordered[0]] == 0,
+    _assert(orig_in_degree[ordered[0]] == 0,
             "画布第一个节点必须有一个输入端口（无输入连接）")
 
-    # ── 3. Check for isolated nodes (no incoming edges AND unused output) ──
+    # ── 3. Check for isolated nodes — use pre-Kahn in_degree (orig_in_degree) ──
     for nid in ordered:
-        if in_degree.get(nid, 0) == 0 and nid != ordered[0]:
+        if orig_in_degree.get(nid, 0) == 0 and nid != ordered[0]:
             node = next(n for n in nodes if n["id"] == nid)
             raise CanvasError(
                 f"组件 '{node.get('label', nid)}' 没有输入连接（孤立节点）。"
