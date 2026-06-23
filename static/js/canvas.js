@@ -22,6 +22,11 @@ function initCanvas() {
   const moduleTabs = container.querySelector(".drawflow-delete");
   if (moduleTabs) moduleTabs.style.display = "none";
 
+  setupCanvasClickHandlers(container);
+  setupCanvasKeyboardHandlers();
+}
+
+function setupCanvasClickHandlers(container) {
   // Node selected → show config panel
   container.addEventListener("click", (e) => {
     const nodeEl = e.target.closest(".drawflow-node");
@@ -32,7 +37,9 @@ function initCanvas() {
       deselectNode();
     }
   });
+}
 
+function setupCanvasKeyboardHandlers() {
   // Keyboard: Delete key to remove selected node
   document.addEventListener("keydown", (e) => {
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -297,6 +304,17 @@ function collectCanvasData() {
 
 function renderCanvasFromData(canvasData) {
   if (!canvasData || !canvasData.nodes || !canvasData.nodes.length) return;
+
+  // Re-create Drawflow instance — import() can break connection rendering
+  // and input/output event handlers. A fresh instance ensures clean state.
+  const container = document.getElementById("drawflow-container");
+  if (container && canvasEditor) {
+    canvasEditor = new Drawflow(container);
+    canvasEditor.start();
+    // Remove module tab Drawflow adds each time
+    const moduleTabs = container.querySelector(".drawflow-delete");
+    if (moduleTabs) moduleTabs.style.display = "none";
+  }
 
   const drawflowData = { drawflow: { Home: { data: {} } } };
   const dfData = drawflowData.drawflow.Home.data;
