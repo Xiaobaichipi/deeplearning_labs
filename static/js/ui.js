@@ -43,7 +43,7 @@ function populateProjectGrid(projects) {
     if (typeof gsap !== "undefined") {
         gsap.from(".project-card", {
             opacity: 0, y: 24, scale: 0.96, duration: 0.4,
-            stagger: 0.06, ease: "power3.out", clearProps: "transform",
+            stagger: 0.06, ease: "power3.out", clearProps: "all",
         });
     }
 }
