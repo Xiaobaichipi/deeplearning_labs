@@ -58,7 +58,13 @@ class ComponentTemplate:
 
 
 # ── Component default configs (mirrors canvas_registry.js defaults) ──
-# Used to fill missing fields when the saved canvas omits them.
+#
+# ═══════════════════════════════════════════════════════════════════
+#   ⚠️  修改默认参数时请务必同步更新:
+#       static/js/canvas_registry.js 中的 COMPONENT_TYPES defaults
+# ═══════════════════════════════════════════════════════════════════
+#   两端不一致会导致前后端默认行为不同步。
+#   未来可考虑通过 API /api/canvas/component-defaults 提供单一数据源。
 
 COMPONENT_DEFAULTS = {
     "embedding": {"d_model": 512, "dropout": 0.1},
@@ -381,7 +387,7 @@ def write_model_file(source, project_id, version):
     return filepath
 
 
-def register_model(filepath, model_type, project_id="", version=1):
+def register_model(filepath, model_type, project_id="", version=1, display_name=None):
     """Import a generated model file and register it in MODEL_REGISTRY.
 
     Returns the model class.
@@ -398,9 +404,10 @@ def register_model(filepath, model_type, project_id="", version=1):
         raise CanvasError("生成的模型文件中未找到有效的模型类")
 
     pid_short = project_id[:8] if project_id else "unknown"
+    name = display_name or f"Canvas ({pid_short}... v{version})"
     MODEL_REGISTRY[model_type] = {
         "class": model_class,
-        "name": f"Canvas ({pid_short}... v{version})",
+        "name": name,
         "pipeline": "large",
         "params": {},
     }
@@ -477,10 +484,39 @@ def register_all_generated():
         pid_short = project_id[:8] if project_id else "unknown"
         MODEL_REGISTRY.setdefault(model_type, {
             "class": model_class,
-            "name": f"Canvas ({pid_short}... v{version})",
+            "name": model_type,
             "pipeline": "large",
             "params": {},
         })
         registered.append(model_type)
 
     return registered
+
+
+def unregister_model(model_type):
+    """Remove a generated model from MODEL_REGISTRY and delete its .py file.
+
+    Returns True on success, False if model_type is not a canvas-generated model.
+    """
+    # Only allow deleting canvas-generated models
+    if not model_type.startswith("canvas_"):
+        return False
+
+    # Remove from registry
+    MODEL_REGISTRY.pop(model_type, None)
+
+    # Delete the .py file
+    filepath = os.path.join(GENERATED_DIR, f"{model_type}.py")
+    if os.path.isfile(filepath):
+        os.remove(filepath)
+
+    # Also remove compiled cache
+    pycache = os.path.join(GENERATED_DIR, "__pycache__")
+    cache_file = os.path.join(pycache, f"{model_type}.cpython-*.pyc")
+    # Simple glob-free approach: remove any matching .pyc
+    if os.path.isdir(pycache):
+        for fname in os.listdir(pycache):
+            if fname.startswith(model_type) and fname.endswith((".pyc", ".pyo")):
+                os.remove(os.path.join(pycache, fname))
+
+    return True

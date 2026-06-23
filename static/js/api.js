@@ -161,11 +161,11 @@ async function _compareModels(projectId, modelIds) {
 
 // ── Canvas ───────────────────────────────────────────────────────
 
-async function _generateCanvasModel(projectId) {
+async function _generateCanvasModel(projectId, modelName) {
     const res = await fetch(`/api/projects/${projectId}/canvas/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ model_name: modelName || "" }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -210,7 +210,17 @@ window._loadProjects = _loadProjects;
 window._createProject = _createProject;
 window._activateProject = _activateProject;
 window._deleteProject = _deleteProject;
+window._deleteCanvasModel = _deleteCanvasModel;
 window._loadProjectModels = _loadProjectModels;
 window._generateCanvasModel = _generateCanvasModel;
+
+async function _deleteCanvasModel(projectId, modelType) {
+    const res = await fetch(`/api/projects/${projectId}/canvas/models/${modelType}`, {
+        method: "DELETE",
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
 window._loadModelToSession = _loadModelToSession;
 window._compareModels = _compareModels;

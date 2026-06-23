@@ -112,7 +112,10 @@ function populateModelList(models) {
                         <span class="chip">Time/Epoch: ${avgTime}</span>
                     </div>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <button class="btn btn-secondary btn-sm" onclick="exportModel('${mid}')">Export</button>
+                    ${m.model_type && m.model_type.startsWith('canvas_') ? `<button class="btn btn-danger btn-sm" onclick="deleteCanvasModel('${esc(m.model_type)}')" title="删除画布模型">🗑</button>` : ''}
+                </div>
             </div>
         `;
     });

@@ -366,13 +366,17 @@ async function generateModel() {
   btn.disabled = true;
   btn.textContent = "生成中...";
 
+  // Read user-defined model name (auto-generated default shown as placeholder)
+  const nameInput = document.getElementById("canvas-model-name");
+  const modelName = nameInput ? nameInput.value.trim() : "";
+
   try {
     // Auto-save canvas first
     const canvasData = collectCanvasData();
     await _saveCanvas(_canvasProjectId, canvasData);
 
-    // Call generation API
-    const result = await _generateCanvasModel(_canvasProjectId);
+    // Call generation API with optional model name
+    const result = await _generateCanvasModel(_canvasProjectId, modelName);
     btn.textContent = "✓ 已生成";
     btn.style.background = "#059669";
 

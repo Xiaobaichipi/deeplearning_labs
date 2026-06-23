@@ -11,7 +11,8 @@ from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
 from utils.canvas_generator import (
     validate_canvas, generate_model_source,
-    write_model_file, register_model, list_generated_for_project, CanvasError,
+    write_model_file, register_model, list_generated_for_project,
+    unregister_model, CanvasError,
 )
 
 projects_bp = Blueprint("projects", __name__)
@@ -158,6 +159,10 @@ def generate_canvas_model(project_id):
     if not canvas or not canvas.get("nodes"):
         return jsonify({"error": "画布为空，请先拖拽组件搭建模型"}), 400
 
+    # Accept user-defined model name (optional)
+    body = request.get_json(silent=True) or {}
+    user_model_name = (body.get("model_name") or "").strip()
+
     # Determine next version
     version = 1
     generated_dir = os.path.join(
@@ -192,7 +197,8 @@ def generate_canvas_model(project_id):
             n_time_features=n_time_features,
         )
         filepath = write_model_file(source, project_id, version)
-        model_class = register_model(filepath, model_type, project_id, version)
+        display_name = user_model_name or model_type
+        model_class = register_model(filepath, model_type, project_id, version, display_name)
     except CanvasError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -200,10 +206,22 @@ def generate_canvas_model(project_id):
 
     return json_ok({
         "model_type": model_type,
+        "display_name": display_name,
         "version": version,
         "filepath": filepath,
-        "message": f"模型 {project['name']} v{version} 生成成功! 现在可以在 Step 4 训练中使用。",
+        "message": f"模型「{display_name}」生成成功! 现在可以在 Step 4 训练中使用。",
     })
+
+
+@projects_bp.route("/api/projects/<project_id>/canvas/models/<model_type>", methods=["DELETE"])
+def delete_canvas_model(project_id, model_type):
+    """Delete a canvas-generated model: unregister + delete file."""
+    if not model_type.startswith("canvas_"):
+        return jsonify({"error": "只能删除画布生成的模型 (canvas_ 开头)"}), 400
+    ok = unregister_model(model_type)
+    if not ok:
+        return jsonify({"error": f"模型 {model_type} 不存在或无法删除"}), 404
+    return json_ok({"success": True, "message": f"模型 {model_type} 已删除"})
 
 
 @projects_bp.route("/api/projects/<project_id>/models", methods=["GET"])

@@ -650,6 +650,19 @@ async function compareModels() {
     }
 }
 
+async function deleteCanvasModel(modelType) {
+    if (!_activeProjectId) return;
+    if (!confirm(`确定删除画布模型「${modelType}」？此操作不可撤销。`)) return;
+    try {
+        await _deleteCanvasModel(_activeProjectId, modelType);
+        // Refresh both the model list and the training dropdown
+        loadProjectModels();
+        if (typeof refreshModelDropdown === "function") refreshModelDropdown();
+    } catch (err) {
+        alert("删除失败: " + err.message);
+    }
+}
+
 async function exportModel(modelId) {
     const defaultName = `${modelId}.pt`;
     const name = prompt("Export model filename:", defaultName);

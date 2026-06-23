@@ -1,4 +1,13 @@
-/* Canvas Component Registry — defines draggable building blocks */
+/* Canvas Component Registry — defines draggable building blocks.
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *   ⚠️  修改默认参数时请务必同步更新:
+ *       utils/canvas_generator.py 中的 COMPONENT_DEFAULTS 字典
+ *   ═══════════════════════════════════════════════════════════════════
+ *   两端不一致会导致前后端默认行为不同步（例如前端显示 n_heads=8
+ *   但后端代码生成时使用错误的默认值）。
+ *   未来可考虑通过 API /api/canvas/component-defaults 提供单一数据源。
+ */
 
 const COMPONENT_TYPES = {
   encoder: {
