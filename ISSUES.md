@@ -2333,6 +2333,60 @@ function resetCanvas() {
 
 ---
 
+## 2026-06-23: Bug 修复 — Drawflow 隐藏容器初始化崩溃 (master)
+
+### Bug: 点进项目显示 "Error: Cannot read properties of undefined (reading 'offsetWidth')"
+
+**症状**: 点击项目（激活）时弹出错误，画布无法使用。
+
+**根因**: `activateProject` 调用 `initCanvasForProject`，后者在画布容器 `#canvas-section` 处于 `display:none` 状态时调用 `new Drawflow(container)`。Drawflow 的 `start()` 方法读取 `container.offsetWidth`，隐藏元素返回 `undefined`，导致崩溃。
+
+**调用链**:
+```
+activateProject() → initCanvasForProject()
+  → initCanvas() → new Drawflow(container) → editor.start()
+  → 读取 container.offsetWidth → hidden → undefined → 💥
+```
+
+**修复**: 将 Drawflow 初始化延迟到画布首次显示时执行。`initCanvasForProject` 只存数据不初始化，`toggleCanvasView(true)` 中惰性初始化 + 渲染存储数据。
+
+```javascript
+// 修复前
+function initCanvasForProject(projectId, canvasData) {
+  _canvasProjectId = projectId;
+  initCanvas();               // display:none 下崩溃
+  setupCanvasDropZone();
+  renderComponentPanel();
+  if (canvasData) renderCanvasFromData(canvasData);
+}
+
+// 修复后
+function initCanvasForProject(projectId, canvasData) {
+  _canvasProjectId = projectId;
+  _pendingCanvasData = canvasData || null;
+  // 初始化推迟到 toggleCanvasView(true) — 容器已 display:block
+}
+```
+
+**教训**: DOM 尺寸敏感的库（Drawflow、Chart.js、vis.js 等）必须在容器可见时初始化。`display:none` 下 `offsetWidth`/`offsetHeight` 返回 0。
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `static/js/canvas.js` | `initCanvasForProject` 推迟初始化 + `_pendingCanvasData` 变量 + `toggleCanvasView` 渲染 |
+
+### 验证
+
+```
+项目激活不再报错 ✅
+点击 Canvas 按钮可见正常画布 ✅
+已有画布数据正确渲染 ✅
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
