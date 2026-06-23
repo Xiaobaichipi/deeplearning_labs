@@ -105,7 +105,10 @@ function renderComponentPanel() {
 
 /* =============== Drag & Drop onto Canvas =============== */
 
+let _dropZoneReady = false;
+
 function setupCanvasDropZone() {
+  if (_dropZoneReady) return;
   const container = document.getElementById("drawflow-container");
   if (!container) return;
 
@@ -126,6 +129,8 @@ function setupCanvasDropZone() {
     addCanvasNode(type, posX, posY);
     markCanvasDirty();
   });
+
+  _dropZoneReady = true;
 }
 
 function addCanvasNode(type, posX, posY) {
