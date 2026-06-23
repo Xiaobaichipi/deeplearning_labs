@@ -12,10 +12,16 @@ from utils.session import allowed_file, get_data_id, json_ok
 from utils.canvas_generator import (
     validate_canvas, generate_model_source,
     write_model_file, register_model, list_generated_for_project,
-    unregister_model, CanvasError,
+    unregister_model, COMPONENT_REGISTRY, CanvasError,
 )
 
 projects_bp = Blueprint("projects", __name__)
+
+
+@projects_bp.route("/api/canvas/component-defaults", methods=["GET"])
+def canvas_component_defaults():
+    """Return the component registry as JSON (single source of truth)."""
+    return json_ok(COMPONENT_REGISTRY)
 
 
 def _pm():

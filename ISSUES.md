@@ -2447,6 +2447,52 @@ Encoder → Decoder → Linear 验证通过 ✅
 
 ---
 
+## 2026-06-23: 前端架构优化 — HTML 模板提取 2 (populateProjectGrid → `<template>`) (master)
+
+### 概述
+
+将 `populateProjectGrid` 的内联 HTML（含 SVG 图标）提取到 `#tpl-project-card` 模板中。
+
+### 改动
+
+| 文件 | 变更 |
+|------|------|
+| `templates/index.html` | 新增 `#tpl-project-card` 模板（含两个 SVG 图标） |
+| `static/js/ui.js` | `populateProjectGrid` 改用 `cloneNode` + DOM API，SVG 不再出现在 JS 中 |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
+## 2026-06-23: 前端架构优化 — 组件注册表去重 (COMPONENT_REGISTRY 单一数据源) (master)
+
+### 概述
+
+将前端 `canvas_registry.js` 的 `COMPONENT_TYPES` 和后端 `COMPONENT_DEFAULTS` 合并为单一数据源 `COMPONENT_REGISTRY`，通过 API 同步。
+
+### 改动
+
+| 文件 | 变更 |
+|------|------|
+| `utils/canvas_generator.py` | `COMPONENT_DEFAULTS` → `COMPONENT_REGISTRY`（含完整元信息），旧名保留为别名 |
+| `routes/projects.py` | 新增 `GET /api/canvas/component-defaults` 端点 |
+| `static/js/canvas.js` | 内联 fallback registry，启动时异步从 API 升级 `COMPONENT_TYPES` |
+| `static/js/api.js` | 新增 `_loadComponentRegistry()` |
+| `static/js/canvas_registry.js` | **已删除** |
+| `templates/index.html` | 移除已删除文件的 `<script>` 标签 |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

@@ -161,6 +161,13 @@ async function _compareModels(projectId, modelIds) {
 
 // ── Canvas ───────────────────────────────────────────────────────
 
+async function _loadComponentRegistry() {
+    const res = await fetch("/api/canvas/component-defaults");
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+}
+
 async function _generateCanvasModel(projectId, modelName) {
     const res = await fetch(`/api/projects/${projectId}/canvas/generate`, {
         method: "POST",
@@ -213,6 +220,7 @@ window._deleteProject = _deleteProject;
 window._deleteCanvasModel = _deleteCanvasModel;
 window._loadProjectModels = _loadProjectModels;
 window._generateCanvasModel = _generateCanvasModel;
+window._loadComponentRegistry = _loadComponentRegistry;
 
 async function _deleteCanvasModel(projectId, modelType) {
     const res = await fetch(`/api/projects/${projectId}/canvas/models/${modelType}`, {

@@ -57,21 +57,52 @@ class ComponentTemplate:
         return self.forward_tpl.format(var=var_name, in_var=in_var)
 
 
-# ── Component default configs (mirrors canvas_registry.js defaults) ──
-#
-# ═══════════════════════════════════════════════════════════════════
-#   ⚠️  修改默认参数时请务必同步更新:
-#       static/js/canvas_registry.js 中的 COMPONENT_TYPES defaults
-# ═══════════════════════════════════════════════════════════════════
-#   两端不一致会导致前后端默认行为不同步。
-#   未来可考虑通过 API /api/canvas/component-defaults 提供单一数据源。
+# ── Component registry — single source of truth for the frontend ──
+# The frontend fetches this via GET /api/canvas/component-defaults.
+# When adding/editing a component type, only update THIS dict.
+# The COMPONENT_TEMPLATES below reference defaults from here.
 
-COMPONENT_DEFAULTS = {
-    "embedding": {"d_model": 512, "dropout": 0.1},
-    "encoder": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
-    "decoder": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
-    "linear": {"d_model": 512, "in_features": 512, "out_features": 1},
+COMPONENT_REGISTRY = {
+    "encoder": {
+        "label": "Encoder",
+        "category": "基础模块",
+        "color": "#4CAF50",
+        "inputs": 1,
+        "outputs": 1,
+        "defaults": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
+        "ports": {"input": {"label": "输入"}, "output": {"label": "输出"}},
+    },
+    "decoder": {
+        "label": "Decoder",
+        "category": "基础模块",
+        "color": "#2196F3",
+        "inputs": 1,
+        "outputs": 1,
+        "defaults": {"d_model": 512, "n_heads": 8, "d_ff": 2048, "dropout": 0.1, "activation": "gelu"},
+        "ports": {"input": {"label": "编码器输出"}, "output": {"label": "输出"}},
+    },
+    "embedding": {
+        "label": "DataEmbedding",
+        "category": "输入模块",
+        "color": "#FF9800",
+        "inputs": 1,
+        "outputs": 1,
+        "defaults": {"d_model": 512, "dropout": 0.1},
+        "ports": {"input": {"label": "原始数据"}, "output": {"label": "嵌入向量"}},
+    },
+    "linear": {
+        "label": "Linear",
+        "category": "基础模块",
+        "color": "#9C27B0",
+        "inputs": 1,
+        "outputs": 1,
+        "defaults": {"in_features": 512, "out_features": 1},
+        "ports": {"input": {"label": "输入"}, "output": {"label": "输出"}},
+    },
 }
+
+# Backward-compat alias for code that reads COMPONENT_DEFAULTS
+COMPONENT_DEFAULTS = {k: v["defaults"] for k, v in COMPONENT_REGISTRY.items()}
 
 
 # ── Registered components ────────────────────────────────────────
