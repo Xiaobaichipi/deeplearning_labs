@@ -671,10 +671,12 @@ async function deleteCanvasModel(modelType) {
     if (!confirm(`确定删除画布模型「${modelType}」？此操作不可撤销。`)) return;
     try {
         await _deleteCanvasModel(_activeProjectId, modelType);
+        // Remove from the in-memory registry so updateModelOptions won't include it
+        _canvasModelTypes = _canvasModelTypes.filter(function(m) { return m.type !== modelType; });
         // Clear the model architecture dropdown (Step 4) and hide delete button
         document.getElementById("modelType").value = "";
         document.getElementById("deleteCanvasModelBtn").style.display = "none";
-        // Rebuild the dropdown to remove the deleted model type
+        // Rebuild the dropdown — the deleted type is now out of _canvasModelTypes
         if (typeof updateModelOptions === "function") {
             updateModelOptions(document.getElementById("taskTypeSelect").value);
         }
