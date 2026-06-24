@@ -15,6 +15,7 @@ from .dlinear import DLinearWrapper
 from .etsformer import ETSformerWrapper
 from .fedformer import FEDformerWrapper
 from .film import FilmWrapper
+from .frets import FreTSWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -162,6 +163,16 @@ MODEL_REGISTRY = {
             "window_size": {"type": "string", "default": "256", "label": "HiPPO window sizes (comma-separated)"},
             "multiscale": {"type": "string", "default": "1,2,4", "label": "Multi-scale factors (comma-separated)"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "frets": {
+        "class": FreTSWrapper,
+        "name": "FreTS (Frequency-enhanced Time Series)",
+        "pipeline": "large",
+        "params": {
+            "channel_independence": {"type": "str", "default": "0", "label": "Channel independence (0=enable, 1=disable)"},
+            "embed_size": {"type": "int", "default": 128, "label": "Embedding size"},
+            "hidden_size": {"type": "int", "default": 256, "label": "Hidden size"},
         },
     },
     "dlinear": {

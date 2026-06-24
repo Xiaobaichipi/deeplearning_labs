@@ -188,6 +188,7 @@ function updateModelOptions(taskType) {
         "etsformer": "ETSformer (Exp Smoothing Transformer)",
         "fedformer": "FEDformer (Frequency Enhanced Decomp Transformer)",
         "film": "FiLM (Frequency-enhanced Legendre Memory)",
+        "frets": "FreTS (Frequency-enhanced Time Series)",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -199,7 +200,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -319,6 +320,11 @@ const MODEL_PARAM_READERS = {
         window_size: $val("filmWindowSize", DEFAULTS.model.film.window_size),
         multiscale:  $val("filmMultiscale", DEFAULTS.model.film.multiscale),
         dropout:     $float("filmDropout", DEFAULTS.model.film.dropout),
+    };},
+    frets: function() { return {
+        channel_independence: $val("fretsChannelIndependence"),
+        embed_size:           $int("fretsEmbedSize", DEFAULTS.model.frets.embed_size),
+        hidden_size:          $int("fretsHiddenSize", DEFAULTS.model.frets.hidden_size),
     };},
     vanilla_transformer: function() { return {
         d_model:     $int("vanillaDModel", DEFAULTS.model.vanilla_transformer.d_model),

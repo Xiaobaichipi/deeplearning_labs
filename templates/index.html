@@ -271,6 +271,7 @@
                                 <option value="etsformer">ETSformer (Exp Smoothing Transformer)</option>
                                 <option value="fedformer">FEDformer (Frequency Enhanced Decomp Transformer)</option>
                                 <option value="film">FiLM (Frequency-enhanced Legendre Memory)</option>
+                                <option value="frets">FreTS (Frequency-enhanced Time Series)</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -611,6 +612,27 @@
                             <div class="input-group">
                                 <label>Dropout</label>
                                 <input type="number" id="filmDropout" value="{{ cfg.model.film.dropout }}" min="0.0" max="0.9" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="fretsParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Channel independence</label>
+                                <select id="fretsChannelIndependence">
+                                    <option value="0" {{ 'selected' if cfg.model.frets.channel_independence == '0' else '' }}>Enable (0)</option>
+                                    <option value="1" {{ 'selected' if cfg.model.frets.channel_independence == '1' else '' }}>Disable (1)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Embedding size</label>
+                                <input type="number" id="fretsEmbedSize" value="{{ cfg.model.frets.embed_size }}" min="16" max="512">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Hidden size</label>
+                                <input type="number" id="fretsHiddenSize" value="{{ cfg.model.frets.hidden_size }}" min="16" max="1024">
                             </div>
                         </div>
                     </div>

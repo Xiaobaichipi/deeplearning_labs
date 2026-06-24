@@ -362,6 +362,7 @@ function toggleModelParams() {
     document.getElementById("etsformerParams").style.display = type === "etsformer" ? "block" : "none";
     document.getElementById("fedformerParams").style.display = type === "fedformer" ? "block" : "none";
     document.getElementById("filmParams").style.display = type === "film" ? "block" : "none";
+    document.getElementById("fretsParams").style.display = type === "frets" ? "block" : "none";
     document.getElementById("vanillaTransformerParams").style.display = type === "vanilla_transformer" ? "block" : "none";
     document.getElementById("dlinearParams").style.display = type === "dlinear" ? "block" : "none";
 
