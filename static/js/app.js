@@ -322,7 +322,7 @@ const MODEL_PARAM_READERS = {
         dropout:     $float("filmDropout", DEFAULTS.model.film.dropout),
     };},
     frets: function() { return {
-        channel_independence: $val("fretsChannelIndependence"),
+        channel_independence: parseInt($val("fretsChannelIndependence"), 10),
         embed_size:           $int("fretsEmbedSize", DEFAULTS.model.frets.embed_size),
         hidden_size:          $int("fretsHiddenSize", DEFAULTS.model.frets.hidden_size),
     };},

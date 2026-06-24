@@ -2493,6 +2493,112 @@ Encoder → Decoder → Linear 验证通过 ✅
 
 ---
 
+## 2026-06-24: 前端架构优化 — 4 个候选方案 (master)
+
+### 概述
+
+基于 `/improve-codebase-architecture` 分析结果，实施 4 个架构加深候选。
+
+### 候选 1: SessionManager 数据项目关联
+
+`ensure_data(sm, data_id)` 新增 `project_manager` 和 `project_id` 参数。当项目激活时优先从项目目录加载数据集，消除跨项目数据污染。
+
+| 文件 | 变更 |
+|------|------|
+| `utils/session.py` | `ensure_data` 新增项目优先加载逻辑 |
+| `routes/training.py` | `train` / `train_setup` 简化为单行 `ensure_data(sm, id, pm=, project_id=)` |
+
+### 候选 2: canvas_generator 拆分为三层
+
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| `utils/canvas_templates.py` | **新建** 168 | `ComponentTemplate` + `COMPONENT_REGISTRY` + `COMPONENT_TEMPLATES` |
+| `utils/canvas_graph.py` | **新建** 113 | `CanvasError` + `validate_canvas` |
+| `utils/canvas_generator.py` | 273 | 代码生成 + 文件持久化 + 模型注册 |
+| `routes/projects.py` | 导入拆分为 3 个来源 | |
+
+### 候选 3: startTraining 参数收集提取为注册表
+
+`MODEL_PARAM_READERS` 注册表 + `$int/$float/$val/$bool` 辅助函数，消除 10+ 个 `if (mt === "...")` 条件分支。
+
+```javascript
+// 前: 90 行 if-else if 分支
+// 后: 3 行 registry dispatch
+var reader = MODEL_PARAM_READERS[params.model_type];
+if (reader) { Object.assign(params, reader()); }
+```
+
+### 候选 4: AppState 显式状态容器
+
+`static/js/state.js` — 集中管理 5 个生命周期同步的全局变量（`activeProjectId`、`currentDataInfo`、`canvasProjectId`、`pendingCanvasData`、`canvasModels`），通过 `activate/deactivate` 统一设置和清除。
+
+### 验证
+
+```
+232 Python 测试通过:        ✅
+66 JS 测试通过:            ✅
+```
+
+---
+
+## 2026-06-24: 新增模型 — FreTS (Frequency-enhanced Time Series) (master)
+
+### 概述
+
+从 `time_series_models_labs` 移植 FreTS 模型。FreTS 使用 FFT 频域 MLP（实部/虚部权重）替代标准自注意力机制，在频域对时间和通道维度分别做线性变换，实现 O(L log L) 复杂度的时间序列预测（`pipeline="large"`）。
+
+### 架构
+
+```
+x_enc (batch, seq_len, enc_in)
+  │
+  ├─ tokenEmb: [B, T, N] → [B, N, T, D]  (维度扩展)
+  │
+  ├─ MLP_channel (可选): FFT 沿通道维 → FreMLP → IFFT
+  │
+  ├─ MLP_temporal: FFT 沿时间维 → FreMLP → IFFT
+  │
+  └─ fc: reshape → Linear → Linear → [B, pred_len, N]
+       │
+       └─ output_proj: Linear(N, 1) → [B, pred_len, 1]
+```
+
+### Pipeline 决策
+
+| 维度 | 选型 | 理由 |
+|------|------|------|
+| Pipeline | large | forward 4 参数签名 (x_enc, x_mark_enc, x_dec, x_mark_dec) |
+| 层包策略 | 自包含 | FreTS 无外部层依赖，全部代码在 `frets.py` 中 |
+| 输出投影 | `output_proj = nn.Linear(enc_in, 1)` | 原生输出 `(B, pred_len, enc_in)` 投影为 `(B, pred_len, 1)` |
+| channel_independence | 字符串 "0"/"1" | 匹配原始模型逻辑 `if self.channel_independence == '0'` |
+
+### 暴露参数
+
+| 参数 | 默认 | 范围 | 说明 |
+|------|------|------|------|
+| channel_independence | 0 | 0/1 | 0=启用通道 MLP, 1=禁用 |
+| embed_size | 128 | 16~512 | 嵌入维度 |
+| hidden_size | 256 | 16~1024 | FFN 隐藏层维度 |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/frets.py` | **新建** — FreTSWrapper + 完整 FreTS 内部实现 |
+| `utils/models/__init__.py` | **修改** — 注册 FreTSWrapper |
+| `utils/config.py` | **修改** — 添加默认超参 |
+| `templates/index.html` | **修改** — 模型选项 + fretsParams 面板 |
+| `static/js/ui.js` | **修改** — toggleModelParams 切换 |
+| `static/js/app.js` | **修改** — allOptions + tsModels + MODEL_PARAM_READERS |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换

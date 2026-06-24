@@ -19,7 +19,7 @@ class FreTSWrapper(BaseModel):
     uses_internal_normalization = False
 
     def __init__(self, input_dim, output_dim,
-                 seq_len=96, pred_len=1, channel_independence="0",
+                 seq_len=96, pred_len=1, channel_independence=0,
                  embed_size=128, hidden_size=256,
                  **kwargs):
         super().__init__(input_dim, output_dim, **kwargs)
@@ -28,7 +28,8 @@ class FreTSWrapper(BaseModel):
         self.hidden_size = hidden_size
         self.feature_size = input_dim
         self.seq_len = seq_len
-        self.channel_independence = channel_independence
+        # channel_independence: 0 = enable channel MLP, 1 = disable
+        self.channel_independence = str(int(channel_independence))
         self.sparsity_threshold = 0.01
         self.scale = 0.02
 
