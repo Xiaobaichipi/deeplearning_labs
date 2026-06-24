@@ -256,7 +256,8 @@
                     <div class="form-row">
                         <div class="input-group">
                             <label>Model architecture</label>
-                            <select id="modelType" onchange="toggleModelParams()">
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <select id="modelType" onchange="toggleModelParams()" style="flex:1;">
                                 <option value="mlp">MLP (Fully Connected)</option>
                                 <option value="cnn">CNN (1D Convolutional)</option>
                                 <option value="rnn">RNN (Vanilla RNN)</option>
@@ -271,8 +272,10 @@
                                 <option value="fedformer">FEDformer (Frequency Enhanced Decomp Transformer)</option>
                                 <option value="film">FiLM (Frequency-enhanced Legendre Memory)</option>
                             </select>
+                            <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
                     </div>
+                </div>
 
                     <div id="mlpParams">
                         <div class="form-row">
@@ -873,7 +876,6 @@
             </div>
             <div class="model-export-actions" style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
                 <button class="btn btn-secondary btn-sm btn-export">Export</button>
-                <button class="btn btn-danger btn-delete-canvas" style="font-size:16px;padding:4px 10px;min-width:36px;display:inline-flex;align-items:center;justify-content:center;">🗑 删除</button>
             </div>
         </div>
     </template>

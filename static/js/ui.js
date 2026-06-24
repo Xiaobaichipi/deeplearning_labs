@@ -13,32 +13,41 @@ function populateProjectGrid(projects) {
     }
     empty.classList.remove("show");
 
-    const cards = projects.map((p) => {
+    const tpl = document.getElementById("tpl-project-card");
+    const fragment = document.createDocumentFragment();
+
+    projects.forEach((p) => {
+        const card = tpl ? tpl.content.cloneNode(true).firstElementChild : document.createElement("div");
+        if (!tpl) {
+            // Fallback: build minimal card inline if template is missing
+            card.className = "project-card";
+            card.innerHTML = '<div class="project-card-name"></div><div class="project-card-meta"><span class="project-card-fileinfo"></span></div><div class="project-card-meta"><span class="project-card-date"></span></div><div class="project-card-footer"><span class="project-card-badge"></span><button class="project-card-delete">&#x2715;</button></div>';
+        }
+
+        card.dataset.projectId = p.id;
+        card.onclick = function() { activateProject(p.id); };
+
         const name = esc(p.name || "Untitled");
         const date = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : "";
         const modelCount = p.model_count || 0;
         const fileInfo = p.original_filename ? `from ${esc(p.original_filename)}` : "No dataset";
 
-        return `
-            <div class="project-card" data-project-id="${p.id}" onclick="activateProject('${p.id}')">
-                <div class="project-card-name">${name}</div>
-                <div class="project-card-meta">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
-                    ${fileInfo}
-                </div>
-                <div class="project-card-meta">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM4 10h12v6H4v-6z"/></svg>
-                    ${date || "—"}
-                </div>
-                <div class="project-card-footer">
-                    <span class="project-card-badge">${modelCount} model${modelCount !== 1 ? "s" : ""}</span>
-                    <button class="project-card-delete" onclick="event.stopPropagation(); deleteProject('${p.id}')" title="Delete">&#x2715;</button>
-                </div>
-            </div>
-        `;
+        card.querySelector(".project-card-name").textContent = name;
+        card.querySelector(".project-card-fileinfo").textContent = fileInfo;
+        card.querySelector(".project-card-date").textContent = date || "—";
+        card.querySelector(".project-card-badge").textContent = `${modelCount} model${modelCount !== 1 ? "s" : ""}`;
+
+        const delBtn = card.querySelector(".project-card-delete");
+        delBtn.onclick = function(e) {
+            e.stopPropagation();
+            deleteProject(p.id);
+        };
+
+        fragment.appendChild(card);
     });
 
-    grid.innerHTML = cards.join("");
+    grid.innerHTML = "";
+    grid.appendChild(fragment);
 
     if (typeof gsap !== "undefined") {
         gsap.from(".project-card", {
@@ -138,16 +147,10 @@ function populateModelList(models) {
         // Actions
         const actionsEl = root.querySelector(".model-export-actions");
         const btnExport = root.querySelector(".btn-export");
-        const btnDelete = root.querySelector(".btn-delete-canvas");
 
         if (!isCanvasOnly) {
             btnExport.style.display = "";
             btnExport.onclick = function() { exportModel(mid); };
-        }
-
-        if (isCanvas) {
-            btnDelete.style.display = "";
-            btnDelete.onclick = function() { deleteCanvasModel(m.model_type); };
         }
 
         fragment.appendChild(card);
@@ -373,6 +376,12 @@ function toggleModelParams() {
     const nEstimatorsRow = document.getElementById("classicalNEstimatorsRow");
     if (nEstimatorsRow) {
         nEstimatorsRow.style.display = hasNEstimators.includes(type) ? "flex" : "none";
+    }
+
+    // Show/hide canvas model delete button
+    const delBtn = document.getElementById("deleteCanvasModelBtn");
+    if (delBtn) {
+        delBtn.style.display = type && type.startsWith("canvas_") ? "" : "none";
     }
 }
 
