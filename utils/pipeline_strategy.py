@@ -201,8 +201,12 @@ class LargePipelineStrategy(PipelineStrategy):
         return tuple(t)
 
     def format_output(self, outputs, task_type):
-        # Large pipeline is always regression; outputs (batch, pred_len, 1)
-        return outputs.squeeze(-1)
+        # Large pipeline is always regression; outputs (batch, pred_len, c_out)
+        if outputs.ndim == 3:
+            if outputs.size(-1) == 1:
+                return outputs.squeeze(-1)          # (batch, pred_len, 1) → (batch, pred_len)
+            return outputs.reshape(outputs.size(0), -1)  # (batch, pred_len, c>1) → (batch, -1)
+        return outputs
 
     def extra_model_kwargs(self, pd=None):
         if pd is None:
