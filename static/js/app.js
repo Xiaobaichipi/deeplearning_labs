@@ -262,6 +262,100 @@ async function runFill() {
 
 // ── Training ────────────────────────────────────────────────────────
 
+// ── Model-specific parameter readers ───────────────────────────
+// Each function reads the DOM elements for its model type and
+// returns an object of param overrides merged into the base params.
+const MODEL_PARAM_READERS = {
+    autoformer: function() { return {
+        d_model:     $int("autoDModel", DEFAULTS.model.autoformer.d_model),
+        n_heads:     $int("autoNHeads", DEFAULTS.model.autoformer.n_heads),
+        e_layers:    $int("autoELayers", DEFAULTS.model.autoformer.e_layers),
+        d_layers:    $int("autoDLayers", DEFAULTS.model.autoformer.d_layers),
+        d_ff:        $int("autoDFF", DEFAULTS.model.autoformer.d_ff),
+        moving_avg:  $int("autoMovingAvg", DEFAULTS.model.autoformer.moving_avg),
+        factor:      $int("autoFactor", DEFAULTS.model.autoformer.factor),
+        activation:  $val("autoActivation"),
+    };},
+    informer: function() { return {
+        d_model:     $int("infoDModel", DEFAULTS.model.informer.d_model),
+        n_heads:     $int("infoNHeads", DEFAULTS.model.informer.n_heads),
+        e_layers:    $int("infoELayers", DEFAULTS.model.informer.e_layers),
+        d_layers:    $int("infoDLayers", DEFAULTS.model.informer.d_layers),
+        d_ff:        $int("infoDFF", DEFAULTS.model.informer.d_ff),
+        factor:      $int("infoFactor", DEFAULTS.model.informer.factor),
+        distil:      $bool("toggleDistil"),
+        activation:  $val("infoActivation"),
+    };},
+    crossformer: function() { return {
+        d_model:     $int("crossDModel", DEFAULTS.model.crossformer.d_model),
+        n_heads:     $int("crossNHeads", DEFAULTS.model.crossformer.n_heads),
+        e_layers:    $int("crossELayers", DEFAULTS.model.crossformer.e_layers),
+        d_ff:        $int("crossDFF", DEFAULTS.model.crossformer.d_ff),
+        factor:      $int("crossFactor", DEFAULTS.model.crossformer.factor),
+        seg_len:     $int("crossSegLen", DEFAULTS.model.crossformer.seg_len),
+        win_size:    $int("crossWinSize", DEFAULTS.model.crossformer.win_size),
+        activation:  $val("crossActivation"),
+    };},
+    etsformer: function() { return {
+        d_model:     $int("etsDModel", DEFAULTS.model.etsformer.d_model),
+        n_heads:     $int("etsNHeads", DEFAULTS.model.etsformer.n_heads),
+        e_layers:    $int("etsELayers", DEFAULTS.model.etsformer.e_layers),
+        d_ff:        $int("etsDFF", DEFAULTS.model.etsformer.d_ff),
+        top_k:       $int("etsTopK", DEFAULTS.model.etsformer.top_k),
+        dropout:     $float("etsDropout", DEFAULTS.model.etsformer.dropout),
+        activation:  $val("etsActivation"),
+    };},
+    fedformer: function() { return {
+        d_model:     $int("fedDModel", DEFAULTS.model.fedformer.d_model),
+        n_heads:     $int("fedNHeads", DEFAULTS.model.fedformer.n_heads),
+        e_layers:    $int("fedELayers", DEFAULTS.model.fedformer.e_layers),
+        d_layers:    $int("fedDLayers", DEFAULTS.model.fedformer.d_layers),
+        d_ff:        $int("fedDFF", DEFAULTS.model.fedformer.d_ff),
+        moving_avg:  $int("fedMovingAvg", DEFAULTS.model.fedformer.moving_avg),
+        dropout:     $float("fedDropout", DEFAULTS.model.fedformer.dropout),
+        modes:       $int("fedModes", DEFAULTS.model.fedformer.modes),
+        version:     $val("fedVersion"),
+        mode_select: $val("fedModeSelect"),
+        activation:  $val("fedActivation"),
+    };},
+    film: function() { return {
+        window_size: $val("filmWindowSize", DEFAULTS.model.film.window_size),
+        multiscale:  $val("filmMultiscale", DEFAULTS.model.film.multiscale),
+        dropout:     $float("filmDropout", DEFAULTS.model.film.dropout),
+    };},
+    vanilla_transformer: function() { return {
+        d_model:     $int("vanillaDModel", DEFAULTS.model.vanilla_transformer.d_model),
+        n_heads:     $int("vanillaNHeads", DEFAULTS.model.vanilla_transformer.n_heads),
+        e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),
+        d_layers:    $int("vanillaDLayers", DEFAULTS.model.vanilla_transformer.d_layers),
+        d_ff:        $int("vanillaDFF", DEFAULTS.model.vanilla_transformer.d_ff),
+        dropout:     $float("vanillaDropout", DEFAULTS.model.vanilla_transformer.dropout),
+        activation:  $val("vanillaActivation"),
+    };},
+    dlinear: function() { return {
+        moving_avg:  $int("dlMovingAvg", DEFAULTS.model.dlinear.moving_avg),
+        individual:  $bool("toggleIndividual"),
+    };},
+};
+
+// Classical ML models share the same param reader
+var _classicalMlReader = function() { return {
+    n_estimators:      $int("classicalNEstimators", 100),
+    max_depth:         (function() { var v = document.getElementById("classicalMaxDepth").value; return v === "" || v === "None" ? null : parseInt(v); })(),
+    min_samples_split: $int("classicalMinSamplesSplit", 2),
+    min_samples_leaf:  $int("classicalMinSamplesLeaf", 1),
+};};
+["random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"].forEach(function(mt) {
+    MODEL_PARAM_READERS[mt] = _classicalMlReader;
+});
+
+// DOM readers — small helpers used by the parameter readers above
+function $int(id, fallback) { return parseInt(document.getElementById(id).value) || fallback; }
+function $float(id, fallback) { return parseFloat(document.getElementById(id).value) || fallback; }
+function $val(id, fallback) { var v = document.getElementById(id).value; return v || fallback; }
+function $bool(id) { return document.getElementById(id).classList.contains("active"); }
+
+
 async function startTraining() {
     const targetCol = document.getElementById("targetCol").value;
     if (!targetCol) { alert("请先选择目标列 (target column)"); return; }
@@ -312,96 +406,9 @@ async function startTraining() {
         device: document.getElementById("deviceSelect").value,
     };
 
-    const mt = params.model_type;
-    if (mt === "autoformer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("autoDModel").value) || DEFAULTS.model.autoformer.d_model,
-            n_heads: parseInt(document.getElementById("autoNHeads").value) || DEFAULTS.model.autoformer.n_heads,
-            e_layers: parseInt(document.getElementById("autoELayers").value) || DEFAULTS.model.autoformer.e_layers,
-            d_layers: parseInt(document.getElementById("autoDLayers").value) || DEFAULTS.model.autoformer.d_layers,
-            d_ff: parseInt(document.getElementById("autoDFF").value) || DEFAULTS.model.autoformer.d_ff,
-            moving_avg: parseInt(document.getElementById("autoMovingAvg").value) || DEFAULTS.model.autoformer.moving_avg,
-            factor: parseInt(document.getElementById("autoFactor").value) || DEFAULTS.model.autoformer.factor,
-            activation: document.getElementById("autoActivation").value,
-        });
-    } else if (mt === "informer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("infoDModel").value) || DEFAULTS.model.informer.d_model,
-            n_heads: parseInt(document.getElementById("infoNHeads").value) || DEFAULTS.model.informer.n_heads,
-            e_layers: parseInt(document.getElementById("infoELayers").value) || DEFAULTS.model.informer.e_layers,
-            d_layers: parseInt(document.getElementById("infoDLayers").value) || DEFAULTS.model.informer.d_layers,
-            d_ff: parseInt(document.getElementById("infoDFF").value) || DEFAULTS.model.informer.d_ff,
-            factor: parseInt(document.getElementById("infoFactor").value) || DEFAULTS.model.informer.factor,
-            distil: document.getElementById("toggleDistil").classList.contains("active"),
-            activation: document.getElementById("infoActivation").value,
-        });
-    } else if (mt === "crossformer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("crossDModel").value) || DEFAULTS.model.crossformer.d_model,
-            n_heads: parseInt(document.getElementById("crossNHeads").value) || DEFAULTS.model.crossformer.n_heads,
-            e_layers: parseInt(document.getElementById("crossELayers").value) || DEFAULTS.model.crossformer.e_layers,
-            d_ff: parseInt(document.getElementById("crossDFF").value) || DEFAULTS.model.crossformer.d_ff,
-            factor: parseInt(document.getElementById("crossFactor").value) || DEFAULTS.model.crossformer.factor,
-            seg_len: parseInt(document.getElementById("crossSegLen").value) || DEFAULTS.model.crossformer.seg_len,
-            win_size: parseInt(document.getElementById("crossWinSize").value) || DEFAULTS.model.crossformer.win_size,
-            activation: document.getElementById("crossActivation").value,
-        });
-    } else if (mt === "etsformer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("etsDModel").value) || DEFAULTS.model.etsformer.d_model,
-            n_heads: parseInt(document.getElementById("etsNHeads").value) || DEFAULTS.model.etsformer.n_heads,
-            e_layers: parseInt(document.getElementById("etsELayers").value) || DEFAULTS.model.etsformer.e_layers,
-            d_ff: parseInt(document.getElementById("etsDFF").value) || DEFAULTS.model.etsformer.d_ff,
-            top_k: parseInt(document.getElementById("etsTopK").value) || DEFAULTS.model.etsformer.top_k,
-            dropout: parseFloat(document.getElementById("etsDropout").value) || DEFAULTS.model.etsformer.dropout,
-            activation: document.getElementById("etsActivation").value,
-        });
-    } else if (mt === "fedformer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("fedDModel").value) || DEFAULTS.model.fedformer.d_model,
-            n_heads: parseInt(document.getElementById("fedNHeads").value) || DEFAULTS.model.fedformer.n_heads,
-            e_layers: parseInt(document.getElementById("fedELayers").value) || DEFAULTS.model.fedformer.e_layers,
-            d_layers: parseInt(document.getElementById("fedDLayers").value) || DEFAULTS.model.fedformer.d_layers,
-            d_ff: parseInt(document.getElementById("fedDFF").value) || DEFAULTS.model.fedformer.d_ff,
-            moving_avg: parseInt(document.getElementById("fedMovingAvg").value) || DEFAULTS.model.fedformer.moving_avg,
-            dropout: parseFloat(document.getElementById("fedDropout").value) || DEFAULTS.model.fedformer.dropout,
-            modes: parseInt(document.getElementById("fedModes").value) || DEFAULTS.model.fedformer.modes,
-            version: document.getElementById("fedVersion").value,
-            mode_select: document.getElementById("fedModeSelect").value,
-            activation: document.getElementById("fedActivation").value,
-        });
-    } else if (mt === "film") {
-        Object.assign(params, {
-            window_size: document.getElementById("filmWindowSize").value || DEFAULTS.model.film.window_size,
-            multiscale: document.getElementById("filmMultiscale").value || DEFAULTS.model.film.multiscale,
-            dropout: parseFloat(document.getElementById("filmDropout").value) || DEFAULTS.model.film.dropout,
-        });
-    } else if (mt === "vanilla_transformer") {
-        Object.assign(params, {
-            d_model: parseInt(document.getElementById("vanillaDModel").value) || DEFAULTS.model.vanilla_transformer.d_model,
-            n_heads: parseInt(document.getElementById("vanillaNHeads").value) || DEFAULTS.model.vanilla_transformer.n_heads,
-            e_layers: parseInt(document.getElementById("vanillaELayers").value) || DEFAULTS.model.vanilla_transformer.e_layers,
-            d_layers: parseInt(document.getElementById("vanillaDLayers").value) || DEFAULTS.model.vanilla_transformer.d_layers,
-            d_ff: parseInt(document.getElementById("vanillaDFF").value) || DEFAULTS.model.vanilla_transformer.d_ff,
-            dropout: parseFloat(document.getElementById("vanillaDropout").value) || DEFAULTS.model.vanilla_transformer.dropout,
-            activation: document.getElementById("vanillaActivation").value,
-        });
-    } else if (mt === "dlinear") {
-        Object.assign(params, {
-            moving_avg: parseInt(document.getElementById("dlMovingAvg").value) || DEFAULTS.model.dlinear.moving_avg,
-            individual: document.getElementById("toggleIndividual").classList.contains("active"),
-        });
-    } else if (["random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"].includes(mt)) {
-        Object.assign(params, {
-            n_estimators: parseInt(document.getElementById("classicalNEstimators").value) || 100,
-            max_depth: (function() {
-                const v = document.getElementById("classicalMaxDepth").value;
-                return v === "" || v === "None" ? null : parseInt(v);
-            })(),
-            min_samples_split: parseInt(document.getElementById("classicalMinSamplesSplit").value) || 2,
-            min_samples_leaf: parseInt(document.getElementById("classicalMinSamplesLeaf").value) || 1,
-        });
-    }
+    // Model-specific params — dispatch via MODEL_PARAM_READERS registry
+    var reader = MODEL_PARAM_READERS[params.model_type];
+    if (reader) { Object.assign(params, reader()); }
 
     document.getElementById("trainError").style.display = "none";
     document.getElementById("trainingSummary").style.display = "none";
