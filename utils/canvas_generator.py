@@ -115,7 +115,7 @@ COMPONENT_TEMPLATES = {
         init_tpl=(
             "# DataEmbedding — project raw features into d_model space\n"
             "self.{var} = DataEmbedding(\n"
-            "    c_in={input_dim}, d_model={d_model},\n"
+            "    c_in=input_dim, d_model={d_model},\n"
             "    n_time_features={n_time_features}, dropout={dropout},\n"
             ")"
         ),
@@ -177,7 +177,7 @@ COMPONENT_TEMPLATES = {
         ],
         init_tpl=(
             "# Linear projection — map d_model → output dimension\n"
-            "self.{var} = nn.Linear({d_model}, {output_dim})"
+            "self.{var} = nn.Linear({d_model}, output_dim)"
         ),
         forward_tpl=(
             "x = self.{var}({in_var})"
@@ -377,7 +377,7 @@ def generate_model_source(canvas, project_id, version, input_dim, output_dim, n_
                 all_imports.add("import torch.nn as nn")
                 init_lines.insert(0,
                     "# Input projection — map input_dim → d_model\n"
-                    f"self.input_proj = nn.Linear({global_params['input_dim']}, {global_params['d_model']})"
+                    f"self.input_proj = nn.Linear(input_dim, {global_params['d_model']})"
                 )
                 # prev_var stays "x_enc", but we add a projection step before the first component
                 fwd_proj = "x = self.input_proj(x_enc)"
