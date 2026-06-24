@@ -13,7 +13,7 @@
 
 - **📤 Upload & Explore** — Drag-and-drop CSV/Excel import with auto encoding detection, data preview, statistics, distribution histograms, and correlation heatmaps
 - **🧹 Clean & Fill** — Remove duplicates, handle outliers (IQR), fill missing values with multiple strategies (mean, median, mode, ffill, bfill, constant)
-- **🧠 Multi-Architecture Models** — 22 architectures covering general tabular (MLP, CNN, RNN, LSTM, GRU, Tabular Transformer, Random Forest, XGBoost, LightGBM, Decision Tree) and time-series forecasting (Autoformer, Informer, Crossformer, DLinear, ETSformer, FEDformer, FiLM, Vanilla Transformer) — all with configurable hyperparameters
+- **🧠 Multi-Architecture Models** — 23 architectures covering general tabular (MLP, CNN, RNN, LSTM, GRU, Tabular Transformer, Random Forest, XGBoost, LightGBM, Decision Tree) and time-series forecasting (Autoformer, Informer, Crossformer, DLinear, ETSformer, FEDformer, FiLM, Vanilla Transformer, FreTS) — all with configurable hyperparameters
 - **📊 Real-Time Training** — SSE-streamed per-epoch progress with live Loss/Metric curves (Chart.js), early stopping, and LR scheduling
 - **📈 Evaluation & Visualization** — Regression metrics (MSE/RMSE/MAE/R²), classification metrics (accuracy/precision/recall/F1), confusion matrix, ROC curve, residual plots
 - **🔁 Cross-Validation** — K-fold CV using the same model architecture as training
@@ -21,6 +21,7 @@
 - **🔁 Multi-Model Comparison** — Select multiple trained models and compare predictions side-by-side
 - **⏱ Time Series Support** — Configurable sequence/prediction/label lengths, time column selection, granularity detection, time feature encoding
 - **💾 Project System** — Persistent project storage with dataset/model versioning across sessions
+- **🎨 Visual Model Builder** — Drag-and-drop canvas to design model architectures visually; auto-generate PyTorch model code from the canvas graph (P1)
 - **⚡ Device Selection** — CPU / GPU / multi-GPU DataParallel training, selectable from the UI
 - **🧩 Model Export** — Download trained model state dicts for external use
 - **🔌 Extensible** — Simple model registry — add new architectures by dropping in a file and one registry entry
@@ -80,7 +81,7 @@ The interface is organized as a 6-step wizard with an initial project setup:
 | **1. Upload** | Drop a CSV/XLSX file | Auto encoding detection, data loaded |
 | **2. Explore** | Browse tabs | Data preview, column info, statistics, distribution plots, correlation heatmap |
 | **3. Clean & Fill** | Toggle options | Duplicate removal, outlier clipping (IQR), missing value imputation |
-| **4. Model Config** | Select task type (General / Time Series), model, device & params | Architecture choice from 22 models, CPU/GPU selection, hyperparameters, normalization |
+| **4. Model Config** | Select task type (General / Time Series), model, device & params | Architecture choice from 23 models, CPU/GPU selection, hyperparameters, normalization |
 | **5. Train** | Click "Start Training" | Real-time progress bar + live Loss/Metric charts, early stopping, LR scheduling |
 | **6. Evaluate & Predict** | Run evaluation/cross-val/predict | Metrics, multi-model comparison, charts, CSV/XLSX download |
 
@@ -103,6 +104,7 @@ The interface is organized as a 6-step wizard with an initial project setup:
 | **ETSformer** | Time Series | large | Exponential smoothing with Fourier frequency attention | d_model, n_heads, e_layers, d_ff, top_k, dropout, activation |
 | **FEDformer** | Time Series | large | Frequency enhanced decomposed Transformer (Fourier/Wavelets) | d_model, n_heads, e_layers, d_layers, d_ff, moving_avg, modes, version, mode_select, dropout, activation |
 | **FiLM** | Time Series | large | Frequency-enhanced Legendre Memory with HiPPO-LegT + SpectralConv1d | window_size, multiscale, dropout |
+| **FreTS** | Time Series | large | Frequency-enhanced Time Series with FFT frequency-domain MLPs | channel_independence, embed_size, hidden_size |
 | **DLinear** | Time Series | small | Decomposition linear model with series decomposition | moving_avg, individual |
 | **Random Forest** | General | small | Ensemble of decision trees (regression + classification) | n_estimators, max_depth, min_samples_split, min_samples_leaf |
 | **XGBoost** | General | small | Gradient boosted decision trees (regression + classification) | n_estimators, max_depth, min_samples_split, min_samples_leaf |
@@ -132,12 +134,15 @@ deeplearning_labs/
 │   ├── pipeline_strategy.py    # Small/Large pipeline dispatcher
 │   ├── config.py               # Centralized defaults
 │   ├── fonts.py                # Chinese font detection
-│   └── models/                 # Model registry (22 architectures)
+│   ├── canvas_templates.py     # Component templates (COMPONENT_REGISTRY)
+│   ├── canvas_graph.py         # Canvas graph validation + topological sort
+│   ├── canvas_generator.py     # Canvas → PyTorch model code generation
+│   └── models/                 # Model registry (23 architectures)
 │       ├── base.py             # Abstract BaseModel
 │       ├── mlp.py, cnn.py, rnn.py, lstm.py, gru.py, transformer.py
 │       ├── vanilla_transformer.py, autoformer.py, informer.py
 │       ├── crossformer.py, dlinear.py, etsformer.py
-│       ├── fedformer.py, film.py
+│       ├── fedformer.py, film.py, frets.py
 │       ├── shared_layers/      # Shared components (Embed, EncDec, Attention)
 │       ├── autoformer_layers/  # Autoformer internal package
 │       ├── informer_layers/    # Informer internal package
@@ -146,7 +151,9 @@ deeplearning_labs/
 │       ├── fedformer_layers/   # FEDformer internal package
 │       └── film_layers/        # FiLM internal package
 ├── static/
-│   ├── js/app.js               # Event bindings & init
+│   ├── js/state.js             # AppState container (project lifecycle)
+│   ├── js/canvas.js            # Visual model builder (Drawflow)
+│   ├── js/app.js               # Event bindings & orchestration
 │   ├── js/api.js               # API call functions
 │   ├── js/ui.js                # DOM rendering & Chart.js
 │   ├── js/__tests__/           # Vitest frontend tests
@@ -192,7 +199,7 @@ For GPU support with nvidia-docker, uncomment the `deploy` section in `docker-co
 - **Flask Blueprints** for route organization — data, training, evaluation, projects are separate modules
 - **Server-Sent Events** (SSE) for real-time training progress — simpler than WebSocket, native Flask support
 - **SessionManager** in-memory cache with disk fallback — survives Flask debug reloads
-- **Model Registry pattern** — adding a model = one file + one registry entry, no other code changes
+- **Model Registry pattern** — adding a model = one file + one registry entry + one frontend reader (via `MODEL_PARAM_READERS`)
 - **Dual Pipeline** — small (2-arg forward) for simple models, large (4-arg forward) for time-series models with time-mark encoding
 - **Shared Layers** — common Transformer components in `shared_layers/`, reused across large-pipeline models
 - **Chart.js** for live charts — `animation: false` prevents flicker during rapid SSE updates
@@ -227,7 +234,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 pip install pytest pytest-cov
 npm install          # Vitest for JS tests
 
-# Run Python tests (216 tests)
+# Run Python tests (232 tests)
 pytest tests/
 
 # Run JS tests (66 tests)
@@ -241,7 +248,7 @@ python main.py
 
 ## Project Status
 
-Active development on `feat/informer-integration` branch. 216 Python tests + 66 Vitest JS tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, project management, and frontend logic. See [ISSUES.md](ISSUES.md) for the change log.
+Active development on `master` branch. 232 Python tests + 66 Vitest JS tests pass with full coverage of training, evaluation, prediction, cross-validation, data processing, project management, canvas visual model builder, and frontend logic. See [ISSUES.md](ISSUES.md) for the change log.
 
 ---
 
