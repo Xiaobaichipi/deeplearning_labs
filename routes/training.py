@@ -26,7 +26,9 @@ training_bp = Blueprint("training", __name__)
 def train():
     sm = get_sm()
     data_id = get_data_id()
-    df = ensure_data(sm, data_id)
+    df = ensure_data(sm, data_id,
+                     project_manager=current_app.config["project_manager"],
+                     project_id=session.get("active_project_id"))
     params = request.get_json() or {}
     _setup_training(sm, data_id, df, params)
     built = _build_config(params, df)
@@ -57,14 +59,20 @@ def train_setup():
     """Store training params; the SSE stream will pick them up."""
     sm = get_sm()
     data_id = get_data_id()
-    df = ensure_data(sm, data_id)
+    df = ensure_data(sm, data_id,
+                     project_manager=current_app.config["project_manager"],
+                     project_id=session.get("active_project_id"))
 
     params = request.get_json() or {}
     target_col = params.get("target_col")
     if not target_col:
-        raise RouteError("Please select a target column")
+        raise RouteError("请先选择目标列 (target column)")
     if target_col not in df.columns:
-        raise RouteError(f"Target column '{target_col}' not found")
+        raise RouteError(
+            f"目标列 '{target_col}' 在数据中不存在。"
+            f" 可用列: {', '.join(str(c) for c in df.columns[:10])}"
+            + (f" ... (共 {len(df.columns)} 列)" if len(df.columns) > 10 else "")
+        )
 
     _setup_training(sm, data_id, df, params)
     sm.set_pending_params(data_id, params)

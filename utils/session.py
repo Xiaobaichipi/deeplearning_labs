@@ -79,8 +79,22 @@ def get_sm():
     return current_app.config["session_manager"]
 
 
-def ensure_data(sm, data_id):
-    """Get data or raise RouteError."""
+def ensure_data(sm, data_id, project_manager=None, project_id=None):
+    """Get data or raise RouteError.
+
+    If *project_manager* and *project_id* are given, attempt to load the
+    data directly from the project (``projects/<id>/dataset/``) before
+    falling back to the session cache.  This prevents cross-project data
+    contamination (GitHub PR #…).
+    """
+    # When a project is active, prefer project data to ensure we always
+    # operate on the correct dataset regardless of what is cached under
+    # *data_id*.
+    if project_manager is not None and project_id is not None:
+        df = project_manager.load_dataset(project_id)
+        if df is not None:
+            sm.set_data(data_id, df)   # refresh the cache too
+            return df
     df = sm.get_data(data_id)
     if df is None:
         raise RouteError("No data uploaded")
