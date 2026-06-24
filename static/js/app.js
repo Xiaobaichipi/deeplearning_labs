@@ -564,8 +564,13 @@ async function activateProject(projectId) {
             const filtered = populateModelDropdown(models, taskType);
             if (filtered.length) {
                 document.getElementById("modelSelect").value = filtered[0].id;
-                await _loadModelToSession(projectId, filtered[0].id);
-                showLoadedModelBadge(true, filtered[0].model_type);
+                try {
+                    await _loadModelToSession(projectId, filtered[0].id);
+                    showLoadedModelBadge(true, filtered[0].model_type);
+                } catch (_) {
+                    // Model type no longer available (e.g., canvas model deleted) — skip silently
+                    showLoadedModelBadge(false);
+                }
             } else {
                 showLoadedModelBadge(false);
             }
@@ -666,7 +671,14 @@ async function deleteCanvasModel(modelType) {
     if (!confirm(`确定删除画布模型「${modelType}」？此操作不可撤销。`)) return;
     try {
         await _deleteCanvasModel(_activeProjectId, modelType);
-        // Refresh both the model list and the training dropdown
+        // Clear the model architecture dropdown (Step 4) and hide delete button
+        document.getElementById("modelType").value = "";
+        document.getElementById("deleteCanvasModelBtn").style.display = "none";
+        // Rebuild the dropdown to remove the deleted model type
+        if (typeof updateModelOptions === "function") {
+            updateModelOptions(document.getElementById("taskTypeSelect").value);
+        }
+        // Refresh the Trained Models list and Step 6 selector
         loadProjectModels();
         if (typeof refreshModelDropdown === "function") refreshModelDropdown();
     } catch (err) {

@@ -400,8 +400,9 @@ def load_model_into_session(project_id, model_id):
 
     try:
         model = _reconstruct_model(meta, state_dict, input_dim, output_dim)
-    except Exception as e:
-        return jsonify({"error": f"Failed to reconstruct model: {str(e)}"}), 500
+    except Exception:
+        # Model type may have been deleted (e.g., canvas model removed)
+        return jsonify({"error": "Model type no longer available"}), 410
 
     sm.set_model(data_id, model)
     sm.set_model_config(data_id, {
