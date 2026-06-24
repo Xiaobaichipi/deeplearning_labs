@@ -2,9 +2,6 @@
 
 const DEFAULTS = JSON.parse(document.getElementById("config-data").textContent);
 
-let currentDataInfo = null;
-let _activeProjectId = null;
-
 /* =============== Header Dropdown =============== */
 document.addEventListener("click", function (e) {
     const menu = document.getElementById("headerMenu");
@@ -45,7 +42,7 @@ document.addEventListener("click", (e) => {
     const target = contentParent.querySelector("#tab" + tabId.charAt(0).toUpperCase() + tabId.slice(1));
     if (target) target.classList.add("active");
 
-    if (tabId === "models" && _activeProjectId) {
+    if (tabId === "models" && AppState.activeProjectId) {
         loadProjectModels();
     }
 });
@@ -96,7 +93,7 @@ async function handleUpload(file) {
     showUploadLoading();
     try {
         const data = await _uploadFile(file);
-        currentDataInfo = data;
+        AppState.currentDataInfo = data;
         showUploadResult(data);
         populateStep2(data);
         populateStep3Columns(data.columns);
@@ -164,12 +161,12 @@ async function applyTaskConfig() {
     }
 }
 
-let _canvasModelTypes = [];  // dynamically registered canvas models
+AppState.canvasModels = [];  // dynamically registered canvas models
 
 function registerCanvasModel(modelType, label) {
     // Add to the dynamic list so updateModelOptions picks it up
-    if (!_canvasModelTypes.find(m => m.type === modelType)) {
-        _canvasModelTypes.push({type: modelType, label: label});
+    if (!AppState.canvasModels.find(m => m.type === modelType)) {
+        AppState.canvasModels.push({type: modelType, label: label});
     }
 }
 
@@ -207,7 +204,7 @@ function updateModelOptions(taskType) {
 
     // Canvas-generated models (large pipeline) always go to time-series list
     const canvasTSTypes = [];
-    _canvasModelTypes.forEach(function(m) {
+    AppState.canvasModels.forEach(function(m) {
         allOptions[m.type] = m.label;
         canvasTSTypes.push(m.type);
     });
@@ -237,7 +234,7 @@ async function runClean() {
 
     try {
         const data = await _cleanData(params);
-        currentDataInfo = data.data;
+        AppState.currentDataInfo = data.data;
         showCleanResult(data);
     } catch (err) {
         alert("Error: " + err.message);
@@ -253,7 +250,7 @@ async function runFill() {
 
     try {
         const data = await _fillData(params);
-        currentDataInfo = data.data;
+        AppState.currentDataInfo = data.data;
         showFillResult(data);
     } catch (err) {
         alert("Error: " + err.message);
@@ -360,7 +357,7 @@ async function startTraining() {
     const targetCol = document.getElementById("targetCol").value;
     if (!targetCol) { alert("请先选择目标列 (target column)"); return; }
     // Verify the selected column still exists in the data (re-fetch columns from activation data)
-    const columns = (currentDataInfo && currentDataInfo.columns) || [];
+    const columns = (AppState.currentDataInfo && AppState.currentDataInfo.columns) || [];
     if (columns.length > 0 && columns.indexOf(targetCol) === -1) {
         alert(`目标列 '${targetCol}' 在当前数据中不存在。可用列: ${columns.join(', ')}`);
         return;
@@ -547,8 +544,7 @@ async function createProject() {
 async function activateProject(projectId) {
     try {
         const data = await _activateProject(projectId);
-        _activeProjectId = projectId;
-        currentDataInfo = data;
+        AppState.activate(projectId, data);
 
         hideProjectList();
 
@@ -606,9 +602,9 @@ async function deleteProject(projectId) {
 }
 
 async function loadProjectModels() {
-    if (!_activeProjectId) return;
+    if (!AppState.activeProjectId) return;
     try {
-        const models = await _loadProjectModels(_activeProjectId);
+        const models = await _loadProjectModels(AppState.activeProjectId);
         // Show only trained models — canvas-only (untrained) models are managed
         // from the Model Architecture dropdown, not here.
         const trained = models.filter(function(m) { return !m.canvas_only; });
@@ -621,14 +617,14 @@ async function loadProjectModels() {
 }
 
 async function refreshModelDropdown() {
-    if (!_activeProjectId) return;
+    if (!AppState.activeProjectId) return;
     try {
-        const models = await _loadProjectModels(_activeProjectId);
+        const models = await _loadProjectModels(AppState.activeProjectId);
         const taskType = document.getElementById("taskTypeSelect").value;
         const filtered = populateModelDropdown(models, taskType);
         if (filtered.length) {
             document.getElementById("modelSelect").value = filtered[0].id;
-            await _loadModelToSession(_activeProjectId, filtered[0].id);
+            await _loadModelToSession(AppState.activeProjectId, filtered[0].id);
             showLoadedModelBadge(true, filtered[0].model_type);
         }
     } catch (err) {
@@ -642,7 +638,7 @@ async function onModelSelect(modelId) {
         return;
     }
     try {
-        const model = await _loadModelToSession(_activeProjectId, modelId);
+        const model = await _loadModelToSession(AppState.activeProjectId, modelId);
         showLoadedModelBadge(true, model.model_type);
     } catch (err) {
         showLoadedModelBadge(false);
@@ -659,7 +655,7 @@ async function compareModels() {
     btn.innerHTML = '<span class="spinner"></span> Comparing...';
 
     try {
-        const data = await _compareModels(_activeProjectId, modelIds);
+        const data = await _compareModels(AppState.activeProjectId, modelIds);
         const resultDiv = document.getElementById("modelCompareResult");
         const chartDiv = document.getElementById("modelCompareChart");
         chartDiv.innerHTML = `<div class="image-card"><img src="data:image/png;base64,${data.plot_image}" alt="Model Comparison"><div class="caption">Model Predictions Comparison (${data.loaded_count} models)</div></div>`;
@@ -673,16 +669,16 @@ async function compareModels() {
 }
 
 async function deleteCanvasModel(modelType) {
-    if (!_activeProjectId) return;
+    if (!AppState.activeProjectId) return;
     if (!confirm(`确定删除画布模型「${modelType}」？此操作不可撤销。`)) return;
     try {
-        await _deleteCanvasModel(_activeProjectId, modelType);
+        await _deleteCanvasModel(AppState.activeProjectId, modelType);
         // Remove from the in-memory registry so updateModelOptions won't include it
-        _canvasModelTypes = _canvasModelTypes.filter(function(m) { return m.type !== modelType; });
+        AppState.canvasModels = AppState.canvasModels.filter(function(m) { return m.type !== modelType; });
         // Clear the model architecture dropdown (Step 4) and hide delete button
         document.getElementById("modelType").value = "";
         document.getElementById("deleteCanvasModelBtn").style.display = "none";
-        // Rebuild the dropdown — the deleted type is now out of _canvasModelTypes
+        // Rebuild the dropdown — the deleted type is now out of AppState.canvasModels
         if (typeof updateModelOptions === "function") {
             updateModelOptions(document.getElementById("taskTypeSelect").value);
         }
@@ -699,7 +695,7 @@ async function exportModel(modelId) {
     const name = prompt("Export model filename:", defaultName);
     if (!name) return;
     const safe = name.trim() || defaultName;
-    window.location.href = `/api/projects/${_activeProjectId}/models/${modelId}/export?name=${encodeURIComponent(safe)}`;
+    window.location.href = `/api/projects/${AppState.activeProjectId}/models/${modelId}/export?name=${encodeURIComponent(safe)}`;
 }
 
 async function resetAll() {
@@ -707,13 +703,12 @@ async function resetAll() {
     try {
         await fetch("/api/reset", { method: "POST" });
     } catch (_) {}
-    currentDataInfo = null;
-    _activeProjectId = null;
+    AppState.deactivate();
     resetAllUI();
 }
 
 function backToProjects() {
-    _activeProjectId = null;
+    AppState.deactivate();
     resetCanvas();
     document.getElementById("canvasToggleBtn").style.display = "none";
     toggleCanvasView(false);

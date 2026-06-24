@@ -242,7 +242,7 @@ document.body.innerHTML = `
 `;
 
 /* ── Load source files into global scope via indirect eval ── */
-const jsFiles = ["filterUtils.js", "ui.js", "api.js", "app.js"];
+const jsFiles = ["state.js", "filterUtils.js", "ui.js", "api.js", "canvas.js", "app.js"];
 for (const file of jsFiles) {
   const code = fs.readFileSync(
     path.resolve(__dirname, "static/js", file),

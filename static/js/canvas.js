@@ -2,9 +2,9 @@
 
 let canvasEditor = null;
 let canvasInitialized = false;
-let _canvasProjectId = null;
 let _selectedNodeId = null;
-let _pendingCanvasData = null;  // canvas data stored during project activation, rendered when canvas first shows
+
+
 
 // Component registry — starts as fallback, upgraded from API when loaded.
 // Previously defined in canvas_registry.js (now removed).
@@ -132,7 +132,8 @@ function renderComponentPanel() {
 
 /* =============== Drag & Drop onto Canvas =============== */
 
-let _dropZoneReady = false;
+
+
 
 function setupCanvasDropZone() {
   if (_dropZoneReady) return;
@@ -387,7 +388,7 @@ function renderCanvasFromData(canvasData) {
 /* =============== Model Generation =============== */
 
 async function generateModel() {
-  if (!_canvasProjectId) return;
+  if (!AppState.canvasProjectId) return;
   const btn = document.getElementById("canvas-generate-btn");
   btn.disabled = true;
   btn.textContent = "生成中...";
@@ -399,10 +400,10 @@ async function generateModel() {
   try {
     // Auto-save canvas first
     const canvasData = collectCanvasData();
-    await _saveCanvas(_canvasProjectId, canvasData);
+    await _saveCanvas(AppState.canvasProjectId, canvasData);
 
     // Call generation API with optional model name
-    const result = await _generateCanvasModel(_canvasProjectId, modelName);
+    const result = await _generateCanvasModel(AppState.canvasProjectId, modelName);
     btn.textContent = "✓ 已生成";
     btn.style.background = "#059669";
 
@@ -443,14 +444,14 @@ async function generateModel() {
 /* =============== API Integration =============== */
 
 async function saveCanvas() {
-  if (!_canvasProjectId) return;
+  if (!AppState.canvasProjectId) return;
   const saveBtn = document.getElementById("canvas-save-btn");
   saveBtn.disabled = true;
   saveBtn.textContent = "保存中...";
 
   try {
     const canvasData = collectCanvasData();
-    await _saveCanvas(_canvasProjectId, canvasData);
+    await _saveCanvas(AppState.canvasProjectId, canvasData);
     saveBtn.textContent = "✓ 已保存";
     setTimeout(() => { saveBtn.textContent = "保存"; saveBtn.disabled = false; }, 2000);
   } catch (err) {
@@ -474,8 +475,8 @@ async function loadCanvas(projectId) {
 function resetCanvas() {
   _dropZoneReady = false;
   _selectedNodeId = null;
-  _canvasProjectId = null;
-  _pendingCanvasData = null;
+  AppState.canvasProjectId = null;
+  AppState.pendingCanvasData = null;
   deselectNode();
   if (canvasEditor) {
     canvasEditor.import({ drawflow: { Home: { data: {} } } });
@@ -510,9 +511,9 @@ function toggleCanvasView(show) {
     setupCanvasDropZone();
     renderComponentPanel();
     // Render any canvas data stored during project activation
-    if (_pendingCanvasData) {
-      renderCanvasFromData(_pendingCanvasData);
-      _pendingCanvasData = null;
+    if (AppState.pendingCanvasData) {
+      renderCanvasFromData(AppState.pendingCanvasData);
+      AppState.pendingCanvasData = null;
     }
   } else {
     canvasSection.style.display = "none";
@@ -525,8 +526,8 @@ function toggleCanvasView(show) {
 /* =============== Init on project activate =============== */
 
 function initCanvasForProject(projectId, canvasData) {
-  _canvasProjectId = projectId;
-  _pendingCanvasData = canvasData || null;
+  AppState.canvasProjectId = projectId;
+  AppState.pendingCanvasData = canvasData || null;
   // Defer Drawflow init to toggleCanvasView(true) — container is hidden during project activation
   // initCanvas(), setupCanvasDropZone(), renderComponentPanel() are called there
 }
