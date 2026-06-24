@@ -9,10 +9,11 @@ from utils.model_utils import create_model
 from utils.pipeline_strategy import PipelineData, PipelineStrategy
 from utils.plot_utils import plot_data_distribution, plot_correlation_heatmap
 from utils.session import allowed_file, get_data_id, json_ok
+from utils.canvas_templates import COMPONENT_REGISTRY
+from utils.canvas_graph import CanvasError, validate_canvas
 from utils.canvas_generator import (
-    validate_canvas, generate_model_source,
-    write_model_file, register_model, list_generated_for_project,
-    unregister_model, COMPONENT_REGISTRY, CanvasError,
+    generate_model_source, write_model_file, register_model,
+    list_generated_for_project, unregister_model,
 )
 
 projects_bp = Blueprint("projects", __name__)
