@@ -141,7 +141,7 @@ COMPONENT_TEMPLATES = {
             "self.{var} = Encoder([_layer], norm_layer=nn.LayerNorm({d_model}))"
         ),
         forward_tpl=(
-            "x, _ = self.{var}(x)"
+            "x, _ = self.{var}({in_var})"
         ),
     ),
 
@@ -167,7 +167,7 @@ COMPONENT_TEMPLATES = {
             "self.{var} = Decoder([_layer], norm_layer=nn.LayerNorm({d_model}))"
         ),
         forward_tpl=(
-            "x = self.{var}(x, cross=x)"
+            "x = self.{var}({in_var}, cross={in_var})"
         ),
     ),
 
@@ -180,7 +180,7 @@ COMPONENT_TEMPLATES = {
             "self.{var} = nn.Linear({d_model}, {output_dim})"
         ),
         forward_tpl=(
-            "x = self.{var}(x)"
+            "x = self.{var}({in_var})"
         ),
     ),
 }
@@ -371,15 +371,30 @@ def generate_model_source(canvas, project_id, version, input_dim, output_dim, n_
 
         # Build code blocks
         try:
+            # If the first component is NOT an embedding, add an input projection
+            # to map input_dim → d_model (Encoder/Decoder expect d_model-dim input)
+            if idx == 0 and ntype != "embedding":
+                all_imports.add("import torch.nn as nn")
+                init_lines.insert(0,
+                    "# Input projection — map input_dim → d_model\n"
+                    f"self.input_proj = nn.Linear({global_params['input_dim']}, {global_params['d_model']})"
+                )
+                # prev_var stays "x_enc", but we add a projection step before the first component
+                fwd_proj = "x = self.input_proj(x_enc)"
+                # The first component should now read from "x" (projected), not "x_enc"
+                fwd_code = tmpl.build_forward(var_name, "x")
+                fwd_lines.append(fwd_proj)
+            else:
+                fwd_code = tmpl.build_forward(var_name, prev_var)
+
             init_code = tmpl.build_init(node["id"], var_name, cfg, global_params, component_type=ntype)
-            fwd_code = tmpl.build_forward(var_name, prev_var)
         except KeyError as e:
             raise CanvasError(
                 f"组件 '{node.get('label', node['id'])}' 缺少参数: {e}")
 
         init_lines.append(init_code)
         fwd_lines.append(fwd_code)
-        prev_var = var_name
+        prev_var = "x"  # forward always stores result in x
 
     imports_str = "\n".join(sorted(all_imports))
 

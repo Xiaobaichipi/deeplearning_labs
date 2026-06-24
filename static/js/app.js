@@ -264,7 +264,13 @@ async function runFill() {
 
 async function startTraining() {
     const targetCol = document.getElementById("targetCol").value;
-    if (!targetCol) { alert("Please select a target column"); return; }
+    if (!targetCol) { alert("请先选择目标列 (target column)"); return; }
+    // Verify the selected column still exists in the data (re-fetch columns from activation data)
+    const columns = (currentDataInfo && currentDataInfo.columns) || [];
+    if (columns.length > 0 && columns.indexOf(targetCol) === -1) {
+        alert(`目标列 '${targetCol}' 在当前数据中不存在。可用列: ${columns.join(', ')}`);
+        return;
+    }
 
     const btn = document.getElementById("trainBtn");
 
@@ -543,6 +549,13 @@ async function activateProject(projectId) {
         populateStep3Columns(data.columns);
         populateTargetCol(data.columns);
         populateTimeColSelect(data.columns);
+
+        // Register canvas models BEFORE loadTaskConfig triggers updateModelOptions
+        const canvasModels = data.canvas_models || [];
+        canvasModels.forEach(function(m) {
+            registerCanvasModel(m.model_type, m.model_type);
+        });
+
         await loadTaskConfig();
 
         const models = data.models || [];
@@ -563,12 +576,6 @@ async function activateProject(projectId) {
         // Init canvas with project data
         document.getElementById("canvasToggleBtn").style.display = "inline-flex";
         initCanvasForProject(projectId, data.canvas);
-
-        // Re-register canvas-generated models in training dropdown
-        const canvasModels = data.canvas_models || [];
-        canvasModels.forEach(function(m) {
-            registerCanvasModel(m.model_type, m.model_type);
-        });
 
         goToStep(2);
     } catch (err) {
