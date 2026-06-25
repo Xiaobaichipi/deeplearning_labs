@@ -16,6 +16,7 @@ from .etsformer import ETSformerWrapper
 from .fedformer import FEDformerWrapper
 from .film import FilmWrapper
 from .frets import FreTSWrapper
+from .itransformer import iTransformerWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -173,6 +174,19 @@ MODEL_REGISTRY = {
             "channel_independence": {"type": "str", "default": "0", "label": "Channel independence (0=enable, 1=disable)"},
             "embed_size": {"type": "int", "default": 128, "label": "Embedding size"},
             "hidden_size": {"type": "int", "default": 256, "label": "Hidden size"},
+        },
+    },
+    "itransformer": {
+        "class": iTransformerWrapper,
+        "name": "iTransformer (Inverted Transformer)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "str", "default": "gelu", "label": "Activation"},
         },
     },
     "dlinear": {

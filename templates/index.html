@@ -272,6 +272,7 @@
                                 <option value="fedformer">FEDformer (Frequency Enhanced Decomp Transformer)</option>
                                 <option value="film">FiLM (Frequency-enhanced Legendre Memory)</option>
                                 <option value="frets">FreTS (Frequency-enhanced Time Series)</option>
+                                <option value="itransformer">iTransformer (Inverted Transformer)</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -633,6 +634,41 @@
                             <div class="input-group">
                                 <label>Hidden size</label>
                                 <input type="number" id="fretsHiddenSize" value="{{ cfg.model.frets.hidden_size }}" min="16" max="1024">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="itransformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="itransDModel" value="{{ cfg.model.itransformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="itransNHeads" value="{{ cfg.model.itransformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers</label>
+                                <input type="number" id="itransELayers" value="{{ cfg.model.itransformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Feedforward dimension (d_ff)</label>
+                                <input type="number" id="itransDFF" value="{{ cfg.model.itransformer.d_ff }}" min="8" max="1024">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="itransDropout" value="{{ cfg.model.itransformer.dropout }}" min="0.0" max="0.9" step="0.05">
+                            </div>
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="itransActivation">
+                                    <option value="gelu" {{ 'selected' if cfg.model.itransformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.itransformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
                             </div>
                         </div>
                     </div>

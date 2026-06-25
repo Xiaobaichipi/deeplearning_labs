@@ -189,6 +189,7 @@ function updateModelOptions(taskType) {
         "fedformer": "FEDformer (Frequency Enhanced Decomp Transformer)",
         "film": "FiLM (Frequency-enhanced Legendre Memory)",
         "frets": "FreTS (Frequency-enhanced Time Series)",
+        "itransformer": "iTransformer (Inverted Transformer)",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -200,7 +201,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -325,6 +326,14 @@ const MODEL_PARAM_READERS = {
         channel_independence: parseInt($val("fretsChannelIndependence"), 10),
         embed_size:           $int("fretsEmbedSize", DEFAULTS.model.frets.embed_size),
         hidden_size:          $int("fretsHiddenSize", DEFAULTS.model.frets.hidden_size),
+    };},
+    itransformer: function() { return {
+        d_model:     $int("itransDModel", DEFAULTS.model.itransformer.d_model),
+        n_heads:     $int("itransNHeads", DEFAULTS.model.itransformer.n_heads),
+        e_layers:    $int("itransELayers", DEFAULTS.model.itransformer.e_layers),
+        d_ff:        $int("itransDFF", DEFAULTS.model.itransformer.d_ff),
+        dropout:     $float("itransDropout", DEFAULTS.model.itransformer.dropout),
+        activation:  $val("itransActivation"),
     };},
     vanilla_transformer: function() { return {
         d_model:     $int("vanillaDModel", DEFAULTS.model.vanilla_transformer.d_model),
