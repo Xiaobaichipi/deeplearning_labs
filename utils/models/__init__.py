@@ -19,6 +19,7 @@ from .frets import FreTSWrapper
 from .itransformer import iTransformerWrapper
 from .koopa import KoopaWrapper
 from .lightts import LightTSWrapper
+from .mamba_model import MambaWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -328,6 +329,18 @@ MODEL_REGISTRY = {
         "params": {
             "d_model": {"type": "int", "default": 128, "label": "Model dimension"},
             "chunk_size": {"type": "int", "default": 24, "label": "Chunk size"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "mamba": {
+        "class": MambaWrapper,
+        "name": "Mamba (State Space Model)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension"},
+            "d_state": {"type": "int", "default": 16, "label": "State dimension"},
+            "d_conv": {"type": "int", "default": 4, "label": "Convolution kernel"},
+            "expand": {"type": "int", "default": 2, "label": "Expansion factor"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },

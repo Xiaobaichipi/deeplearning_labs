@@ -192,6 +192,7 @@ function updateModelOptions(taskType) {
         "itransformer": "iTransformer (Inverted Transformer)",
         "koopa": "Koopa (Koopman Forecasting)",
         "lightts": "LightTS (Light Time Series)",
+        "mamba": "Mamba (State Space Model)",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -203,7 +204,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -352,6 +353,13 @@ const MODEL_PARAM_READERS = {
     };},
         d_model:     $int("vanillaDModel", DEFAULTS.model.vanilla_transformer.d_model),
         n_heads:     $int("vanillaNHeads", DEFAULTS.model.vanilla_transformer.n_heads),
+    mamba: function() { return {
+        d_model:     $int("mambaDModel", DEFAULTS.model.mamba.d_model),
+        d_state:     $int("mambaDState", DEFAULTS.model.mamba.d_state),
+        d_conv:      $int("mambaDConv", DEFAULTS.model.mamba.d_conv),
+        expand:      $int("mambaExpand", DEFAULTS.model.mamba.expand),
+        dropout:     $float("mambaDropout", DEFAULTS.model.mamba.dropout),
+    };},
         e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),
         d_layers:    $int("vanillaDLayers", DEFAULTS.model.vanilla_transformer.d_layers),
         d_ff:        $int("vanillaDFF", DEFAULTS.model.vanilla_transformer.d_ff),
