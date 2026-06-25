@@ -452,6 +452,18 @@ def _build_config(params, df):
     model_type = params.get("model_type", "mlp")
     is_sklearn = uses_sklearn_backend(model_type)
 
+    # Mamba dependency pre-check — fail early with clear message
+    if model_type == "mamba":
+        try:
+            from mamba_ssm import Mamba  # noqa
+        except ImportError as e:
+            raise RouteError(
+                "Mamba 模型需要安装 ``mamba-ssm`` 和 ``causal-conv1d``，"
+                "但当前环境导入失败。\n"
+                f"  原因: {e}\n"
+                "  请用其他模型(Autoformer/FEDformer/iTransformer等)代替。"
+            )
+
     # Sklearn models don't need PyTorch — skip CUDA checks, use safe defaults.
     if is_sklearn:
         learning_rate = 0.0

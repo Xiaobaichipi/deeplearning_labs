@@ -2640,6 +2640,59 @@ x_enc (batch, seq_len, enc_in)
 
 ---
 
+## 2026-06-25: 新增模型 — Mamba (State Space Model) (master)
+
+### 概述
+
+从 `time_series_models_labs` 移植 Mamba 模型。Mamba 使用状态空间模型(SSM)替代注意力机制，具有线性复杂度。
+
+### 架构
+
+```
+DataEmbedding → Mamba(SSM) → Linear
+```
+
+内置序列平稳化（`uses_internal_normalization = True`）。
+
+### 依赖
+
+需要 `mamba-ssm` 和 `causal-conv1d`（`pip install mamba-ssm causal-conv1d`）。
+
+**当前环境限制**: 当前 Python 3.12 + PyTorch 2.5 + CUDA 12.1 环境下，
+`mamba-ssm` 的预编译 wheel ABI 不兼容（`undefined symbol` 错误）。
+等待官方发布 PyTorch 2.5 兼容的 wheel 后再启用。
+
+训练路由已添加导入检查，选择 Mamba 时返回友好提示。
+
+### 暴露参数
+
+| 参数 | 默认 | 范围 | 说明 |
+|------|------|------|------|
+| d_model | 256 | 16~512 | 模型维度 |
+| d_state | 16 | 2~128 | SSM 状态维度 |
+| d_conv | 4 | 2~8 | 卷积核大小 |
+| expand | 2 | 1~8 | SSM 扩展因子 |
+| dropout | 0.1 | 0.0~0.9 | Dropout |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/mamba_model.py` | **新建** — MambaWrapper |
+| `routes/training.py` | `_build_config` 中 Mamba 导入预检 |
+| `utils/models/__init__.py` | 注册 |
+| `utils/config.py` | 默认值 |
+| `templates/index.html` | 下拉 + mambaParams |
+| `static/js/ui.js` + `app.js` | toggle + reader |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
