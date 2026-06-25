@@ -107,6 +107,7 @@ MODEL = {
     "frets": {"channel_independence": "0", "embed_size": 128, "hidden_size": 256},
     "itransformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
     "koopa": {"dynamic_dim": 128, "hidden_dim": 64, "hidden_layers": 2, "num_blocks": 3, "multistep": False},
+    "lightts": {"d_model": 128, "chunk_size": 24, "dropout": 0.1},
     "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
                             "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
     # ── Classical ML (sklearn backend) ────────────────────────────────────

@@ -191,6 +191,7 @@ function updateModelOptions(taskType) {
         "frets": "FreTS (Frequency-enhanced Time Series)",
         "itransformer": "iTransformer (Inverted Transformer)",
         "koopa": "Koopa (Koopman Forecasting)",
+        "lightts": "LightTS (Light Time Series)",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -202,7 +203,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -344,6 +345,11 @@ const MODEL_PARAM_READERS = {
         multistep:     $bool("toggleKoopaMultistep"),
     };},
     vanilla_transformer: function() { return {
+    lightts: function() { return {
+        d_model:     $int("lighttsDModel", DEFAULTS.model.lightts.d_model),
+        chunk_size:  $int("lighttsChunkSize", DEFAULTS.model.lightts.chunk_size),
+        dropout:     $float("lighttsDropout", DEFAULTS.model.lightts.dropout),
+    };},
         d_model:     $int("vanillaDModel", DEFAULTS.model.vanilla_transformer.d_model),
         n_heads:     $int("vanillaNHeads", DEFAULTS.model.vanilla_transformer.n_heads),
         e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),

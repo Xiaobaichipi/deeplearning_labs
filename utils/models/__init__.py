@@ -18,6 +18,7 @@ from .film import FilmWrapper
 from .frets import FreTSWrapper
 from .itransformer import iTransformerWrapper
 from .koopa import KoopaWrapper
+from .lightts import LightTSWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -318,6 +319,16 @@ MODEL_REGISTRY = {
             "max_depth": {"type": "int_or_none", "default": None, "label": "Max depth (None for unlimited)"},
             "min_samples_split": {"type": "int", "default": 2, "label": "Min samples split"},
             "min_samples_leaf": {"type": "int", "default": 1, "label": "Min samples leaf"},
+        },
+    },
+    "lightts": {
+        "class": LightTSWrapper,
+        "name": "LightTS (Light Time Series)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 128, "label": "Model dimension"},
+            "chunk_size": {"type": "int", "default": 24, "label": "Chunk size"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },
     "lightgbm_classifier": {
