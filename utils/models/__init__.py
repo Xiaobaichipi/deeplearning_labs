@@ -17,6 +17,7 @@ from .fedformer import FEDformerWrapper
 from .film import FilmWrapper
 from .frets import FreTSWrapper
 from .itransformer import iTransformerWrapper
+from .koopa import KoopaWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -174,6 +175,18 @@ MODEL_REGISTRY = {
             "channel_independence": {"type": "str", "default": "0", "label": "Channel independence (0=enable, 1=disable)"},
             "embed_size": {"type": "int", "default": 128, "label": "Embedding size"},
             "hidden_size": {"type": "int", "default": 256, "label": "Hidden size"},
+        },
+    },
+    "koopa": {
+        "class": KoopaWrapper,
+        "name": "Koopa (Koopman Forecasting)",
+        "pipeline": "large",
+        "params": {
+            "dynamic_dim": {"type": "int", "default": 128, "label": "Koopman embedding dimension"},
+            "hidden_dim": {"type": "int", "default": 64, "label": "MLP hidden dimension"},
+            "hidden_layers": {"type": "int", "default": 2, "label": "MLP hidden layers"},
+            "num_blocks": {"type": "int", "default": 3, "label": "Number of Koopa blocks"},
+            "multistep": {"type": "bool", "default": False, "label": "Multistep K approximation"},
         },
     },
     "itransformer": {

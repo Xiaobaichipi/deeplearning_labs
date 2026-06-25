@@ -273,6 +273,7 @@
                                 <option value="film">FiLM (Frequency-enhanced Legendre Memory)</option>
                                 <option value="frets">FreTS (Frequency-enhanced Time Series)</option>
                                 <option value="itransformer">iTransformer (Inverted Transformer)</option>
+                                <option value="koopa">Koopa (Koopman Forecasting)</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -669,6 +670,39 @@
                                     <option value="gelu" {{ 'selected' if cfg.model.itransformer.activation == 'gelu' else '' }}>GELU</option>
                                     <option value="relu" {{ 'selected' if cfg.model.itransformer.activation == 'relu' else '' }}>ReLU</option>
                                 </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="koopaParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Koopman embedding dimension (dynamic_dim)</label>
+                                <input type="number" id="koopaDynamicDim" value="{{ cfg.model.koopa.dynamic_dim }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>MLP hidden dimension</label>
+                                <input type="number" id="koopaHiddenDim" value="{{ cfg.model.koopa.hidden_dim }}" min="16" max="512">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>MLP hidden layers</label>
+                                <input type="number" id="koopaHiddenLayers" value="{{ cfg.model.koopa.hidden_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Number of Koopa blocks</label>
+                                <input type="number" id="koopaNumBlocks" value="{{ cfg.model.koopa.num_blocks }}" min="1" max="8">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Multistep K approximation</label>
+                                <div class="toggle-container" style="margin-top:6px;">
+                                    <div class="toggle" id="toggleKoopaMultistep" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-knob"></div>
+                                    </div>
+                                    <input type="hidden" id="koopaMultistep" value="false">
+                                </div>
                             </div>
                         </div>
                     </div>
