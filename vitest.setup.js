@@ -31,6 +31,7 @@ document.body.innerHTML = `
     xgboost_classifier: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
     lightgbm_regressor: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
     lightgbm_classifier: { n_estimators: 100, max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
+    lightts: { d_model: 128, chunk_size: 24, dropout: 0.1 },
     decision_tree_regressor: { max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
     decision_tree_classifier: { max_depth: null, min_samples_split: 2, min_samples_leaf: 1 },
   },
@@ -48,6 +49,7 @@ document.body.innerHTML = `
 <div id="fedformerParams" style="display:none"></div>
 <div id="filmParams" style="display:none"></div>
 <div id="fretsParams" style="display:none"><select id="fretsChannelIndependence"><option value="0"></option></select><input id="fretsEmbedSize" value="128"><input id="fretsHiddenSize" value="256"></div>
+<div id="lighttsParams" style="display:none"><input id="lighttsDModel" value="128"><input id="lighttsChunkSize" value="24"><input id="lighttsDropout" value="0.1"></div>
 <div id="vanillaTransformerParams" style="display:none">
   <input id="vanillaDModel" value="256">
   <input id="vanillaNHeads" value="8">
@@ -80,6 +82,7 @@ document.body.innerHTML = `
   <option value="fedformer">FEDformer</option>
   <option value="film">FiLM</option>
   <option value="frets">FreTS</option>
+  <option value="lightts">LightTS</option>
   <option value="vanilla_transformer">Vanilla Transformer</option>
   <option value="dlinear">DLinear</option>
   <option value="random_forest_regressor">Random Forest Regressor</option>

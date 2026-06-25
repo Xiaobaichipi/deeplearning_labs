@@ -2599,6 +2599,47 @@ x_enc (batch, seq_len, enc_in)
 
 ---
 
+## 2026-06-25: 新增模型 — LightTS (Light Time Series) (master)
+
+### 概述
+
+从 `time_series_models_labs` 移植 LightTS 模型。LightTS 使用连 续采样(continuous sampling)和间隔采样(interval sampling)两种策略，通过 IEBlock 进行空间和通道投影，不依赖注意力机制。
+
+### Pipeline 决策
+
+| 维度 | 选型 | 理由 |
+|------|------|------|
+| Pipeline | large | forward 4 参数签名 |
+| 层包策略 | 自包含 | 仅 IEBlock 一个自定义层，无外部依赖 |
+
+### 暴露参数
+
+| 参数 | 默认 | 范围 | 说明 |
+|------|------|------|------|
+| d_model | 128 | 16~512 | 模型维度 |
+| chunk_size | 24 | 2~96 | 分段长度 |
+| dropout | 0.1 | 0.0~0.9 | Dropout |
+
+### 涉及文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/models/lightts.py` | **新建** — LightTSWrapper |
+| `utils/models/__init__.py` | 注册 |
+| `utils/config.py` | 默认值 |
+| `templates/index.html` | 下拉 + lighttsParams |
+| `static/js/ui.js` | toggle |
+| `static/js/app.js` | allOptions + tsModels + reader |
+| `vitest.setup.js` | 默认值 + DOM + 下拉 |
+
+### 验证
+
+```
+232 Python 测试全部通过:     ✅
+```
+
+---
+
 ## Prior Issues (前序会话已解决)
 
 - NaN JSON 序列化：`clean_nan()` 递归转换
