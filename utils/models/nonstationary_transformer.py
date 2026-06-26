@@ -120,7 +120,9 @@ class NonstationaryTransformerWrapper(BaseModel):
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, _ = self.encoder(enc_out, attn_mask=None, tau=tau, delta=delta)
 
-        dec_out = self.dec_embedding(x_dec_new, x_mark_dec)
+        # Align x_mark_dec length with x_dec_new (handles label_len mismatches)
+        dec_mark = x_mark_dec[:, :x_dec_new.shape[1], :]
+        dec_out = self.dec_embedding(x_dec_new, dec_mark)
         dec_out = self.decoder(dec_out, enc_out, x_mask=None, cross_mask=None,
                                tau=tau, delta=delta)
 
