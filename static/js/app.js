@@ -195,6 +195,7 @@ function updateModelOptions(taskType) {
         "mamba": "Mamba (State Space Model)",
         "micn": "MICN (Multi-scale Isometric ConvNet)",
         "multipatchformer": "MultiPatchFormer",
+        "nonstationary_transformer": "Nonstationary Transformer",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -206,7 +207,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "multipatchformer", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "multipatchformer", "nonstationary_transformer", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -374,6 +375,17 @@ const MODEL_PARAM_READERS = {
         e_layers:    $int("mpfELayers", DEFAULTS.model.multipatchformer.e_layers),
         d_ff:        $int("mpfDFF", DEFAULTS.model.multipatchformer.d_ff),
         dropout:     $float("mpfDropout", DEFAULTS.model.multipatchformer.dropout),
+    };},
+    nonstationary_transformer: function() { return {
+        d_model:          $int("nstDModel", DEFAULTS.model.nonstationary_transformer.d_model),
+        n_heads:          $int("nstNHeads", DEFAULTS.model.nonstationary_transformer.n_heads),
+        e_layers:         $int("nstELayers", DEFAULTS.model.nonstationary_transformer.e_layers),
+        d_layers:         $int("nstDLayers", DEFAULTS.model.nonstationary_transformer.d_layers),
+        d_ff:             $int("nstDFF", DEFAULTS.model.nonstationary_transformer.d_ff),
+        dropout:          $float("nstDropout", DEFAULTS.model.nonstationary_transformer.dropout),
+        activation:       $val("nstActivation"),
+        p_hidden_dims:    $val("nstPHiddenDims"),
+        p_hidden_layers:  $int("nstPHiddenLayers", DEFAULTS.model.nonstationary_transformer.p_hidden_layers),
     };},
         e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),
         d_layers:    $int("vanillaDLayers", DEFAULTS.model.vanilla_transformer.d_layers),

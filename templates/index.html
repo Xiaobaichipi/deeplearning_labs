@@ -278,6 +278,7 @@
                                 <option value="mamba">Mamba (State Space Model)</option>
                                 <option value="micn">MICN (Multi-scale Isometric ConvNet)</option>
                                 <option value="multipatchformer">MultiPatchFormer</option>
+                                <option value="nonstationary_transformer">Nonstationary Transformer</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -803,6 +804,57 @@
                             <div class="input-group">
                                 <label>Dropout</label>
                                 <input type="number" id="mpfDropout" value="{{ cfg.model.multipatchformer.dropout }}" min="0.0" max="0.9" step="0.05">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="nonstationaryTransformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="nstDModel" value="{{ cfg.model.nonstationary_transformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="nstNHeads" value="{{ cfg.model.nonstationary_transformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers</label>
+                                <input type="number" id="nstELayers" value="{{ cfg.model.nonstationary_transformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Decoder layers</label>
+                                <input type="number" id="nstDLayers" value="{{ cfg.model.nonstationary_transformer.d_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Feedforward dim (d_ff)</label>
+                                <input type="number" id="nstDFF" value="{{ cfg.model.nonstationary_transformer.d_ff }}" min="8" max="1024">
+                            </div>
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="nstDropout" value="{{ cfg.model.nonstationary_transformer.dropout }}" min="0.0" max="0.9" step="0.05">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Activation</label>
+                                <select id="nstActivation">
+                                    <option value="gelu" {{ 'selected' if cfg.model.nonstationary_transformer.activation == 'gelu' else '' }}>GELU</option>
+                                    <option value="relu" {{ 'selected' if cfg.model.nonstationary_transformer.activation == 'relu' else '' }}>ReLU</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Projector hidden dims</label>
+                                <input type="text" id="nstPHiddenDims" value="{{ cfg.model.nonstationary_transformer.p_hidden_dims }}" placeholder="128,128">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Projector hidden layers</label>
+                                <input type="number" id="nstPHiddenLayers" value="{{ cfg.model.nonstationary_transformer.p_hidden_layers }}" min="1" max="8">
                             </div>
                         </div>
                     </div>

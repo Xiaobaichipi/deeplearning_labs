@@ -22,6 +22,7 @@ from .lightts import LightTSWrapper
 from .mamba_model import MambaWrapper
 from .multipatchformer import MultiPatchFormerWrapper
 from .micn import MICNWrapper
+from .nonstationary_transformer import NonstationaryTransformerWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -332,6 +333,22 @@ MODEL_REGISTRY = {
             "d_model": {"type": "int", "default": 128, "label": "Model dimension"},
             "chunk_size": {"type": "int", "default": 24, "label": "Chunk size"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+        "nonstationary_transformer": {
+        "class": NonstationaryTransformerWrapper,
+        "name": "Nonstationary Transformer",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_layers": {"type": "int", "default": 3, "label": "Decoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "activation": {"type": "string", "default": "gelu", "label": "Activation (gelu/relu)"},
+            "p_hidden_dims": {"type": "string", "default": "128,128", "label": "Projector hidden dims (comma-sep)"},
+            "p_hidden_layers": {"type": "int", "default": 2, "label": "Projector hidden layers"},
         },
     },
     "micn": {

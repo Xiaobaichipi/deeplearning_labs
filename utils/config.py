@@ -111,6 +111,7 @@ MODEL = {
     "mamba": {"d_model": 256, "d_state": 16, "d_conv": 4, "expand": 2, "dropout": 0.1},
     "micn": {"d_model": 256, "n_heads": 8, "d_layers": 1, "dropout": 0.1, "conv_kernel": "12,16"},
     "multipatchformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_ff": 32, "dropout": 0.1},
+    "nonstationary_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3, "d_ff": 32, "dropout": 0.1, "activation": "gelu", "p_hidden_dims": "128,128", "p_hidden_layers": 2},
     "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
                             "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
     # ── Classical ML (sklearn backend) ────────────────────────────────────
