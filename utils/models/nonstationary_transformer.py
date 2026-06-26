@@ -107,11 +107,14 @@ class NonstationaryTransformerWrapper(BaseModel):
         tau = torch.clamp(tau, max=80.0).exp()
         delta = self.delta_learner(x_raw, mean_enc)
 
-        # Prepare decoder input
-        x_dec_new = torch.cat([
-            x_enc[:, -self.label_len:, :],
-            torch.zeros_like(x_dec[:, -self.pred_len:, :]),
-        ], dim=1)
+        # Prepare decoder input — guard against label_len=0 (-0 == 0 in Python)
+        if self.label_len > 0:
+            x_dec_new = torch.cat([
+                x_enc[:, -self.label_len:, :],
+                torch.zeros_like(x_dec[:, -self.pred_len:, :]),
+            ], dim=1)
+        else:
+            x_dec_new = torch.zeros_like(x_dec[:, -self.pred_len:, :])
 
         # Encoder-Decoder with de-stationary attention
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
