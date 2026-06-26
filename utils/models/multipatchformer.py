@@ -5,6 +5,7 @@ Deps: einops, shared_layers.SelfAttention_Family.
 """
 
 import math
+import warnings
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -51,7 +52,7 @@ class Encoder(nn.Module):
 
 
 class MultiPatchFormerWrapper(BaseModel):
-    """MultiPatchFormer wrapper."""
+    """MultiPatchFormer wrapper — seq_len-adaptive patch scales."""
 
     pipeline = "large"
     uses_internal_normalization = True
@@ -64,15 +65,48 @@ class MultiPatchFormerWrapper(BaseModel):
         self.d_channel = input_dim
         self.N = e_layers
 
-        # Hardcoded patch params (from paper)
-        self.stride = [8, 8, 7, 6]
-        self.patch_len = [8, 16, 24, 32]
-        self.patch_num = (seq_len - self.patch_len[1]) // self.stride[1] + 2
+        # Patch scale candidates (from paper)
+        all_stride = [8, 8, 7, 6]
+        all_patch_len = [8, 16, 24, 32]
+
+        # Only keep scales where Conv1d output length > 0
+        self.valid_scales = []
+        valid_stride = []
+        valid_patch_len = []
+        for s, pl in zip(all_stride, all_patch_len):
+            if (seq_len + s - pl) // s + 1 > 0:
+                self.valid_scales.append(len(valid_stride))
+                valid_stride.append(s)
+                valid_patch_len.append(pl)
+
+        if not self.valid_scales:
+            raise ValueError(
+                f"seq_len={seq_len} too short for any MultiPatchFormer patch scale. "
+                f"Need at least {min(all_patch_len)}.")
+
+        self.stride = valid_stride
+        self.patch_len = valid_patch_len
+        self.num_scales = len(valid_stride)
+
+        # Compute output patch count per scale (before padding):
+        # Scale 0 no padding: (seq_len - pl) // s + 1
+        # Other scales: (seq_len + s - pl) // s + 1
+        def _pn(i, s, pl):
+            return (seq_len + (s if i > 0 else 0) - pl) // s + 1
+        pns = [_pn(i, s, pl) for i, (s, pl) in enumerate(zip(self.stride, self.patch_len))]
+        self.patch_num = min(pns)  # use min so all scales can produce at least this many
+
+        # Padding layers (only for scales after first)
         self.padding_layers = nn.ModuleList([
             nn.ReplicationPad1d((0, s)) for s in self.stride
         ])
 
-        # Positional encoding
+        # Patch embedding output dim (d_model//4 per scale, num_scales scales)
+        self.patch_dim = d_model // 4 * self.num_scales
+        if self.patch_dim != d_model:
+            self.patch_proj = nn.Linear(self.patch_dim, d_model)
+
+        # Positional encoding — patch_num x d_model
         pe = torch.zeros(self.patch_num, d_model)
         for pos in range(self.patch_num):
             for i in range(0, d_model, 2):
@@ -81,7 +115,7 @@ class MultiPatchFormerWrapper(BaseModel):
                 pe[pos, i + 1] = math.cos(pos / w)
         self.register_buffer("pe", pe.unsqueeze(0))
 
-        # Multi-head attention layers
+        # Multi-head attention layers (temporal + channel-wise)
         shared_mha = nn.ModuleList([
             AttentionLayer(FullAttention(), d_model, n_heads) for _ in range(e_layers)
         ])
@@ -95,10 +129,11 @@ class MultiPatchFormerWrapper(BaseModel):
             Encoder(d_model, shared_mha_ch[0], d_ff, dropout, True) for _ in range(e_layers)
         ])
 
-        # Channel embedding
-        self.embedding_channel = nn.Conv1d(d_model * self.patch_num, d_model, 1)
+        # Channel embedding: input dim depends on patch_dim (after projection to d_model)
+        enc_dim = d_model  # after patch_proj, we always have d_model per patch
+        self.embedding_channel = nn.Conv1d(enc_dim * self.patch_num, d_model, 1)
 
-        # Multi-scale patch embeddings
+        # Multi-scale patch embeddings (one Conv1d per valid scale)
         self.patch_embeds = nn.ModuleList([
             nn.Conv1d(1, d_model // 4, pl, stride=s)
             for pl, s in zip(self.patch_len, self.stride)
@@ -122,16 +157,19 @@ class MultiPatchFormerWrapper(BaseModel):
         x_i = x_enc.permute(0, 2, 1)  # (B, C, L)
         B, C, L = x_i.shape
 
-        # Multi-scale patch embedding
+        # Multi-scale patch embedding (truncated to uniform patch_num)
         enc_patches = []
-        for i in range(4):
+        for i in range(self.num_scales):
             x_p = self.padding_layers[i](x_i) if i > 0 else x_i
             x_p = rearrange(x_p, "b c l -> (b c) l").unsqueeze(-1).permute(0, 2, 1)
-            x_p = self.patch_embeds[i](x_p).permute(0, 2, 1)
-            enc_patches.append(x_p)
-        enc = torch.cat(enc_patches, dim=-1) + self.pe  # ((B*C), patch_num, d_model)
+            x_p = self.patch_embeds[i](x_p).permute(0, 2, 1)  # ((B*C), P, d_model//4)
+            enc_patches.append(x_p[:, :self.patch_num, :])  # truncate to min patch_num
+        enc = torch.cat(enc_patches, dim=-1)  # ((B*C), patch_num, patch_dim)
+        if self.patch_dim != 256:
+            enc = self.patch_proj(enc)         # → ((B*C), patch_num, d_model) if needed
+        enc = enc + self.pe
 
-        # Temporal encoding
+        # Temporal encoding (per-patch attention)
         for i in range(self.N):
             enc = self.encoder_list[i](enc)
 
@@ -147,9 +185,9 @@ class MultiPatchFormerWrapper(BaseModel):
             inp = x_ch if i == 0 else torch.cat([x_ch] + forecasts[:i], dim=-1)
             forecasts.append(self.out_layers[i](inp))
 
-        final = torch.cat(forecasts, dim=-1).permute(0, 2, 1)  # (B, pred_len, C)
-        return final * stdev[:, 0].unsqueeze(1).repeat(1, self.pred_len, 1) + \
-               means[:, 0].unsqueeze(1).repeat(1, self.pred_len, 1)
+        final = torch.cat(forecasts, dim=-1).permute(0, 2, 1)
+        denorm = final * stdev[:, 0].unsqueeze(1).repeat(1, self.pred_len, 1)
+        return denorm + means[:, 0].unsqueeze(1).repeat(1, self.pred_len, 1)
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
