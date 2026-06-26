@@ -133,5 +133,8 @@ class NonstationaryTransformerWrapper(BaseModel):
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
         out = out[:, -self.pred_len:, :]    # (B, pred_len, enc_in)
+        # Ensure last dim matches output_proj in_features (handles broadcast from denorm)
+        if out.size(-1) != self.output_proj.in_features:
+            out = out[:, :, :self.output_proj.in_features]
         out = self.output_proj(out)         # (B, pred_len, output_dim)
         return out
