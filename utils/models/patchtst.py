@@ -80,6 +80,9 @@ class PatchTSTWrapper(BaseModel):
         dec_out = dec_out * (stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
 
-        # Project to output dim
+        # Project to output dim → (B, pred_len, output_dim)
         dec_out = self.output_proj(dec_out)
+        # Squeeze last dim when output_dim=1 avoids 3D → sklearn error on predict
+        if dec_out.size(-1) == 1:
+            dec_out = dec_out.squeeze(-1)
         return dec_out
