@@ -20,6 +20,7 @@ from .itransformer import iTransformerWrapper
 from .koopa import KoopaWrapper
 from .lightts import LightTSWrapper
 from .mamba_model import MambaWrapper
+from .multipatchformer import MultiPatchFormerWrapper
 from .micn import MICNWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
@@ -343,6 +344,18 @@ MODEL_REGISTRY = {
             "d_layers": {"type": "int", "default": 1, "label": "MIC layers"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
             "conv_kernel": {"type": "string", "default": "12,16", "label": "Conv kernels (comma-sep)"},
+        },
+    },
+    "multipatchformer": {
+        "class": MultiPatchFormerWrapper,
+        "name": "MultiPatchFormer",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_ff": {"type": "int", "default": 32, "label": "Feedforward dimension"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },
     "mamba": {

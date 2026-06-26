@@ -194,6 +194,7 @@ function updateModelOptions(taskType) {
         "lightts": "LightTS (Light Time Series)",
         "mamba": "Mamba (State Space Model)",
         "micn": "MICN (Multi-scale Isometric ConvNet)",
+        "multipatchformer": "MultiPatchFormer",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -205,7 +206,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "multipatchformer", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -366,6 +367,13 @@ const MODEL_PARAM_READERS = {
         d_layers:    $int("micnDLayers", DEFAULTS.model.micn.d_layers),
         conv_kernel: $val("micnConvKernel"),
         dropout:     $float("micnDropout", DEFAULTS.model.micn.dropout),
+    };},
+    multipatchformer: function() { return {
+        d_model:     $int("mpfDModel", DEFAULTS.model.multipatchformer.d_model),
+        n_heads:     $int("mpfNHeads", DEFAULTS.model.multipatchformer.n_heads),
+        e_layers:    $int("mpfELayers", DEFAULTS.model.multipatchformer.e_layers),
+        d_ff:        $int("mpfDFF", DEFAULTS.model.multipatchformer.d_ff),
+        dropout:     $float("mpfDropout", DEFAULTS.model.multipatchformer.dropout),
     };},
         e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),
         d_layers:    $int("vanillaDLayers", DEFAULTS.model.vanilla_transformer.d_layers),

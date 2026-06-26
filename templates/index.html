@@ -277,6 +277,7 @@
                                 <option value="lightts">LightTS (Light Time Series)</option>
                                 <option value="mamba">Mamba (State Space Model)</option>
                                 <option value="micn">MICN (Multi-scale Isometric ConvNet)</option>
+                                <option value="multipatchformer">MultiPatchFormer</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -774,6 +775,34 @@
                             <div class="input-group">
                                 <label>Dropout</label>
                                 <input type="number" id="micnDropout" value="{{ cfg.model.micn.dropout }}" min="0.0" max="0.9" step="0.05">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="multipatchformerParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="mpfDModel" value="{{ cfg.model.multipatchformer.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="mpfNHeads" value="{{ cfg.model.multipatchformer.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers</label>
+                                <input type="number" id="mpfELayers" value="{{ cfg.model.multipatchformer.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Feedforward dim (d_ff)</label>
+                                <input type="number" id="mpfDFF" value="{{ cfg.model.multipatchformer.d_ff }}" min="8" max="1024">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="mpfDropout" value="{{ cfg.model.multipatchformer.dropout }}" min="0.0" max="0.9" step="0.05">
                             </div>
                         </div>
                     </div>

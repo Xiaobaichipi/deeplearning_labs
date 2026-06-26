@@ -110,6 +110,7 @@ MODEL = {
     "lightts": {"d_model": 128, "chunk_size": 24, "dropout": 0.1},
     "mamba": {"d_model": 256, "d_state": 16, "d_conv": 4, "expand": 2, "dropout": 0.1},
     "micn": {"d_model": 256, "n_heads": 8, "d_layers": 1, "dropout": 0.1, "conv_kernel": "12,16"},
+    "multipatchformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_ff": 32, "dropout": 0.1},
     "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
                             "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
     # ── Classical ML (sklearn backend) ────────────────────────────────────
