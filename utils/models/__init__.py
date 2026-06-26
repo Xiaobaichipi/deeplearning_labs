@@ -23,6 +23,7 @@ from .mamba_model import MambaWrapper
 from .multipatchformer import MultiPatchFormerWrapper
 from .micn import MICNWrapper
 from .nonstationary_transformer import NonstationaryTransformerWrapper
+from .patchtst import PatchTSTWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -335,7 +336,21 @@ MODEL_REGISTRY = {
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
         },
     },
-        "nonstationary_transformer": {
+            "patchtst": {
+        "class": PatchTSTWrapper,
+        "name": "PatchTST (Patch Time Series Transformer)",
+        "pipeline": "small",
+        "params": {
+            "d_model": {"type": "int", "default": 128, "label": "Model dimension"},
+            "n_heads": {"type": "int", "default": 16, "label": "Attention heads"},
+            "e_layers": {"type": "int", "default": 3, "label": "Encoder layers"},
+            "d_ff": {"type": "int", "default": 256, "label": "Feedforward dimension"},
+            "patch_len": {"type": "int", "default": 16, "label": "Patch length"},
+            "stride": {"type": "int", "default": 8, "label": "Patch stride"},
+            "dropout": {"type": "float", "default": 0.2, "label": "Dropout"},
+        },
+    },
+    "nonstationary_transformer": {
         "class": NonstationaryTransformerWrapper,
         "name": "Nonstationary Transformer",
         "pipeline": "large",

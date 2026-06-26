@@ -112,6 +112,7 @@ MODEL = {
     "micn": {"d_model": 256, "n_heads": 8, "d_layers": 1, "dropout": 0.1, "conv_kernel": "12,16"},
     "multipatchformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_ff": 32, "dropout": 0.1},
     "nonstationary_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3, "d_ff": 32, "dropout": 0.1, "activation": "gelu", "p_hidden_dims": "128,128", "p_hidden_layers": 2},
+    "patchtst": {"d_model": 128, "n_heads": 16, "e_layers": 3, "d_ff": 256, "patch_len": 16, "stride": 8, "dropout": 0.2},
     "vanilla_transformer": {"d_model": 256, "n_heads": 8, "e_layers": 3, "d_layers": 3,
                             "d_ff": 32, "dropout": 0.1, "activation": "gelu"},
     # ── Classical ML (sklearn backend) ────────────────────────────────────

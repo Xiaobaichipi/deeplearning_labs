@@ -196,6 +196,7 @@ function updateModelOptions(taskType) {
         "micn": "MICN (Multi-scale Isometric ConvNet)",
         "multipatchformer": "MultiPatchFormer",
         "nonstationary_transformer": "Nonstationary Transformer",
+        "patchtst": "PatchTST (Patch Time Series Transformer)",
         "dlinear": "DLinear (Decomposition Linear)",
         "random_forest_regressor": "Random Forest (Regression)",
         "random_forest_classifier": "Random Forest (Classification)",
@@ -207,7 +208,7 @@ function updateModelOptions(taskType) {
         "decision_tree_classifier": "Decision Tree (Classification)",
     };
 
-    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "multipatchformer", "nonstationary_transformer", "vanilla_transformer", "dlinear"];
+    const tsModels = ["rnn", "lstm", "gru", "autoformer", "informer", "crossformer", "etsformer", "fedformer", "film", "frets", "itransformer", "koopa", "lightts", "mamba", "micn", "multipatchformer", "nonstationary_transformer", "patchtst", "vanilla_transformer", "dlinear"];
     const generalModels = ["mlp", "cnn", "transformer", "random_forest_regressor", "random_forest_classifier", "xgboost_regressor", "xgboost_classifier", "lightgbm_regressor", "lightgbm_classifier", "decision_tree_regressor", "decision_tree_classifier"];
 
     // Canvas-generated models (large pipeline) always go to time-series list
@@ -386,6 +387,15 @@ const MODEL_PARAM_READERS = {
         activation:       $val("nstActivation"),
         p_hidden_dims:    $val("nstPHiddenDims"),
         p_hidden_layers:  $int("nstPHiddenLayers", DEFAULTS.model.nonstationary_transformer.p_hidden_layers),
+    patchtst: function() { return {
+        d_model:     $int("ptstDModel", DEFAULTS.model.patchtst.d_model),
+        n_heads:     $int("ptstNHeads", DEFAULTS.model.patchtst.n_heads),
+        e_layers:    $int("ptstELayers", DEFAULTS.model.patchtst.e_layers),
+        d_ff:        $int("ptstDFF", DEFAULTS.model.patchtst.d_ff),
+        patch_len:   $int("ptstPatchLen", DEFAULTS.model.patchtst.patch_len),
+        stride:      $int("ptstStride", DEFAULTS.model.patchtst.stride),
+        dropout:     $float("ptstDropout", DEFAULTS.model.patchtst.dropout),
+    };},
     };},
         e_layers:    $int("vanillaELayers", DEFAULTS.model.vanilla_transformer.e_layers),
         d_layers:    $int("vanillaDLayers", DEFAULTS.model.vanilla_transformer.d_layers),

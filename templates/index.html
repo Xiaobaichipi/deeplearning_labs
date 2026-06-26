@@ -279,6 +279,7 @@
                                 <option value="micn">MICN (Multi-scale Isometric ConvNet)</option>
                                 <option value="multipatchformer">MultiPatchFormer</option>
                                 <option value="nonstationary_transformer">Nonstationary Transformer</option>
+                                <option value="patchtst">PatchTST (Patch Time Series Transformer)</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -855,6 +856,44 @@
                             <div class="input-group">
                                 <label>Projector hidden layers</label>
                                 <input type="number" id="nstPHiddenLayers" value="{{ cfg.model.nonstationary_transformer.p_hidden_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="patchtstParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="ptstDModel" value="{{ cfg.model.patchtst.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>Attention heads (n_heads)</label>
+                                <input type="number" id="ptstNHeads" value="{{ cfg.model.patchtst.n_heads }}" min="1" max="16">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Encoder layers</label>
+                                <input type="number" id="ptstELayers" value="{{ cfg.model.patchtst.e_layers }}" min="1" max="8">
+                            </div>
+                            <div class="input-group">
+                                <label>Feedforward dim (d_ff)</label>
+                                <input type="number" id="ptstDFF" value="{{ cfg.model.patchtst.d_ff }}" min="8" max="1024">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Patch length</label>
+                                <input type="number" id="ptstPatchLen" value="{{ cfg.model.patchtst.patch_len }}" min="4" max="64">
+                            </div>
+                            <div class="input-group">
+                                <label>Patch stride</label>
+                                <input type="number" id="ptstStride" value="{{ cfg.model.patchtst.stride }}" min="2" max="32">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="ptstDropout" value="{{ cfg.model.patchtst.dropout }}" min="0.0" max="0.9" step="0.05">
                             </div>
                         </div>
                     </div>
