@@ -276,6 +276,7 @@
                                 <option value="koopa">Koopa (Koopman Forecasting)</option>
                                 <option value="lightts">LightTS (Light Time Series)</option>
                                 <option value="mamba">Mamba (State Space Model)</option>
+                                <option value="micn">MICN (Multi-scale Isometric ConvNet)</option>
                             </select>
                             <button id="deleteCanvasModelBtn" class="btn btn-danger" style="display:none;font-size:14px;padding:6px 12px;white-space:nowrap;flex-shrink:0;" onclick="deleteCanvasModel(document.getElementById('modelType').value)">🗑 删除</button>
                         </div>
@@ -751,6 +752,28 @@
                             <div class="input-group">
                                 <label>Dropout</label>
                                 <input type="number" id="mambaDropout" value="{{ cfg.model.mamba.dropout }}" min="0.0" max="0.9" step="0.05">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="micnParams" style="display:none;">
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Model dimension (d_model)</label>
+                                <input type="number" id="micnDModel" value="{{ cfg.model.micn.d_model }}" min="16" max="512">
+                            </div>
+                            <div class="input-group">
+                                <label>MIC layers (d_layers)</label>
+                                <input type="number" id="micnDLayers" value="{{ cfg.model.micn.d_layers }}" min="1" max="8">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="input-group">
+                                <label>Conv kernels (comma-separated)</label>
+                                <input type="text" id="micnConvKernel" value="{{ cfg.model.micn.conv_kernel }}" placeholder="e.g. 12,16">
+                            </div>
+                            <div class="input-group">
+                                <label>Dropout</label>
+                                <input type="number" id="micnDropout" value="{{ cfg.model.micn.dropout }}" min="0.0" max="0.9" step="0.05">
                             </div>
                         </div>
                     </div>

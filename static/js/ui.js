@@ -367,6 +367,7 @@ function toggleModelParams() {
     document.getElementById("koopaParams").style.display = type === "koopa" ? "block" : "none";
     document.getElementById("lighttsParams").style.display = type === "lightts" ? "block" : "none";
     document.getElementById("mambaParams").style.display = type === "mamba" ? "block" : "none";
+    document.getElementById("micnParams").style.display = type === "micn" ? "block" : "none";
     document.getElementById("vanillaTransformerParams").style.display = type === "vanilla_transformer" ? "block" : "none";
     document.getElementById("dlinearParams").style.display = type === "dlinear" ? "block" : "none";
 

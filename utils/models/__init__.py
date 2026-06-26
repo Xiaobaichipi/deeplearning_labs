@@ -20,6 +20,7 @@ from .itransformer import iTransformerWrapper
 from .koopa import KoopaWrapper
 from .lightts import LightTSWrapper
 from .mamba_model import MambaWrapper
+from .micn import MICNWrapper
 from .classical_ml import (
     RandomForestRegressorWrapper,
     RandomForestClassifierWrapper,
@@ -330,6 +331,18 @@ MODEL_REGISTRY = {
             "d_model": {"type": "int", "default": 128, "label": "Model dimension"},
             "chunk_size": {"type": "int", "default": 24, "label": "Chunk size"},
             "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+        },
+    },
+    "micn": {
+        "class": MICNWrapper,
+        "name": "MICN (Multi-scale Isometric ConvNet)",
+        "pipeline": "large",
+        "params": {
+            "d_model": {"type": "int", "default": 256, "label": "Model dimension"},
+            "n_heads": {"type": "int", "default": 8, "label": "Attention heads"},
+            "d_layers": {"type": "int", "default": 1, "label": "MIC layers"},
+            "dropout": {"type": "float", "default": 0.1, "label": "Dropout"},
+            "conv_kernel": {"type": "string", "default": "12,16", "label": "Conv kernels (comma-sep)"},
         },
     },
     "mamba": {
